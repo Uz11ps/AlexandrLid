@@ -98,6 +98,10 @@ function BotAdmin() {
   const [editAutofunnel, setEditAutofunnel] = useState(null);
   const [editGiveaway, setEditGiveaway] = useState(null);
   const [editLeadMagnet, setEditLeadMagnet] = useState(null);
+  const [winnersDialogOpen, setWinnersDialogOpen] = useState(false);
+  const [selectedGiveaway, setSelectedGiveaway] = useState(null);
+  const [winners, setWinners] = useState([]);
+  const [selectionType, setSelectionType] = useState('top');
 
   useEffect(() => {
     let mounted = true;
