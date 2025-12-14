@@ -107,22 +107,39 @@ function Documents() {
     }
 
     try {
-      const formData = new FormData();
-      formData.append('file', uploadFile);
-      formData.append('file_name', uploadFile.name);
-      formData.append('mime_type', uploadFile.type);
-      formData.append('file_size', uploadFile.size);
-
-      await documentsAPI.uploadFile(selectedDocument.id, formData);
-      setUploadDialogOpen(false);
-      setUploadFile(null);
-      // Обновляем информацию о документе
-      await handleViewDocument(selectedDocument);
-      loadDocuments();
-      alert('Файл успешно загружен');
+      // Конвертируем файл в base64 для отправки
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const base64File = e.target.result;
+          const filePath = base64File; // Сохраняем как data URI
+          
+          // Отправляем данные о файле через обновление документа
+          await documentsAPI.update(selectedDocument.id, {
+            file_path: filePath,
+            file_name: uploadFile.name,
+            file_size: uploadFile.size,
+            mime_type: uploadFile.type || 'application/pdf'
+          });
+          
+          setUploadDialogOpen(false);
+          setUploadFile(null);
+          // Обновляем информацию о документе
+          await handleViewDocument(selectedDocument);
+          loadDocuments();
+          alert('Файл успешно загружен');
+        } catch (error) {
+          console.error('Error uploading file:', error);
+          alert('Ошибка при загрузке файла: ' + (error.response?.data?.error || error.message));
+        }
+      };
+      reader.onerror = () => {
+        alert('Ошибка при чтении файла');
+      };
+      reader.readAsDataURL(uploadFile);
     } catch (error) {
-      console.error('Error uploading file:', error);
-      alert('Ошибка при загрузке файла: ' + (error.response?.data?.error || error.message));
+      console.error('Error reading file:', error);
+      alert('Ошибка при чтении файла');
     }
   };
 
