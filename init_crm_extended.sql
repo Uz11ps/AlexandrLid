@@ -25,7 +25,53 @@ INSERT INTO funnel_stages (name, order_index, color) VALUES
 ('Отказ', 9, '#95a5a6')
 ON CONFLICT (order_index) DO NOTHING;
 
--- Таблица студентов (расширение leads)
+-- Таблица курсов (создается первой, так как на неё ссылаются другие таблицы)
+CREATE TABLE IF NOT EXISTS courses (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    format VARCHAR(50) CHECK (format IN ('online', 'offline', 'hybrid')),
+    duration_weeks INTEGER,
+    program_structure JSONB, -- Структура программы
+    base_price DECIMAL(10, 2),
+    currency VARCHAR(10) DEFAULT 'RUB',
+    status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'archive', 'draft')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Таблица тарифных планов (создается после courses)
+CREATE TABLE IF NOT EXISTS packages (
+    id SERIAL PRIMARY KEY,
+    course_id INTEGER REFERENCES courses(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    price DECIMAL(10, 2) NOT NULL,
+    currency VARCHAR(10) DEFAULT 'RUB',
+    duration_days INTEGER,
+    features JSONB, -- Что входит (чек-лист)
+    additional_services TEXT[],
+    installment_available BOOLEAN DEFAULT FALSE,
+    status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'archive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Таблица групп обучения (создается после courses)
+CREATE TABLE IF NOT EXISTS study_groups (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    course_id INTEGER REFERENCES courses(id) ON DELETE CASCADE,
+    start_date DATE,
+    end_date DATE,
+    curator_id INTEGER REFERENCES managers(id) ON DELETE SET NULL,
+    max_students INTEGER DEFAULT 20,
+    current_students INTEGER DEFAULT 0,
+    status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'completed', 'cancelled')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Таблица студентов (создается после courses, packages, study_groups)
 CREATE TABLE IF NOT EXISTS students (
     id SERIAL PRIMARY KEY,
     lead_id INTEGER NOT NULL UNIQUE REFERENCES leads(id) ON DELETE CASCADE,
@@ -45,38 +91,6 @@ CREATE TABLE IF NOT EXISTS students (
     curator_id INTEGER REFERENCES managers(id) ON DELETE SET NULL,
     progress_percent INTEGER DEFAULT 0 CHECK (progress_percent >= 0 AND progress_percent <= 100),
     graduation_date DATE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Таблица курсов
-CREATE TABLE IF NOT EXISTS courses (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    format VARCHAR(50) CHECK (format IN ('online', 'offline', 'hybrid')),
-    duration_weeks INTEGER,
-    program_structure JSONB, -- Структура программы
-    base_price DECIMAL(10, 2),
-    currency VARCHAR(10) DEFAULT 'RUB',
-    status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'archive', 'draft')),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Таблица тарифных планов
-CREATE TABLE IF NOT EXISTS packages (
-    id SERIAL PRIMARY KEY,
-    course_id INTEGER REFERENCES courses(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    price DECIMAL(10, 2) NOT NULL,
-    currency VARCHAR(10) DEFAULT 'RUB',
-    duration_days INTEGER,
-    features JSONB, -- Что входит (чек-лист)
-    additional_services TEXT[],
-    installment_available BOOLEAN DEFAULT FALSE,
-    status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'archive')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -150,19 +164,6 @@ CREATE TABLE IF NOT EXISTS debts (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Таблица групп обучения
-CREATE TABLE IF NOT EXISTS study_groups (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    course_id INTEGER REFERENCES courses(id) ON DELETE CASCADE,
-    start_date DATE,
-    end_date DATE,
-    curator_id INTEGER REFERENCES managers(id) ON DELETE SET NULL,
-    max_students INTEGER DEFAULT 20,
-    current_students INTEGER DEFAULT 0,
-    status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'completed', 'cancelled')),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
 
 -- Таблица документов
 CREATE TABLE IF NOT EXISTS documents (
