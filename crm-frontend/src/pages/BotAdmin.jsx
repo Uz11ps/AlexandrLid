@@ -363,6 +363,24 @@ function BotAdmin() {
         <Typography variant="h4" gutterBottom>
           Админка бота
         </Typography>
+        
+        {error && (
+          <Box sx={{ p: 2, mb: 2, bgcolor: 'error.light', color: 'error.contrastText', borderRadius: 1 }}>
+            <Typography variant="body2">
+              Ошибка: {error}
+            </Typography>
+            <Button 
+              size="small" 
+              onClick={() => {
+                setError(null);
+                loadData();
+              }}
+              sx={{ mt: 1 }}
+            >
+              Попробовать снова
+            </Button>
+          </Box>
+        )}
 
         <Tabs value={tab} onChange={(e, newValue) => setTab(newValue)} sx={{ mb: 3 }}>
           <Tab label="Статистика" />
