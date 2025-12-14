@@ -182,6 +182,57 @@ router.post('/', async (req, res) => {
   }
 });
 
+// Get single document
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      `SELECT d.*, 
+              m.name as created_by_name,
+              l.fio as lead_name, l.phone as lead_phone, l.email as lead_email
+       FROM documents d
+       LEFT JOIN managers m ON d.created_by = m.id
+       LEFT JOIN leads l ON d.lead_id = l.id
+       WHERE d.id = $1`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching document:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Download document file
+router.get('/:id/download', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('SELECT file_path, file_name, mime_type FROM documents WHERE id = $1', [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    const document = result.rows[0];
+
+    if (!document.file_path) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    // Если файл хранится на сервере, отдаем его
+    // В данном случае просто возвращаем путь, фронтенд может открыть его напрямую
+    res.redirect(document.file_path);
+  } catch (error) {
+    console.error('Error downloading document:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Update document status
 router.put('/:id', async (req, res) => {
   try {

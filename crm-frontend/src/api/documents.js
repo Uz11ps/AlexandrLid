@@ -5,6 +5,10 @@ export const documentsAPI = {
     return axios.get('/api/documents', { params });
   },
   
+  getById: (id) => {
+    return axios.get(`/api/documents/${id}`);
+  },
+  
   getTemplates: (params = {}) => {
     return axios.get('/api/documents/templates', { params });
   },
@@ -19,6 +23,10 @@ export const documentsAPI = {
   
   update: (id, data) => {
     return axios.put(`/api/documents/${id}`, data);
+  },
+  
+  download: (id) => {
+    return axios.get(`/api/documents/${id}/download`, { responseType: 'blob' });
   }
 };
 
