@@ -22,7 +22,8 @@ import {
   DialogContent,
   DialogActions,
   Alert,
-  LinearProgress
+  LinearProgress,
+  Avatar
 } from '@mui/material';
 import { leadsAPI } from '../api/leads';
 import { tasksAPI } from '../api/tasks';
