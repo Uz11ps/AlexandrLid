@@ -205,15 +205,14 @@ function Documents() {
                       {new Date(doc.created_at).toLocaleDateString('ru-RU')}
                     </TableCell>
                     <TableCell>
-                      {doc.file_name && (
-                        <IconButton 
-                          size="small" 
-                          onClick={() => handleDownload(doc)}
-                          title="Скачать файл"
-                        >
-                          <DownloadIcon />
-                        </IconButton>
-                      )}
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleDownload(doc)}
+                        title={doc.file_path ? "Скачать файл" : "Файл не загружен"}
+                        disabled={!doc.file_path}
+                      >
+                        <DownloadIcon />
+                      </IconButton>
                       <IconButton 
                         size="small"
                         onClick={() => handleViewDocument(doc)}
@@ -403,13 +402,14 @@ function Documents() {
             )}
           </DialogContent>
           <DialogActions>
-            {selectedDocument && selectedDocument.file_name && (
+            {selectedDocument && (
               <Button
                 startIcon={<DownloadIcon />}
                 onClick={() => handleDownload(selectedDocument)}
                 variant="contained"
+                disabled={!selectedDocument.file_path}
               >
-                Скачать PDF
+                {selectedDocument.file_path ? 'Скачать PDF' : 'Файл не загружен'}
               </Button>
             )}
             <Button onClick={() => setViewDialogOpen(false)}>Закрыть</Button>
