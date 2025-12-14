@@ -380,10 +380,31 @@ router.put('/:id', async (req, res) => {
       values.push(signed_at);
     }
 
+    if (file_path !== undefined) {
+      updates.push(`file_path = $${paramIndex++}`);
+      values.push(file_path);
+    }
+
+    if (file_name !== undefined) {
+      updates.push(`file_name = $${paramIndex++}`);
+      values.push(file_name);
+    }
+
+    if (file_size !== undefined) {
+      updates.push(`file_size = $${paramIndex++}`);
+      values.push(file_size);
+    }
+
+    if (mime_type !== undefined) {
+      updates.push(`mime_type = $${paramIndex++}`);
+      values.push(mime_type);
+    }
+
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
     }
 
+    updates.push('updated_at = CURRENT_TIMESTAMP');
     values.push(parseInt(id));
 
     const result = await pool.query(
@@ -398,7 +419,7 @@ router.put('/:id', async (req, res) => {
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Error updating document:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 

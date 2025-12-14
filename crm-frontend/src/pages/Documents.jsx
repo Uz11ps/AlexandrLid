@@ -169,6 +169,17 @@ function Documents() {
         return;
       }
 
+      // Если файл сохранен как data URI (base64)
+      if (doc.file_path && doc.file_path.startsWith('data:')) {
+        const link = document.createElement('a');
+        link.href = doc.file_path;
+        link.setAttribute('download', doc.file_name || `document_${doc.id}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        return;
+      }
+
       // Если есть локальный путь, пытаемся скачать через API
       if (doc.file_path) {
         try {
