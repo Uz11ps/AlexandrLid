@@ -1456,6 +1456,7 @@ function BotAdmin() {
           </DialogActions>
         </Dialog>
       </Container>
+    </>
   );
 }
 
