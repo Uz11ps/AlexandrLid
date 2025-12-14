@@ -265,63 +265,104 @@ function LeadDetail() {
               </Grid>
             </Paper>
 
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                История переписки
-              </Typography>
-              <Box sx={{ maxHeight: 400, overflowY: 'auto', mb: 2 }}>
-                {lead.interactions && lead.interactions.length > 0 ? (
-                  <List>
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6" gutterBottom sx={{ mb: 0 }}>
+                  💬 История переписки
+                </Typography>
+                {lead.interactions && lead.interactions.filter(i => i.interaction_type === 'telegram_message').length > 0 && (
+                  <Chip 
+                    label={`${lead.interactions.filter(i => i.interaction_type === 'telegram_message').length} сообщений`}
+                    size="small"
+                    color="primary"
+                  />
+                )}
+              </Box>
+              <Box sx={{ maxHeight: 500, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+                {lead.interactions && lead.interactions.filter(interaction => interaction.interaction_type === 'telegram_message').length > 0 ? (
+                  <Box>
                     {lead.interactions
                       .filter(interaction => interaction.interaction_type === 'telegram_message')
                       .map((interaction) => {
-                        const interactionData = typeof interaction.interaction_data === 'string' 
-                          ? JSON.parse(interaction.interaction_data) 
-                          : interaction.interaction_data;
-                        return (
-                          <ListItem 
-                            key={interaction.id}
-                            sx={{
-                              mb: 1,
-                              bgcolor: interaction.manager_id ? 'action.selected' : 'background.paper',
-                              borderRadius: 1,
-                              border: interaction.manager_id ? '1px solid' : '1px solid',
-                              borderColor: interaction.manager_id ? 'primary.main' : 'divider'
-                            }}
-                          >
-                            <ListItemText
-                              primary={
-                                <Box>
-                                  <Typography variant="body1" component="span">
-                                    {interactionData?.message_text || interaction.notes || 'Сообщение'}
-                                  </Typography>
-                                  {interactionData?.file_id && (
-                                    <Chip 
-                                      label={interactionData.message_type || 'Файл'} 
-                                      size="small" 
-                                      sx={{ ml: 1 }}
-                                    />
-                                  )}
-                                </Box>
-                              }
-                              secondary={
-                                <Box sx={{ mt: 0.5 }}>
-                                  <Typography variant="caption" color="textSecondary">
-                                    {interaction.manager_name ? `👤 ${interaction.manager_name}` : '👤 Пользователь'}
-                                    {' • '}
-                                    {new Date(interaction.created_at).toLocaleString('ru-RU')}
+                        try {
+                          const interactionData = typeof interaction.interaction_data === 'string' 
+                            ? JSON.parse(interaction.interaction_data) 
+                            : (interaction.interaction_data || {});
+                          const isFromManager = !!interaction.manager_id;
+                          
+                          return (
+                            <Box
+                              key={interaction.id}
+                              sx={{
+                                mb: 2,
+                                p: 2,
+                                bgcolor: isFromManager ? 'primary.light' : 'grey.100',
+                                borderRadius: 2,
+                                borderLeft: `4px solid ${isFromManager ? 'primary.main' : 'grey.400'}`,
+                                ml: isFromManager ? 4 : 0,
+                                mr: isFromManager ? 0 : 4
+                              }}
+                            >
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Avatar sx={{ width: 24, height: 24, bgcolor: isFromManager ? 'primary.main' : 'grey.500' }}>
+                                    {isFromManager ? 'М' : 'П'}
+                                  </Avatar>
+                                  <Typography variant="subtitle2" fontWeight="bold">
+                                    {isFromManager ? (interaction.manager_name || 'Менеджер') : 'Пользователь'}
                                   </Typography>
                                 </Box>
-                              }
-                            />
-                          </ListItem>
-                        );
+                                <Typography variant="caption" color="textSecondary">
+                                  {new Date(interaction.created_at).toLocaleString('ru-RU')}
+                                </Typography>
+                              </Box>
+                              <Typography variant="body1" sx={{ mb: 1 }}>
+                                {interactionData?.message_text || interaction.notes || 'Сообщение'}
+                              </Typography>
+                              {interactionData?.file_id && (
+                                <Chip 
+                                  icon={interactionData.message_type === 'photo' ? '📷' : interactionData.message_type === 'video' ? '🎥' : '📎'}
+                                  label={interactionData.message_type === 'photo' ? 'Фото' : interactionData.message_type === 'video' ? 'Видео' : 'Документ'} 
+                                  size="small" 
+                                  variant="outlined"
+                                  sx={{ mt: 1 }}
+                                />
+                              )}
+                            </Box>
+                          );
+                        } catch (error) {
+                          console.error('Error parsing interaction data:', error, interaction);
+                          return (
+                            <Box
+                              key={interaction.id}
+                              sx={{
+                                mb: 2,
+                                p: 2,
+                                bgcolor: 'grey.100',
+                                borderRadius: 2,
+                                borderLeft: '4px solid grey.400'
+                              }}
+                            >
+                              <Typography variant="body2" color="error">
+                                Ошибка отображения сообщения
+                              </Typography>
+                              <Typography variant="caption" color="textSecondary">
+                                {new Date(interaction.created_at).toLocaleString('ru-RU')}
+                              </Typography>
+                            </Box>
+                          );
+                        }
                       })}
-                  </List>
+                  </Box>
                 ) : (
-                  <Typography color="textSecondary" sx={{ p: 2, textAlign: 'center' }}>
-                    История переписки пуста
-                  </Typography>
+                  <Box sx={{ textAlign: 'center', py: 4 }}>
+                    <Typography variant="h6" color="textSecondary" gutterBottom>
+                      📭 История переписки пуста
+                    </Typography>
+                    <Typography variant="body2" color="textSecondary">
+                      Сообщения от пользователя будут отображаться здесь автоматически
+                    </Typography>
+                  </Box>
                 )}
               </Box>
             </Paper>

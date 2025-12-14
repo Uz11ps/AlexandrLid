@@ -126,10 +126,14 @@ router.get('/:id', async (req, res) => {
 
     // Get interactions for this lead
     const interactionsResult = await pool.query(
-      `SELECT * FROM lead_interactions
-       WHERE lead_id = $1
-       ORDER BY created_at DESC
-       LIMIT 50`,
+      `SELECT 
+        li.*,
+        m.name as manager_name
+       FROM lead_interactions li
+       LEFT JOIN managers m ON li.manager_id = m.id
+       WHERE li.lead_id = $1
+       ORDER BY li.created_at ASC
+       LIMIT 100`,
       [id]
     );
 
