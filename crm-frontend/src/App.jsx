@@ -50,7 +50,7 @@ function App() {
             path="/"
             element={
               <PrivateRoute>
-                <Dashboard />
+                <Layout><Dashboard /></Layout>
               </PrivateRoute>
             }
           />
@@ -82,7 +82,7 @@ function App() {
             path="/students"
             element={
               <PrivateRoute>
-                <Students />
+                <Layout><Students /></Layout>
               </PrivateRoute>
             }
           />
@@ -90,7 +90,7 @@ function App() {
             path="/deals"
             element={
               <PrivateRoute>
-                <Deals />
+                <Layout><Deals /></Layout>
               </PrivateRoute>
             }
           />
@@ -98,7 +98,7 @@ function App() {
             path="/products"
             element={
               <PrivateRoute>
-                <Products />
+                <Layout><Products /></Layout>
               </PrivateRoute>
             }
           />
@@ -106,7 +106,7 @@ function App() {
             path="/analytics"
             element={
               <PrivateRoute>
-                <Analytics />
+                <Layout><Analytics /></Layout>
               </PrivateRoute>
             }
           />
@@ -114,7 +114,7 @@ function App() {
             path="/templates"
             element={
               <PrivateRoute>
-                <Templates />
+                <Layout><Templates /></Layout>
               </PrivateRoute>
             }
           />
@@ -122,7 +122,7 @@ function App() {
             path="/documents"
             element={
               <PrivateRoute>
-                <Documents />
+                <Layout><Documents /></Layout>
               </PrivateRoute>
             }
           />
@@ -130,7 +130,7 @@ function App() {
             path="/bot-admin"
             element={
               <PrivateRoute>
-                <BotAdmin />
+                <Layout><BotAdmin /></Layout>
               </PrivateRoute>
             }
           />
