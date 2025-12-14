@@ -1,4 +1,4 @@
-import pool from '../db.js';
+import { pool } from '../db.js';
 
 // Команда /ticket - создать тикет
 export async function handleTicketCommand(ctx) {
