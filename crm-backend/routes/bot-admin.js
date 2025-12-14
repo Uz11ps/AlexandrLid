@@ -763,11 +763,11 @@ router.get('/export/:type/:format', async (req, res) => {
     }
 
     if (format === 'excel' || format === 'xlsx') {
-      const ExcelJSModule = await import('exceljs');
-      // ExcelJS может экспортироваться по-разному в зависимости от версии
-      const ExcelJS = ExcelJSModule.default || ExcelJSModule;
-      const Workbook = ExcelJS.Workbook || ExcelJS;
-      const workbook = new Workbook();
+      // Используем динамический импорт для exceljs
+      const exceljs = await import('exceljs');
+      // ExcelJS экспортируется как default в ES modules
+      const ExcelJS = exceljs.default || exceljs;
+      const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Пользователи');
 
       worksheet.columns = [
