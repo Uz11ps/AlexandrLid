@@ -230,39 +230,125 @@ function Analytics() {
 
           {/* График динамики выручки */}
           {trendData.length > 0 && (
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Динамика выручки
-              </Typography>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip 
-                    formatter={(value, name) => {
-                      if (name === 'revenue') {
-                        return [new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(value), 'Выручка'];
-                      }
-                      return [value, 'Транзакций'];
+            <Paper sx={{ p: 3, mb: 3, borderRadius: 2, boxShadow: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  Динамика выручки
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#6366f1' }} />
+                    <Typography variant="body2" color="textSecondary">Выручка</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#10b981' }} />
+                    <Typography variant="body2" color="textSecondary">Транзакций</Typography>
+                  </Box>
+                </Box>
+              </Box>
+              <ResponsiveContainer width="100%" height={380}>
+                <AreaChart 
+                  data={trendData}
+                  margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0.05}/>
+                    </linearGradient>
+                    <linearGradient id="colorTransactions" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.05}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.5} />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="#6b7280"
+                    style={{ fontSize: '12px', fontWeight: 500 }}
+                    tick={{ fill: '#6b7280' }}
+                    tickLine={{ stroke: '#d1d5db' }}
+                  />
+                  <YAxis 
+                    yAxisId="left"
+                    stroke="#6b7280"
+                    style={{ fontSize: '12px' }}
+                    tick={{ fill: '#6b7280' }}
+                    tickLine={{ stroke: '#d1d5db' }}
+                    tickFormatter={(value) => {
+                      if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M ₽`;
+                      if (value >= 1000) return `${(value / 1000).toFixed(0)}K ₽`;
+                      return `${value} ₽`;
                     }}
                   />
-                  <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="revenue" 
-                    stroke="#8884d8" 
+                  <YAxis 
+                    yAxisId="right"
+                    orientation="right"
+                    stroke="#6b7280"
+                    style={{ fontSize: '12px' }}
+                    tick={{ fill: '#6b7280' }}
+                    tickLine={{ stroke: '#d1d5db' }}
+                  />
+                  <Tooltip 
+                    contentStyle={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                      border: 'none',
+                      borderRadius: '12px',
+                      boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
+                      padding: '12px 16px'
+                    }}
+                    formatter={(value, name) => {
+                      if (name === 'revenue') {
+                        return [
+                          <span key="revenue" style={{ fontWeight: 700, color: '#6366f1', fontSize: '14px' }}>
+                            {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 0 }).format(value)}
+                          </span>,
+                          <span key="revenue-label" style={{ color: '#6b7280', fontSize: '12px', marginLeft: '8px' }}>Выручка</span>
+                        ];
+                      }
+                      return [
+                        <span key="transactions" style={{ fontWeight: 700, color: '#10b981', fontSize: '14px' }}>
+                          {value}
+                        </span>,
+                        <span key="transactions-label" style={{ color: '#6b7280', fontSize: '12px', marginLeft: '8px' }}>Транзакций</span>
+                      ];
+                    }}
+                    labelStyle={{ fontWeight: 600, color: '#1f2937', marginBottom: '8px', fontSize: '13px' }}
+                    separator=""
+                  />
+                  <Legend 
+                    wrapperStyle={{ paddingTop: '24px' }}
+                    iconType="line"
+                    formatter={(value) => (
+                      <span style={{ fontSize: '13px', color: '#6b7280', fontWeight: 500 }}>{value}</span>
+                    )}
+                  />
+                  <Area
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#6366f1"
+                    fill="url(#colorRevenue)"
+                    strokeWidth={3}
                     name="Выручка"
-                    strokeWidth={2}
+                    dot={{ fill: '#6366f1', strokeWidth: 2, r: 5, stroke: '#fff' }}
+                    activeDot={{ r: 7, stroke: '#6366f1', strokeWidth: 2, fill: '#fff' }}
+                    animationDuration={1200}
+                    animationEasing="ease-out"
                   />
                   <Line 
+                    yAxisId="right"
                     type="monotone" 
                     dataKey="transactions" 
-                    stroke="#82ca9d" 
+                    stroke="#10b981" 
                     name="Транзакций"
-                    strokeWidth={2}
+                    strokeWidth={3}
+                    dot={{ fill: '#10b981', strokeWidth: 2, r: 5, stroke: '#fff' }}
+                    activeDot={{ r: 7, stroke: '#10b981', strokeWidth: 2, fill: '#fff' }}
+                    animationDuration={1200}
+                    animationEasing="ease-out"
                   />
-                </LineChart>
+                </AreaChart>
               </ResponsiveContainer>
             </Paper>
           )}
