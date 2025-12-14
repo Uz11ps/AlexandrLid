@@ -421,7 +421,6 @@ function LeadDetail() {
           </Button>
         </DialogActions>
       </Dialog>
-      </Container>
     </>
   );
 }
