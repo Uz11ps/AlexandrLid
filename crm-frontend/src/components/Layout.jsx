@@ -27,8 +27,7 @@ import {
   Description as DocumentsIcon,
   Settings as SettingsIcon,
   Chat as ChatIcon,
-  Security as SecurityIcon,
-  People as PeopleIcon
+  Security as SecurityIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
