@@ -1,9 +1,19 @@
 import express from 'express';
 import pool from '../db.js';
 import { authenticateToken } from './auth.js';
+import { Telegraf } from 'telegraf';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const router = express.Router();
 router.use(authenticateToken);
+
+// Initialize Telegram bot instance for sending broadcasts
+let botInstance = null;
+if (process.env.BOT_TOKEN) {
+  botInstance = new Telegraf(process.env.BOT_TOKEN);
+}
 
 // Statistics
 router.get('/stats', async (req, res) => {
@@ -232,14 +242,108 @@ router.post('/broadcasts/:id/send', async (req, res) => {
 
     const broadcast = broadcastResult.rows[0];
     
-    // Здесь должна быть логика отправки рассылки через бот
-    // Пока просто обновляем статус
+    if (!botInstance) {
+      return res.status(500).json({ error: 'Bot instance not initialized. Check BOT_TOKEN in environment variables.' });
+    }
+
+    // Получить список пользователей для рассылки
+    let usersQuery = 'SELECT user_id FROM users';
+    const usersParams = [];
+    
+    // Фильтрация по сегменту (если указан)
+    if (broadcast.segment && broadcast.segment !== 'all') {
+      if (broadcast.segment === 'active') {
+        usersQuery += " WHERE created_at >= NOW() - INTERVAL '30 days'";
+      }
+      // Можно добавить другие сегменты
+    }
+    
+    // Исключить заблокированных пользователей
+    usersQuery += ' AND user_id NOT IN (SELECT user_id FROM blacklist)';
+    
+    const usersResult = await pool.query(usersQuery, usersParams);
+    const users = usersResult.rows;
+
+    if (users.length === 0) {
+      return res.status(400).json({ error: 'No users found for broadcast' });
+    }
+
+    // Парсинг кнопок
+    let replyMarkup = null;
+    if (broadcast.buttons) {
+      try {
+        const buttons = typeof broadcast.buttons === 'string' 
+          ? JSON.parse(broadcast.buttons) 
+          : broadcast.buttons;
+        
+        if (Array.isArray(buttons) && buttons.length > 0) {
+          replyMarkup = {
+            inline_keyboard: buttons
+          };
+        }
+      } catch (error) {
+        console.error('Error parsing buttons:', error);
+      }
+    }
+
+    // Отправка сообщений
+    let successCount = 0;
+    let errorCount = 0;
+    const errors = [];
+
+    for (const user of users) {
+      try {
+        const messageOptions = {};
+        if (replyMarkup) {
+          messageOptions.reply_markup = replyMarkup;
+        }
+
+        await botInstance.telegram.sendMessage(
+          user.user_id,
+          broadcast.message_text,
+          messageOptions
+        );
+        successCount++;
+        
+        // Небольшая задержка, чтобы не превысить лимиты Telegram API
+        if (successCount % 10 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      } catch (error) {
+        errorCount++;
+        errors.push({
+          user_id: user.user_id,
+          error: error.message
+        });
+        
+        // Если пользователь заблокировал бота или удалил аккаунт, пропускаем
+        if (error.response?.error_code === 403 || error.response?.error_code === 400) {
+          console.log(`User ${user.user_id} blocked bot or invalid`);
+        } else {
+          console.error(`Error sending to user ${user.user_id}:`, error.message);
+        }
+      }
+    }
+
+    // Обновить статус рассылки
     await pool.query(
-      'UPDATE broadcasts SET status = $1, sent_at = CURRENT_TIMESTAMP WHERE id = $2',
-      ['sent', id]
+      `UPDATE broadcasts 
+       SET status = $1, 
+           sent_at = CURRENT_TIMESTAMP, 
+           sent_count = $2, 
+           error_count = $3 
+       WHERE id = $4`,
+      ['sent', successCount, errorCount, id]
     );
 
-    res.json({ success: true, message: 'Broadcast sent' });
+    res.json({ 
+      success: true, 
+      message: 'Broadcast sent',
+      sent: successCount,
+      errors: errorCount,
+      total: users.length,
+      error_details: errors.slice(0, 10) // Первые 10 ошибок для отладки
+    });
   } catch (error) {
     console.error('Error sending broadcast:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
