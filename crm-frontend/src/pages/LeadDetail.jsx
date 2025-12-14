@@ -173,6 +173,7 @@ function LeadDetail() {
   }
 
   return (
+    <>
     <Container maxWidth="lg">
         {success && (
           <Alert severity="success" sx={{ mb: 2 }}>
@@ -421,6 +422,7 @@ function LeadDetail() {
         </DialogActions>
       </Dialog>
       </Container>
+    </>
   );
 }
 
