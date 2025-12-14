@@ -9,6 +9,7 @@ import LeadDetail from './pages/LeadDetail';
 import Tasks from './pages/Tasks';
 import Students from './pages/Students';
 import Deals from './pages/Deals';
+import DealDetail from './pages/DealDetail';
 import Products from './pages/Products';
 import Analytics from './pages/Analytics';
 import Templates from './pages/Templates';
@@ -94,6 +95,14 @@ function App() {
             element={
               <PrivateRoute>
                 <Layout><Deals /></Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/deals/:id"
+            element={
+              <PrivateRoute>
+                <Layout><DealDetail /></Layout>
               </PrivateRoute>
             }
           />

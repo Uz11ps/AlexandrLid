@@ -103,6 +103,10 @@ router.post('/convert', async (req, res) => {
       payment_currency, payment_method, contract_number
     } = req.body;
 
+    if (!lead_id) {
+      return res.status(400).json({ error: 'lead_id is required' });
+    }
+
     // Start transaction
     await pool.query('BEGIN');
 
@@ -117,8 +121,13 @@ router.post('/convert', async (req, res) => {
         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_DATE, $8)
         RETURNING *`,
         [
-          lead_id, course_id, package_id, payment_amount,
-          payment_currency || 'RUB', payment_method, contract_number,
+          lead_id,
+          course_id || null,
+          package_id || null,
+          payment_amount || null,
+          payment_currency || 'RUB',
+          payment_method || null,
+          contract_number || null,
           'pending'
         ]
       );
@@ -143,7 +152,7 @@ router.post('/convert', async (req, res) => {
     }
   } catch (error) {
     console.error('Error converting lead to student:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
