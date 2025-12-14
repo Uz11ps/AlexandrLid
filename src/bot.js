@@ -278,6 +278,15 @@ bot.on('callback_query', async (ctx) => {
           await ctx.reply('❌ Ошибка при открытии лидерборда.');
         }
         break;
+      case 'menu_tickets':
+        try {
+          const ticketHandlers = (await import('./handlers/tickets.js')).default;
+          await ticketHandlers.handleTicketMenu(ctx);
+        } catch (error) {
+          console.error('Ошибка при открытии тикетов:', error);
+          await ctx.reply('❌ Ошибка при открытии тикетов.');
+        }
+        break;
       case 'menu_giveaways':
         try {
           const giveawayHandlers = (await import('./handlers/giveaways.js')).default;
