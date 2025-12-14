@@ -106,6 +106,19 @@ router.post('/', async (req, res) => {
       template_id, file_name, file_path, file_size, mime_type
     } = req.body;
 
+    if (!document_type) {
+      return res.status(400).json({ error: 'document_type is required' });
+    }
+
+    if (!file_name) {
+      return res.status(400).json({ error: 'file_name is required' });
+    }
+
+    // At least one of lead_id, student_id, or deal_id must be provided
+    if (!lead_id && !student_id && !deal_id) {
+      return res.status(400).json({ error: 'At least one of lead_id, student_id, or deal_id must be provided' });
+    }
+
     const result = await pool.query(
       `INSERT INTO documents (
         document_type, lead_id, student_id, deal_id,
@@ -114,8 +127,15 @@ router.post('/', async (req, res) => {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *`,
       [
-        document_type, lead_id || null, student_id || null, deal_id || null,
-        template_id || null, file_name, file_path, file_size || null, mime_type || 'application/pdf',
+        document_type,
+        lead_id || null,
+        student_id || null,
+        deal_id || null,
+        template_id || null,
+        file_name,
+        file_path || null,
+        file_size || null,
+        mime_type || 'application/pdf',
         req.user.id
       ]
     );
@@ -123,7 +143,7 @@ router.post('/', async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating document:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 

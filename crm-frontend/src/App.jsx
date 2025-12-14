@@ -8,6 +8,7 @@ import LeadsList from './pages/LeadsList';
 import LeadDetail from './pages/LeadDetail';
 import Tasks from './pages/Tasks';
 import Students from './pages/Students';
+import StudentDetail from './pages/StudentDetail';
 import Deals from './pages/Deals';
 import DealDetail from './pages/DealDetail';
 import Products from './pages/Products';
@@ -87,6 +88,14 @@ function App() {
             element={
               <PrivateRoute>
                 <Layout><Students /></Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/students/:id"
+            element={
+              <PrivateRoute>
+                <Layout><StudentDetail /></Layout>
               </PrivateRoute>
             }
           />
