@@ -161,6 +161,27 @@ function Documents() {
     }
   };
 
+  const handleDelete = async (document) => {
+    const confirmMessage = `Вы уверены, что хотите удалить документ "${document.file_name || `#${document.id}`}"?`;
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      await documentsAPI.delete(document.id);
+      // Если удаляемый документ открыт в диалоге, закрываем его
+      if (selectedDocument && selectedDocument.id === document.id) {
+        setViewDialogOpen(false);
+        setSelectedDocument(null);
+      }
+      loadDocuments();
+      alert('Документ успешно удален');
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      alert('Ошибка при удалении документа: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
   const handleDownload = async (doc) => {
     try {
       // Если есть прямой путь к файлу (URL), открываем его
@@ -301,6 +322,14 @@ function Documents() {
                         title="Просмотреть детали"
                       >
                         <ViewIcon />
+                      </IconButton>
+                      <IconButton 
+                        size="small"
+                        onClick={() => handleDelete(doc)}
+                        title="Удалить документ"
+                        color="error"
+                      >
+                        <DeleteIcon />
                       </IconButton>
                     </TableCell>
                   </TableRow>
