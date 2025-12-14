@@ -420,7 +420,10 @@ function BotAdmin() {
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
-                onClick={() => setBroadcastDialogOpen(true)}
+                onClick={() => {
+                  console.log('Opening broadcast dialog');
+                  setBroadcastDialogOpen(true);
+                }}
               >
                 Создать рассылку
               </Button>
@@ -496,7 +499,10 @@ function BotAdmin() {
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
-                onClick={() => setAutofunnelDialogOpen(true)}
+                onClick={() => {
+                  console.log('Opening autofunnel dialog');
+                  setAutofunnelDialogOpen(true);
+                }}
               >
                 Создать автоворонку
               </Button>
@@ -565,7 +571,10 @@ function BotAdmin() {
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
-                onClick={() => setLeadMagnetDialogOpen(true)}
+                onClick={() => {
+                  console.log('Opening lead magnet dialog');
+                  setLeadMagnetDialogOpen(true);
+                }}
               >
                 Создать лид-магнит
               </Button>
@@ -636,7 +645,10 @@ function BotAdmin() {
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
-                onClick={() => setGiveawayDialogOpen(true)}
+                onClick={() => {
+                  console.log('Opening giveaway dialog');
+                  setGiveawayDialogOpen(true);
+                }}
               >
                 Создать розыгрыш
               </Button>
@@ -1209,7 +1221,15 @@ function BotAdmin() {
         </Dialog>
 
         {/* Диалог создания автоворонки */}
-        <Dialog open={autofunnelDialogOpen} onClose={() => setAutofunnelDialogOpen(false)} maxWidth="md" fullWidth>
+        <Dialog 
+          open={autofunnelDialogOpen} 
+          onClose={() => {
+            console.log('Closing autofunnel dialog');
+            setAutofunnelDialogOpen(false);
+          }} 
+          maxWidth="md" 
+          fullWidth
+        >
           <DialogTitle>Создать автоворонку</DialogTitle>
           <DialogContent>
             <TextField
@@ -1272,7 +1292,15 @@ function BotAdmin() {
         </Dialog>
 
         {/* Диалог создания лид-магнита */}
-        <Dialog open={leadMagnetDialogOpen} onClose={() => setLeadMagnetDialogOpen(false)} maxWidth="md" fullWidth>
+        <Dialog 
+          open={leadMagnetDialogOpen} 
+          onClose={() => {
+            console.log('Closing lead magnet dialog');
+            setLeadMagnetDialogOpen(false);
+          }} 
+          maxWidth="md" 
+          fullWidth
+        >
           <DialogTitle>Создать лид-магнит</DialogTitle>
           <DialogContent>
             <TextField
@@ -1345,7 +1373,15 @@ function BotAdmin() {
         </Dialog>
 
         {/* Диалог создания розыгрыша */}
-        <Dialog open={giveawayDialogOpen} onClose={() => setGiveawayDialogOpen(false)} maxWidth="md" fullWidth>
+        <Dialog 
+          open={giveawayDialogOpen} 
+          onClose={() => {
+            console.log('Closing giveaway dialog');
+            setGiveawayDialogOpen(false);
+          }} 
+          maxWidth="md" 
+          fullWidth
+        >
           <DialogTitle>Создать розыгрыш</DialogTitle>
           <DialogContent>
             <TextField
