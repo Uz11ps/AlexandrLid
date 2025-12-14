@@ -21,7 +21,8 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Chip
+  Chip,
+  Grid
 } from '@mui/material';
 import { Add as AddIcon, Download as DownloadIcon, Visibility as ViewIcon } from '@mui/icons-material';
 import { documentsAPI } from '../api/documents';
