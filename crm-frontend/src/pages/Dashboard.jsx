@@ -18,7 +18,6 @@ import {
   AttachMoney as MoneyIcon,
   Assignment as TaskIcon
 } from '@mui/icons-material';
-import Layout from '../components/Layout';
 import { analyticsAPI } from '../api/analytics';
 
 function Dashboard() {

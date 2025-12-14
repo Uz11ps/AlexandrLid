@@ -24,7 +24,6 @@ import {
   Chip
 } from '@mui/material';
 import { Add as AddIcon, Download as DownloadIcon, Visibility as ViewIcon } from '@mui/icons-material';
-import Layout from '../components/Layout';
 import { documentsAPI } from '../api/documents';
 
 function Documents() {

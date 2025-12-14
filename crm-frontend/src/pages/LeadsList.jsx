@@ -111,8 +111,7 @@ function LeadsList() {
   };
 
   return (
-    <Layout>
-      <Container maxWidth="xl">
+    <Container maxWidth="xl">
         <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h4">Лиды</Typography>
           <Box sx={{ display: 'flex', gap: 2 }}>
@@ -255,7 +254,6 @@ function LeadsList() {
         />
         )}
       </Container>
-    </Layout>
   );
 }
 

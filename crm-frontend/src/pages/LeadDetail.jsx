@@ -162,26 +162,19 @@ function LeadDetail() {
   };
 
   if (loading) {
-    return (
-      <Layout>
-        <LinearProgress />
-      </Layout>
-    );
+    return <LinearProgress />;
   }
 
   if (!lead) {
     return (
-      <Layout>
-        <Container>
-          <Typography>Лид не найден</Typography>
-        </Container>
-      </Layout>
+      <Container>
+        <Typography>Лид не найден</Typography>
+      </Container>
     );
   }
 
   return (
-    <Layout>
-      <Container maxWidth="lg">
+    <Container maxWidth="lg">
         {success && (
           <Alert severity="success" sx={{ mb: 2 }}>
             {success}
@@ -429,7 +422,6 @@ function LeadDetail() {
         </DialogActions>
       </Dialog>
       </Container>
-    </Layout>
   );
 }
 

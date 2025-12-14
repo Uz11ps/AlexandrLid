@@ -154,8 +154,7 @@ function Tasks() {
   };
 
   return (
-    <Layout>
-      <Container maxWidth="lg">
+    <Container maxWidth="lg">
         <Paper sx={{ p: 3 }}>
           <Tabs value={tab} onChange={(e, newValue) => setTab(newValue)}>
             <Tab label={`Сегодня (${tasks.today.length})`} />
@@ -242,7 +241,6 @@ function Tasks() {
           </DialogActions>
         </Dialog>
       </Container>
-    </Layout>
   );
 }
 
