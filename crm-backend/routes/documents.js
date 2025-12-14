@@ -252,11 +252,119 @@ router.get('/:id/download', async (req, res) => {
   }
 });
 
+// Upload file for document
+router.post('/:id/upload', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Проверяем существование документа
+    const docCheck = await pool.query('SELECT id FROM documents WHERE id = $1', [id]);
+    if (docCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    // В реальном приложении здесь должна быть загрузка файла через multer
+    // Пока принимаем данные из FormData
+    const { file_path, file_name, file_size, mime_type } = req.body;
+
+    if (!file_path && !req.file) {
+      return res.status(400).json({ error: 'File is required' });
+    }
+
+    // Обновляем документ с информацией о файле
+    const result = await pool.query(
+      `UPDATE documents 
+       SET file_path = $1, 
+           file_name = $2, 
+           file_size = $3, 
+           mime_type = $4,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $5
+       RETURNING *`,
+      [
+        file_path || (req.file ? `/uploads/documents/${req.file.filename}` : null),
+        file_name || req.file?.originalname || null,
+        file_size || req.file?.size || null,
+        mime_type || req.file?.mimetype || 'application/pdf',
+        id
+      ]
+    );
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Generate document from template
+router.post('/:id/generate', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Получаем документ с шаблоном
+    const docResult = await pool.query(
+      `SELECT d.*, dt.template_content, dt.variables, l.*
+       FROM documents d
+       LEFT JOIN document_templates dt ON d.template_id = dt.id
+       LEFT JOIN leads l ON d.lead_id = l.id
+       WHERE d.id = $1`,
+      [id]
+    );
+
+    if (docResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    const document = docResult.rows[0];
+
+    if (!document.template_id) {
+      return res.status(400).json({ error: 'Document has no template assigned' });
+    }
+
+    if (!document.template_content) {
+      return res.status(400).json({ error: 'Template content not found' });
+    }
+
+    // Здесь должна быть логика генерации файла из шаблона
+    // Пока просто создаем placeholder файл
+    const fileName = document.file_name || `document_${id}_${Date.now()}.pdf`;
+    const filePath = `/uploads/documents/${fileName}`;
+
+    // Обновляем документ с информацией о сгенерированном файле
+    const result = await pool.query(
+      `UPDATE documents 
+       SET file_path = $1, 
+           file_name = $2, 
+           file_size = $3, 
+           mime_type = $4,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $5
+       RETURNING *`,
+      [
+        filePath,
+        fileName,
+        0, // Размер будет обновлен после реальной генерации
+        'application/pdf',
+        id
+      ]
+    );
+
+    res.json({
+      ...result.rows[0],
+      message: 'Document generated successfully. File generation logic needs to be implemented.'
+    });
+  } catch (error) {
+    console.error('Error generating document:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
 // Update document status
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, signed_at } = req.body;
+    const { status, signed_at, file_path, file_name, file_size, mime_type } = req.body;
 
     const updates = [];
     const values = [];

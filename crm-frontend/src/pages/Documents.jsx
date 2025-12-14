@@ -24,7 +24,7 @@ import {
   Chip,
   Grid
 } from '@mui/material';
-import { Add as AddIcon, Download as DownloadIcon, Visibility as ViewIcon } from '@mui/icons-material';
+import { Add as AddIcon, Download as DownloadIcon, Visibility as ViewIcon, CloudUpload as UploadIcon } from '@mui/icons-material';
 import { documentsAPI } from '../api/documents';
 import { leadsAPI } from '../api/leads';
 import { useNavigate } from 'react-router-dom';
@@ -37,7 +37,9 @@ function Documents() {
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
+  const [uploadFile, setUploadFile] = useState(null);
   const [newDocument, setNewDocument] = useState({
     document_type: 'contract',
     lead_id: '',
@@ -85,9 +87,61 @@ function Documents() {
     }
   };
 
-  const handleViewDocument = (document) => {
-    setSelectedDocument(document);
-    setViewDialogOpen(true);
+  const handleViewDocument = async (document) => {
+    try {
+      // Загружаем полную информацию о документе
+      const response = await documentsAPI.getById(document.id);
+      setSelectedDocument(response.data);
+      setViewDialogOpen(true);
+    } catch (error) {
+      console.error('Error loading document:', error);
+      setSelectedDocument(document);
+      setViewDialogOpen(true);
+    }
+  };
+
+  const handleUploadFile = async () => {
+    if (!uploadFile || !selectedDocument) {
+      alert('Пожалуйста, выберите файл для загрузки');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('file', uploadFile);
+      formData.append('file_name', uploadFile.name);
+      formData.append('mime_type', uploadFile.type);
+      formData.append('file_size', uploadFile.size);
+
+      await documentsAPI.uploadFile(selectedDocument.id, formData);
+      setUploadDialogOpen(false);
+      setUploadFile(null);
+      // Обновляем информацию о документе
+      await handleViewDocument(selectedDocument);
+      loadDocuments();
+      alert('Файл успешно загружен');
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Ошибка при загрузке файла: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  const handleGenerateFromTemplate = async () => {
+    if (!selectedDocument || !selectedDocument.template_id) {
+      alert('Для генерации документа необходим шаблон');
+      return;
+    }
+
+    try {
+      await documentsAPI.generateFromTemplate(selectedDocument.id);
+      // Обновляем информацию о документе
+      await handleViewDocument(selectedDocument);
+      loadDocuments();
+      alert('Документ успешно сгенерирован из шаблона');
+    } catch (error) {
+      console.error('Error generating document:', error);
+      alert('Ошибка при генерации документа: ' + (error.response?.data?.error || error.message));
+    }
   };
 
   const handleDownload = async (doc) => {
@@ -364,10 +418,29 @@ function Documents() {
                     </Grid>
                   ) : (
                     <Grid item xs={12}>
-                      <Box sx={{ p: 2, bgcolor: 'warning.light', borderRadius: 1 }}>
-                        <Typography variant="body2" color="warning.dark">
+                      <Box sx={{ p: 2, bgcolor: 'warning.light', borderRadius: 1, mb: 2 }}>
+                        <Typography variant="body2" color="warning.dark" gutterBottom>
                           ⚠️ Файл еще не загружен для этого документа
                         </Typography>
+                        <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+                          {selectedDocument.template_id && (
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              onClick={handleGenerateFromTemplate}
+                            >
+                              Сгенерировать из шаблона
+                            </Button>
+                          )}
+                          <Button
+                            variant="contained"
+                            size="small"
+                            startIcon={<UploadIcon />}
+                            onClick={() => setUploadDialogOpen(true)}
+                          >
+                            Загрузить файл
+                          </Button>
+                        </Box>
                       </Box>
                     </Grid>
                   )}
@@ -421,6 +494,61 @@ function Documents() {
               </Button>
             )}
             <Button onClick={() => setViewDialogOpen(false)}>Закрыть</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Dialog загрузки файла */}
+        <Dialog open={uploadDialogOpen} onClose={() => setUploadDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Загрузить файл для документа #{selectedDocument?.id}</DialogTitle>
+          <DialogContent>
+            <Box sx={{ mt: 2 }}>
+              <input
+                accept=".pdf,.doc,.docx,.xls,.xlsx"
+                style={{ display: 'none' }}
+                id="file-upload"
+                type="file"
+                onChange={(e) => setUploadFile(e.target.files[0])}
+              />
+              <label htmlFor="file-upload">
+                <Button
+                  variant="outlined"
+                  component="span"
+                  startIcon={<UploadIcon />}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                >
+                  Выбрать файл
+                </Button>
+              </label>
+              {uploadFile && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2">
+                    Выбранный файл: <strong>{uploadFile.name}</strong>
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Размер: {(uploadFile.size / 1024).toFixed(2)} KB
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Тип: {uploadFile.type || 'не определен'}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => {
+              setUploadDialogOpen(false);
+              setUploadFile(null);
+            }}>
+              Отмена
+            </Button>
+            <Button
+              onClick={handleUploadFile}
+              variant="contained"
+              disabled={!uploadFile}
+            >
+              Загрузить
+            </Button>
           </DialogActions>
         </Dialog>
       </Container>

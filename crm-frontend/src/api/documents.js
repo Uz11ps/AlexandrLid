@@ -27,6 +27,18 @@ export const documentsAPI = {
   
   download: (id) => {
     return axios.get(`/api/documents/${id}/download`, { responseType: 'blob' });
+  },
+  
+  uploadFile: (id, formData) => {
+    return axios.post(`/api/documents/${id}/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+  },
+  
+  generateFromTemplate: (id) => {
+    return axios.post(`/api/documents/${id}/generate`);
   }
 };
 
