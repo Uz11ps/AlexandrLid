@@ -36,7 +36,8 @@ import {
   Send as SendIcon,
   Block as BlockIcon,
   CheckCircle as UnblockIcon,
-  Visibility as ViewIcon
+  Visibility as ViewIcon,
+  Delete as DeleteIcon
 } from '@mui/icons-material';
 import { botAdminAPI } from '../api/bot-admin';
 
@@ -85,6 +86,14 @@ function BotAdmin() {
     file_id: '',
     file_type: ''
   });
+  const [settings, setSettings] = useState({
+    channel_id: '',
+    channel_username: ''
+  });
+  const [editBroadcast, setEditBroadcast] = useState(null);
+  const [editAutofunnel, setEditAutofunnel] = useState(null);
+  const [editGiveaway, setEditGiveaway] = useState(null);
+  const [editLeadMagnet, setEditLeadMagnet] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -111,6 +120,11 @@ function BotAdmin() {
       } else if (tab === 5) {
         const response = await botAdminAPI.getGiveaways();
         setGiveaways(response.data || []);
+      } else if (tab === 6) {
+        // Экспорт - ничего не загружаем
+      } else if (tab === 7) {
+        const response = await botAdminAPI.getSettings();
+        setSettings(response.data || { channel_id: '', channel_username: '' });
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -172,6 +186,80 @@ function BotAdmin() {
     }
   };
 
+  const handleDeleteBroadcast = async (id) => {
+    if (confirm('Удалить рассылку?')) {
+      try {
+        await botAdminAPI.deleteBroadcast(id);
+        loadData();
+      } catch (error) {
+        console.error('Error deleting broadcast:', error);
+        alert('Ошибка при удалении рассылки');
+      }
+    }
+  };
+
+  const handleDeleteAutofunnel = async (id) => {
+    if (confirm('Удалить автоворонку?')) {
+      try {
+        await botAdminAPI.deleteAutofunnel(id);
+        loadData();
+      } catch (error) {
+        console.error('Error deleting autofunnel:', error);
+        alert('Ошибка при удалении автоворонки');
+      }
+    }
+  };
+
+  const handleDeleteGiveaway = async (id) => {
+    if (confirm('Удалить розыгрыш?')) {
+      try {
+        await botAdminAPI.deleteGiveaway(id);
+        loadData();
+      } catch (error) {
+        console.error('Error deleting giveaway:', error);
+        alert('Ошибка при удалении розыгрыша');
+      }
+    }
+  };
+
+  const handleDeleteLeadMagnet = async (id) => {
+    if (confirm('Удалить лид-магнит?')) {
+      try {
+        await botAdminAPI.deleteLeadMagnet(id);
+        loadData();
+      } catch (error) {
+        console.error('Error deleting lead magnet:', error);
+        alert('Ошибка при удалении лид-магнита');
+      }
+    }
+  };
+
+  const handleExport = async (type, format) => {
+    try {
+      const response = await botAdminAPI.exportData(type, format);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `export_${type}_${Date.now()}.${format === 'excel' || format === 'xlsx' ? 'xlsx' : 'csv'}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      alert('Ошибка при экспорте данных');
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    try {
+      await botAdminAPI.updateChannelSettings(settings);
+      alert('Настройки сохранены');
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      alert('Ошибка при сохранении настроек');
+    }
+  };
+
   return (
     <Container maxWidth="xl">
         <Typography variant="h4" gutterBottom>
@@ -185,6 +273,8 @@ function BotAdmin() {
           <Tab label="Автоворонки" />
           <Tab label="Лид-магниты" />
           <Tab label="Розыгрыши" />
+          <Tab label="Экспорт" />
+          <Tab label="Настройки" />
         </Tabs>
 
         {/* Статистика */}
@@ -313,14 +403,32 @@ function BotAdmin() {
                         {new Date(broadcast.created_at).toLocaleDateString('ru-RU')}
                       </TableCell>
                       <TableCell>
-                        {broadcast.status === 'draft' && (
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          {broadcast.status === 'draft' && (
+                            <IconButton
+                              size="small"
+                              onClick={() => handleSendBroadcast(broadcast.id)}
+                              title="Отправить"
+                            >
+                              <SendIcon />
+                            </IconButton>
+                          )}
                           <IconButton
                             size="small"
-                            onClick={() => handleSendBroadcast(broadcast.id)}
+                            onClick={() => setEditBroadcast(broadcast)}
+                            title="Редактировать"
                           >
-                            <SendIcon />
+                            <EditIcon />
                           </IconButton>
-                        )}
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDeleteBroadcast(broadcast.id)}
+                            title="Удалить"
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -369,10 +477,27 @@ function BotAdmin() {
                         />
                       </TableCell>
                       <TableCell>
-                        <Switch
-                          checked={funnel.is_active}
-                          onChange={() => handleToggleAutofunnel(funnel.id, funnel.is_active)}
-                        />
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                          <Switch
+                            checked={funnel.is_active}
+                            onChange={() => handleToggleAutofunnel(funnel.id, funnel.is_active)}
+                          />
+                          <IconButton
+                            size="small"
+                            onClick={() => setEditAutofunnel(funnel)}
+                            title="Редактировать"
+                          >
+                            <EditIcon />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDeleteAutofunnel(funnel.id)}
+                            title="Удалить"
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -419,14 +544,31 @@ function BotAdmin() {
                         />
                       </TableCell>
                       <TableCell>
-                        {!lm.is_active && (
-                          <Button
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          {!lm.is_active && (
+                            <Button
+                              size="small"
+                              onClick={() => handleActivateLeadMagnet(lm.id)}
+                            >
+                              Активировать
+                            </Button>
+                          )}
+                          <IconButton
                             size="small"
-                            onClick={() => handleActivateLeadMagnet(lm.id)}
+                            onClick={() => setEditLeadMagnet(lm)}
+                            title="Редактировать"
                           >
-                            Активировать
-                          </Button>
-                        )}
+                            <EditIcon />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDeleteLeadMagnet(lm.id)}
+                            title="Удалить"
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -457,6 +599,7 @@ function BotAdmin() {
                     <TableCell>Приз</TableCell>
                     <TableCell>Статус</TableCell>
                     <TableCell>Дата окончания</TableCell>
+                    <TableCell>Действия</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -475,12 +618,112 @@ function BotAdmin() {
                       <TableCell>
                         {new Date(giveaway.end_date).toLocaleDateString('ru-RU')}
                       </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => setEditGiveaway(giveaway)}
+                            title="Редактировать"
+                          >
+                            <EditIcon />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDeleteGiveaway(giveaway.id)}
+                            title="Удалить"
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Box>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </TableContainer>
           </>
+        )}
+
+        {/* Экспорт */}
+        {tab === 6 && (
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Экспорт данных
+            </Typography>
+            <Grid container spacing={2} sx={{ mt: 2 }}>
+              <Grid item xs={12} md={6}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>CSV формат</Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <Button variant="outlined" onClick={() => handleExport('all', 'csv')}>
+                        Экспорт всех пользователей (CSV)
+                      </Button>
+                      <Button variant="outlined" onClick={() => handleExport('active', 'csv')}>
+                        Экспорт активных пользователей (CSV)
+                      </Button>
+                      <Button variant="outlined" onClick={() => handleExport('refs', 'csv')}>
+                        Экспорт топ рефералов (CSV)
+                      </Button>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>Excel формат</Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <Button variant="outlined" onClick={() => handleExport('all', 'excel')}>
+                        Экспорт всех пользователей (Excel)
+                      </Button>
+                      <Button variant="outlined" onClick={() => handleExport('active', 'excel')}>
+                        Экспорт активных пользователей (Excel)
+                      </Button>
+                      <Button variant="outlined" onClick={() => handleExport('refs', 'excel')}>
+                        Экспорт топ рефералов (Excel)
+                      </Button>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+          </Paper>
+        )}
+
+        {/* Настройки */}
+        {tab === 7 && (
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Настройки бота
+            </Typography>
+            <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 600 }}>
+              <TextField
+                fullWidth
+                label="ID канала"
+                value={settings.channel_id || ''}
+                onChange={(e) => setSettings({ ...settings, channel_id: e.target.value })}
+                placeholder="-1001234567890"
+                helperText="Введите ID канала (например: -1001234567890)"
+              />
+              <TextField
+                fullWidth
+                label="Username канала"
+                value={settings.channel_username || ''}
+                onChange={(e) => setSettings({ ...settings, channel_username: e.target.value })}
+                placeholder="@channel_name"
+                helperText="Введите username канала (например: @channel_name)"
+              />
+              <Button
+                variant="contained"
+                onClick={handleSaveSettings}
+                sx={{ alignSelf: 'flex-start' }}
+              >
+                Сохранить настройки
+              </Button>
+            </Box>
+          </Paper>
         )}
       </Container>
   );

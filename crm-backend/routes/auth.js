@@ -58,6 +58,28 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// Middleware to verify JWT token (defined before use)
+export const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token required' });
+  }
+
+  jwt.verify(
+    token,
+    process.env.JWT_SECRET || 'default_secret_change_in_production',
+    (err, user) => {
+      if (err) {
+        return res.status(403).json({ error: 'Invalid or expired token' });
+      }
+      req.user = user;
+      next();
+    }
+  );
+};
+
 // Register new manager (admin only)
 router.post('/register', authenticateToken, async (req, res) => {
   try {
@@ -99,28 +121,6 @@ router.post('/register', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
-// Middleware to verify JWT token
-export const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
-  }
-
-  jwt.verify(
-    token,
-    process.env.JWT_SECRET || 'default_secret_change_in_production',
-    (err, user) => {
-      if (err) {
-        return res.status(403).json({ error: 'Invalid or expired token' });
-      }
-      req.user = user;
-      next();
-    }
-  );
-};
 
 export default router;
 
