@@ -28,7 +28,10 @@ import {
   FormControl,
   InputLabel,
   Switch,
-  FormControlLabel
+  FormControlLabel,
+  List,
+  ListItem,
+  ListItemText
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -39,9 +42,6 @@ import {
   Visibility as ViewIcon,
   Delete as DeleteIcon
 } from '@mui/icons-material';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemText from '@mui/material/ListItemText';
 import { botAdminAPI } from '../api/bot-admin';
 
 function BotAdmin() {
@@ -1052,7 +1052,8 @@ function BotAdmin() {
             <FormControl fullWidth sx={{ mb: 2 }}>
               <InputLabel>Способ выбора</InputLabel>
               <Select
-                defaultValue="top"
+                value={selectionType}
+                onChange={(e) => setSelectionType(e.target.value)}
                 label="Способ выбора"
               >
                 <MenuItem value="top">Топ по рефералам</MenuItem>
@@ -1079,16 +1080,22 @@ function BotAdmin() {
             )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setWinnersDialogOpen(false)}>Отмена</Button>
+            <Button onClick={() => {
+              setWinnersDialogOpen(false);
+              setSelectedGiveaway(null);
+              setWinners([]);
+              setSelectionType('top');
+            }}>Отмена</Button>
             <Button
               variant="contained"
               onClick={async () => {
                 try {
-                  const response = await botAdminAPI.selectGiveawayWinners(selectedGiveaway.id, 'top');
+                  const response = await botAdminAPI.selectGiveawayWinners(selectedGiveaway.id, selectionType);
                   alert(`Победители определены:\n${response.data.winners.map((w, i) => `${i + 1}. ${w.username || w.first_name || `ID: ${w.user_id}`} - ${w.referral_count} рефералов`).join('\n')}`);
                   setWinnersDialogOpen(false);
                   setSelectedGiveaway(null);
                   setWinners([]);
+                  setSelectionType('top');
                   loadData();
                 } catch (error) {
                   console.error('Error selecting winners:', error);

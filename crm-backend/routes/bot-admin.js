@@ -766,8 +766,6 @@ router.post('/giveaways/:id/winners', async (req, res) => {
       [id, giveaway.min_referrals || 0]
     );
 
-    const eligibleParticipants = participantsResult.rows;
-
     if (eligibleParticipants.length === 0) {
       return res.status(400).json({ error: 'No eligible participants' });
     }
@@ -826,7 +824,7 @@ router.post('/giveaways/:id/winners', async (req, res) => {
         user_id: w.user_id,
         username: w.username,
         first_name: w.first_name,
-        referral_count: w.referral_count
+        referral_count: parseInt(w.referral_count) || 0
       }))
     });
   } catch (error) {
