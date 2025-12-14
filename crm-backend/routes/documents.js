@@ -115,6 +115,28 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'At least one of lead_id, student_id, or deal_id must be provided' });
     }
 
+    // Validate that referenced entities exist
+    if (lead_id) {
+      const leadCheck = await pool.query('SELECT id FROM leads WHERE id = $1', [lead_id]);
+      if (leadCheck.rows.length === 0) {
+        return res.status(400).json({ error: `Lead with id ${lead_id} not found` });
+      }
+    }
+
+    if (student_id) {
+      const studentCheck = await pool.query('SELECT id FROM students WHERE id = $1', [student_id]);
+      if (studentCheck.rows.length === 0) {
+        return res.status(400).json({ error: `Student with id ${student_id} not found` });
+      }
+    }
+
+    if (deal_id) {
+      const dealCheck = await pool.query('SELECT id FROM deals WHERE id = $1', [deal_id]);
+      if (dealCheck.rows.length === 0) {
+        return res.status(400).json({ error: `Deal with id ${deal_id} not found` });
+      }
+    }
+
     // Generate file_name if not provided
     let generatedFileName = file_name;
     if (!generatedFileName) {
@@ -141,9 +163,9 @@ router.post('/', async (req, res) => {
       RETURNING *`,
       [
         document_type,
-        lead_id || null,
-        student_id || null,
-        deal_id || null,
+        lead_id ? parseInt(lead_id) : null,
+        student_id ? parseInt(student_id) : null,
+        deal_id ? parseInt(deal_id) : null,
         template_id || null,
         generatedFileName,
         file_path || null,

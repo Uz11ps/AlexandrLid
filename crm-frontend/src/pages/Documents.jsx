@@ -189,8 +189,9 @@ function Documents() {
               label="ID лида"
               type="number"
               value={newDocument.lead_id}
-              onChange={(e) => setNewDocument({ ...newDocument, lead_id: e.target.value })}
+              onChange={(e) => setNewDocument({ ...newDocument, lead_id: e.target.value ? parseInt(e.target.value) : '' })}
               sx={{ mt: 2 }}
+              helperText="Оставьте пустым, если документ не связан с лидом"
             />
           </DialogContent>
           <DialogActions>
