@@ -110,13 +110,26 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'document_type is required' });
     }
 
-    if (!file_name) {
-      return res.status(400).json({ error: 'file_name is required' });
-    }
-
     // At least one of lead_id, student_id, or deal_id must be provided
     if (!lead_id && !student_id && !deal_id) {
       return res.status(400).json({ error: 'At least one of lead_id, student_id, or deal_id must be provided' });
+    }
+
+    // Generate file_name if not provided
+    let generatedFileName = file_name;
+    if (!generatedFileName) {
+      const documentTypeLabels = {
+        contract: 'Договор',
+        invoice: 'Счет',
+        act: 'Акт',
+        certificate: 'Сертификат',
+        reference: 'Справка',
+        other: 'Документ'
+      };
+      const typeLabel = documentTypeLabels[document_type] || 'Документ';
+      const date = new Date().toISOString().split('T')[0];
+      const entityId = lead_id || student_id || deal_id;
+      generatedFileName = `${typeLabel}_${entityId}_${date}.pdf`;
     }
 
     const result = await pool.query(
@@ -132,7 +145,7 @@ router.post('/', async (req, res) => {
         student_id || null,
         deal_id || null,
         template_id || null,
-        file_name,
+        generatedFileName,
         file_path || null,
         file_size || null,
         mime_type || 'application/pdf',
