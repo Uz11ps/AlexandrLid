@@ -797,6 +797,56 @@ process.once('SIGTERM', () => {
   process.exit(0);
 });
 
+// Обработка медиа-файлов (фото, видео, документы) для сохранения в историю
+bot.on('photo', async (ctx) => {
+  try {
+    const userId = ctx.from.id;
+    const photo = ctx.message.photo;
+    const caption = ctx.message.caption || '';
+    const fileId = photo[photo.length - 1]?.file_id; // Берем фото наибольшего размера
+    
+    if (fileId) {
+      const leadMessages = (await import('./utils/leadMessages.js')).default;
+      await leadMessages.saveLeadMessage(userId, caption || '[Фото]', 'photo', fileId);
+    }
+  } catch (error) {
+    console.error('Ошибка при сохранении фото в историю:', error);
+  }
+});
+
+bot.on('video', async (ctx) => {
+  try {
+    const userId = ctx.from.id;
+    const video = ctx.message.video;
+    const caption = ctx.message.caption || '';
+    const fileId = video?.file_id;
+    
+    if (fileId) {
+      const leadMessages = (await import('./utils/leadMessages.js')).default;
+      await leadMessages.saveLeadMessage(userId, caption || '[Видео]', 'video', fileId);
+    }
+  } catch (error) {
+    console.error('Ошибка при сохранении видео в историю:', error);
+  }
+});
+
+bot.on('document', async (ctx) => {
+  try {
+    const userId = ctx.from.id;
+    const document = ctx.message.document;
+    const caption = ctx.message.caption || '';
+    const fileId = document?.file_id;
+    const fileName = document?.file_name || '';
+    
+    if (fileId) {
+      const leadMessages = (await import('./utils/leadMessages.js')).default;
+      await leadMessages.saveLeadMessage(userId, caption || `[Документ: ${fileName}]`, 'document', fileId);
+    }
+  } catch (error) {
+    console.error('Ошибка при сохранении документа в историю:', error);
+  }
+});
+
 // Экспортируем bot для использования в других модулях
 export { bot };
 
