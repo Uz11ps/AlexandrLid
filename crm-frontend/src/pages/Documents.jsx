@@ -355,12 +355,20 @@ function Documents() {
                       <Typography variant="body1">{selectedDocument.file_name}</Typography>
                     </Grid>
                   )}
-                  {selectedDocument.file_path && (
+                  {selectedDocument.file_path ? (
                     <Grid item xs={12}>
                       <Typography variant="subtitle2" color="text.secondary">Путь к файлу:</Typography>
                       <Typography variant="body1" sx={{ wordBreak: 'break-all' }}>
                         {selectedDocument.file_path}
                       </Typography>
+                    </Grid>
+                  ) : (
+                    <Grid item xs={12}>
+                      <Box sx={{ p: 2, bgcolor: 'warning.light', borderRadius: 1 }}>
+                        <Typography variant="body2" color="warning.dark">
+                          ⚠️ Файл еще не загружен для этого документа
+                        </Typography>
+                      </Box>
                     </Grid>
                   )}
                   {selectedDocument.file_size && (
