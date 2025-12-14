@@ -52,6 +52,39 @@ function BotAdmin() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState('');
   const [formData, setFormData] = useState({});
+  const [broadcastDialogOpen, setBroadcastDialogOpen] = useState(false);
+  const [giveawayDialogOpen, setGiveawayDialogOpen] = useState(false);
+  const [autofunnelDialogOpen, setAutofunnelDialogOpen] = useState(false);
+  const [leadMagnetDialogOpen, setLeadMagnetDialogOpen] = useState(false);
+  const [newBroadcast, setNewBroadcast] = useState({
+    title: '',
+    message_text: '',
+    buttons: [],
+    scheduled_at: '',
+    target_audience: 'all'
+  });
+  const [newGiveaway, setNewGiveaway] = useState({
+    title: '',
+    description: '',
+    prize_description: '',
+    end_date: '',
+    status: 'draft'
+  });
+  const [newAutofunnel, setNewAutofunnel] = useState({
+    name: '',
+    trigger_event: 'registration',
+    delay_hours: 0,
+    message_text: '',
+    is_active: true
+  });
+  const [newLeadMagnet, setNewLeadMagnet] = useState({
+    title: '',
+    type: 'text',
+    text_content: '',
+    link_url: '',
+    file_id: '',
+    file_type: ''
+  });
 
   useEffect(() => {
     loadData();
@@ -241,169 +274,213 @@ function BotAdmin() {
 
         {/* Рассылки */}
         {tab === 2 && (
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>ID</TableCell>
-                  <TableCell>Название</TableCell>
-                  <TableCell>Статус</TableCell>
-                  <TableCell>Отправлено</TableCell>
-                  <TableCell>Дата создания</TableCell>
-                  <TableCell>Действия</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {broadcasts.map((broadcast) => (
-                  <TableRow key={broadcast.id}>
-                    <TableCell>{broadcast.id}</TableCell>
-                    <TableCell>{broadcast.title}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={broadcast.status}
-                        color={broadcast.status === 'sent' ? 'success' : 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>{broadcast.sent_count || 0}</TableCell>
-                    <TableCell>
-                      {new Date(broadcast.created_at).toLocaleDateString('ru-RU')}
-                    </TableCell>
-                    <TableCell>
-                      {broadcast.status === 'draft' && (
-                        <IconButton
-                          size="small"
-                          onClick={() => handleSendBroadcast(broadcast.id)}
-                        >
-                          <SendIcon />
-                        </IconButton>
-                      )}
-                    </TableCell>
+          <>
+            <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setBroadcastDialogOpen(true)}
+              >
+                Создать рассылку
+              </Button>
+            </Box>
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>ID</TableCell>
+                    <TableCell>Название</TableCell>
+                    <TableCell>Статус</TableCell>
+                    <TableCell>Отправлено</TableCell>
+                    <TableCell>Дата создания</TableCell>
+                    <TableCell>Действия</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {broadcasts.map((broadcast) => (
+                    <TableRow key={broadcast.id}>
+                      <TableCell>{broadcast.id}</TableCell>
+                      <TableCell>{broadcast.title}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={broadcast.status}
+                          color={broadcast.status === 'sent' ? 'success' : 'default'}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>{broadcast.sent_count || 0}</TableCell>
+                      <TableCell>
+                        {new Date(broadcast.created_at).toLocaleDateString('ru-RU')}
+                      </TableCell>
+                      <TableCell>
+                        {broadcast.status === 'draft' && (
+                          <IconButton
+                            size="small"
+                            onClick={() => handleSendBroadcast(broadcast.id)}
+                          >
+                            <SendIcon />
+                          </IconButton>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </>
         )}
 
         {/* Автоворонки */}
         {tab === 3 && (
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>ID</TableCell>
-                  <TableCell>Название</TableCell>
-                  <TableCell>Триггер</TableCell>
-                  <TableCell>Задержка</TableCell>
-                  <TableCell>Статус</TableCell>
-                  <TableCell>Действия</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {autofunnels.map((funnel) => (
-                  <TableRow key={funnel.id}>
-                    <TableCell>{funnel.id}</TableCell>
-                    <TableCell>{funnel.name}</TableCell>
-                    <TableCell>{funnel.trigger_event}</TableCell>
-                    <TableCell>{funnel.delay_hours}ч</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={funnel.is_active ? 'Активна' : 'Неактивна'}
-                        color={funnel.is_active ? 'success' : 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Switch
-                        checked={funnel.is_active}
-                        onChange={() => handleToggleAutofunnel(funnel.id, funnel.is_active)}
-                      />
-                    </TableCell>
+          <>
+            <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setAutofunnelDialogOpen(true)}
+              >
+                Создать автоворонку
+              </Button>
+            </Box>
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>ID</TableCell>
+                    <TableCell>Название</TableCell>
+                    <TableCell>Триггер</TableCell>
+                    <TableCell>Задержка</TableCell>
+                    <TableCell>Статус</TableCell>
+                    <TableCell>Действия</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {autofunnels.map((funnel) => (
+                    <TableRow key={funnel.id}>
+                      <TableCell>{funnel.id}</TableCell>
+                      <TableCell>{funnel.name}</TableCell>
+                      <TableCell>{funnel.trigger_event}</TableCell>
+                      <TableCell>{funnel.delay_hours}ч</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={funnel.is_active ? 'Активна' : 'Неактивна'}
+                          color={funnel.is_active ? 'success' : 'default'}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={funnel.is_active}
+                          onChange={() => handleToggleAutofunnel(funnel.id, funnel.is_active)}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </>
         )}
 
         {/* Лид-магниты */}
         {tab === 4 && (
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>ID</TableCell>
-                  <TableCell>Название</TableCell>
-                  <TableCell>Тип</TableCell>
-                  <TableCell>Статус</TableCell>
-                  <TableCell>Действия</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {leadMagnets.map((lm) => (
-                  <TableRow key={lm.id}>
-                    <TableCell>{lm.id}</TableCell>
-                    <TableCell>{lm.title}</TableCell>
-                    <TableCell>{lm.type}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={lm.is_active ? 'Активен' : 'Неактивен'}
-                        color={lm.is_active ? 'success' : 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {!lm.is_active && (
-                        <Button
-                          size="small"
-                          onClick={() => handleActivateLeadMagnet(lm.id)}
-                        >
-                          Активировать
-                        </Button>
-                      )}
-                    </TableCell>
+          <>
+            <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setLeadMagnetDialogOpen(true)}
+              >
+                Создать лид-магнит
+              </Button>
+            </Box>
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>ID</TableCell>
+                    <TableCell>Название</TableCell>
+                    <TableCell>Тип</TableCell>
+                    <TableCell>Статус</TableCell>
+                    <TableCell>Действия</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {leadMagnets.map((lm) => (
+                    <TableRow key={lm.id}>
+                      <TableCell>{lm.id}</TableCell>
+                      <TableCell>{lm.title}</TableCell>
+                      <TableCell>{lm.type}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={lm.is_active ? 'Активен' : 'Неактивен'}
+                          color={lm.is_active ? 'success' : 'default'}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {!lm.is_active && (
+                          <Button
+                            size="small"
+                            onClick={() => handleActivateLeadMagnet(lm.id)}
+                          >
+                            Активировать
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </>
         )}
 
         {/* Розыгрыши */}
         {tab === 5 && (
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>ID</TableCell>
-                  <TableCell>Название</TableCell>
-                  <TableCell>Приз</TableCell>
-                  <TableCell>Статус</TableCell>
-                  <TableCell>Дата окончания</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {giveaways.map((giveaway) => (
-                  <TableRow key={giveaway.id}>
-                    <TableCell>{giveaway.id}</TableCell>
-                    <TableCell>{giveaway.title}</TableCell>
-                    <TableCell>{giveaway.prize_description || '-'}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={giveaway.status}
-                        color={giveaway.status === 'active' ? 'success' : 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {new Date(giveaway.end_date).toLocaleDateString('ru-RU')}
-                    </TableCell>
+          <>
+            <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setGiveawayDialogOpen(true)}
+              >
+                Создать розыгрыш
+              </Button>
+            </Box>
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>ID</TableCell>
+                    <TableCell>Название</TableCell>
+                    <TableCell>Приз</TableCell>
+                    <TableCell>Статус</TableCell>
+                    <TableCell>Дата окончания</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {giveaways.map((giveaway) => (
+                    <TableRow key={giveaway.id}>
+                      <TableCell>{giveaway.id}</TableCell>
+                      <TableCell>{giveaway.title}</TableCell>
+                      <TableCell>{giveaway.prize_description || '-'}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={giveaway.status}
+                          color={giveaway.status === 'active' ? 'success' : 'default'}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {new Date(giveaway.end_date).toLocaleDateString('ru-RU')}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </>
         )}
       </Container>
   );
