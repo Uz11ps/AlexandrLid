@@ -701,6 +701,19 @@ bot.on('text', async (ctx) => {
       return;
     }
 
+    // Ввод user_id для просмотра истории переписки
+    if (ctx.session.waitingForLeadHistoryUserId) {
+      ctx.session.waitingForLeadHistoryUserId = false;
+      const leadHistoryHandlers = (await import('./handlers/admin/leadHistory.js')).default;
+      const userId = parseInt(ctx.message.text.trim());
+      if (isNaN(userId)) {
+        await ctx.reply('❌ Неверный формат. Отправьте числовой user_id.');
+        return;
+      }
+      await leadHistoryHandlers.handleLeadHistory(ctx, userId);
+      return;
+    }
+
     // Создание автоворонки
     if (ctx.session && ctx.session.waitingForAutofunnel) {
       ctx.session.waitingForAutofunnel = false;
