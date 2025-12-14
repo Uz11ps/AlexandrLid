@@ -423,5 +423,26 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// Delete document
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Проверяем существование документа
+    const docCheck = await pool.query('SELECT id FROM documents WHERE id = $1', [id]);
+    if (docCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    // Удаляем документ
+    await pool.query('DELETE FROM documents WHERE id = $1', [id]);
+
+    res.json({ message: 'Document deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting document:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
 export default router;
 

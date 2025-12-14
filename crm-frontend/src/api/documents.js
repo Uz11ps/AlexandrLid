@@ -39,6 +39,10 @@ export const documentsAPI = {
   
   generateFromTemplate: (id) => {
     return axios.post(`/api/documents/${id}/generate`);
+  },
+  
+  delete: (id) => {
+    return axios.delete(`/api/documents/${id}`);
   }
 };
 

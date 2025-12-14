@@ -24,7 +24,7 @@ import {
   Chip,
   Grid
 } from '@mui/material';
-import { Add as AddIcon, Download as DownloadIcon, Visibility as ViewIcon, CloudUpload as UploadIcon } from '@mui/icons-material';
+import { Add as AddIcon, Download as DownloadIcon, Visibility as ViewIcon, CloudUpload as UploadIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { documentsAPI } from '../api/documents';
 import { leadsAPI } from '../api/leads';
 import { useNavigate } from 'react-router-dom';
@@ -512,14 +512,25 @@ function Documents() {
           </DialogContent>
           <DialogActions>
             {selectedDocument && (
-              <Button
-                startIcon={<DownloadIcon />}
-                onClick={() => handleDownload(selectedDocument)}
-                variant="contained"
-                disabled={!selectedDocument.file_path}
-              >
-                {selectedDocument.file_path ? 'Скачать PDF' : 'Файл не загружен'}
-              </Button>
+              <>
+                <Button
+                  startIcon={<DeleteIcon />}
+                  onClick={() => {
+                    handleDelete(selectedDocument);
+                  }}
+                  color="error"
+                >
+                  Удалить
+                </Button>
+                <Button
+                  startIcon={<DownloadIcon />}
+                  onClick={() => handleDownload(selectedDocument)}
+                  variant="contained"
+                  disabled={!selectedDocument.file_path}
+                >
+                  {selectedDocument.file_path ? 'Скачать PDF' : 'Файл не загружен'}
+                </Button>
+              </>
             )}
             <Button onClick={() => setViewDialogOpen(false)}>Закрыть</Button>
           </DialogActions>
