@@ -1169,7 +1169,15 @@ function BotAdmin() {
         </Dialog>
 
         {/* Диалог создания рассылки */}
-        <Dialog open={broadcastDialogOpen} onClose={() => setBroadcastDialogOpen(false)} maxWidth="md" fullWidth>
+        <Dialog 
+          open={broadcastDialogOpen} 
+          onClose={() => {
+            console.log('Closing broadcast dialog');
+            setBroadcastDialogOpen(false);
+          }} 
+          maxWidth="md" 
+          fullWidth
+        >
           <DialogTitle>Создать рассылку</DialogTitle>
           <DialogContent>
             <TextField
