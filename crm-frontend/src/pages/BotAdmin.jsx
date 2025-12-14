@@ -39,6 +39,9 @@ import {
   Visibility as ViewIcon,
   Delete as DeleteIcon
 } from '@mui/icons-material';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
 import { botAdminAPI } from '../api/bot-admin';
 
 function BotAdmin() {
@@ -620,6 +623,25 @@ function BotAdmin() {
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', gap: 1 }}>
+                          {(giveaway.status === 'ended' || giveaway.status === 'active') && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={async () => {
+                                setSelectedGiveaway(giveaway);
+                                try {
+                                  const participantsResponse = await botAdminAPI.getGiveawayParticipants(giveaway.id);
+                                  setWinners(participantsResponse.data || []);
+                                  setWinnersDialogOpen(true);
+                                } catch (error) {
+                                  console.error('Error loading participants:', error);
+                                  alert('Ошибка при загрузке участников');
+                                }
+                              }}
+                            >
+                              Победители
+                            </Button>
+                          )}
                           <IconButton
                             size="small"
                             onClick={() => setEditGiveaway(giveaway)}
@@ -725,6 +747,359 @@ function BotAdmin() {
             </Box>
           </Paper>
         )}
+
+        {/* Диалог редактирования рассылки */}
+        <Dialog open={!!editBroadcast} onClose={() => setEditBroadcast(null)} maxWidth="md" fullWidth>
+          <DialogTitle>Редактировать рассылку</DialogTitle>
+          <DialogContent>
+            <TextField
+              fullWidth
+              label="Название"
+              value={editBroadcast?.title || ''}
+              onChange={(e) => setEditBroadcast({ ...editBroadcast, title: e.target.value })}
+              sx={{ mt: 2 }}
+            />
+            <TextField
+              fullWidth
+              multiline
+              rows={6}
+              label="Текст сообщения"
+              value={editBroadcast?.message_text || ''}
+              onChange={(e) => setEditBroadcast({ ...editBroadcast, message_text: e.target.value })}
+              sx={{ mt: 2 }}
+            />
+            <TextField
+              fullWidth
+              type="datetime-local"
+              label="Запланировать на (необязательно)"
+              value={editBroadcast?.scheduled_at ? new Date(editBroadcast.scheduled_at).toISOString().slice(0, 16) : ''}
+              onChange={(e) => setEditBroadcast({ ...editBroadcast, scheduled_at: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+              sx={{ mt: 2 }}
+            />
+            <FormControl fullWidth sx={{ mt: 2 }}>
+              <InputLabel>Статус</InputLabel>
+              <Select
+                value={editBroadcast?.status || 'draft'}
+                onChange={(e) => setEditBroadcast({ ...editBroadcast, status: e.target.value })}
+              >
+                <MenuItem value="draft">Черновик</MenuItem>
+                <MenuItem value="scheduled">Запланировано</MenuItem>
+                <MenuItem value="sent">Отправлено</MenuItem>
+                <MenuItem value="cancelled">Отменено</MenuItem>
+              </Select>
+            </FormControl>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditBroadcast(null)}>Отмена</Button>
+            <Button
+              onClick={async () => {
+                try {
+                  await botAdminAPI.updateBroadcast(editBroadcast.id, editBroadcast);
+                  setEditBroadcast(null);
+                  loadData();
+                } catch (error) {
+                  console.error('Error updating broadcast:', error);
+                  alert('Ошибка при обновлении рассылки');
+                }
+              }}
+              variant="contained"
+            >
+              Сохранить
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Диалог редактирования автоворонки */}
+        <Dialog open={!!editAutofunnel} onClose={() => setEditAutofunnel(null)} maxWidth="md" fullWidth>
+          <DialogTitle>Редактировать автоворонку</DialogTitle>
+          <DialogContent>
+            <TextField
+              fullWidth
+              label="Название"
+              value={editAutofunnel?.name || ''}
+              onChange={(e) => setEditAutofunnel({ ...editAutofunnel, name: e.target.value })}
+              sx={{ mt: 2 }}
+            />
+            <FormControl fullWidth sx={{ mt: 2 }}>
+              <InputLabel>Триггер</InputLabel>
+              <Select
+                value={editAutofunnel?.trigger_event || 'registration'}
+                onChange={(e) => setEditAutofunnel({ ...editAutofunnel, trigger_event: e.target.value })}
+              >
+                <MenuItem value="registration">Регистрация</MenuItem>
+                <MenuItem value="new_referral">Новый реферал</MenuItem>
+                <MenuItem value="no_subscription">Нет подписки</MenuItem>
+                <MenuItem value="inactive">Неактивность</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              fullWidth
+              type="number"
+              label="Задержка (часы)"
+              value={editAutofunnel?.delay_hours || 0}
+              onChange={(e) => setEditAutofunnel({ ...editAutofunnel, delay_hours: parseInt(e.target.value) || 0 })}
+              sx={{ mt: 2 }}
+            />
+            <TextField
+              fullWidth
+              multiline
+              rows={6}
+              label="Текст сообщения"
+              value={editAutofunnel?.message_text || ''}
+              onChange={(e) => setEditAutofunnel({ ...editAutofunnel, message_text: e.target.value })}
+              sx={{ mt: 2 }}
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={editAutofunnel?.is_active || false}
+                  onChange={(e) => setEditAutofunnel({ ...editAutofunnel, is_active: e.target.checked })}
+                />
+              }
+              label="Активна"
+              sx={{ mt: 2 }}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditAutofunnel(null)}>Отмена</Button>
+            <Button
+              onClick={async () => {
+                try {
+                  await botAdminAPI.updateAutofunnel(editAutofunnel.id, editAutofunnel);
+                  setEditAutofunnel(null);
+                  loadData();
+                } catch (error) {
+                  console.error('Error updating autofunnel:', error);
+                  alert('Ошибка при обновлении автоворонки');
+                }
+              }}
+              variant="contained"
+            >
+              Сохранить
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Диалог редактирования розыгрыша */}
+        <Dialog open={!!editGiveaway} onClose={() => setEditGiveaway(null)} maxWidth="md" fullWidth>
+          <DialogTitle>Редактировать розыгрыш</DialogTitle>
+          <DialogContent>
+            <TextField
+              fullWidth
+              label="Название"
+              value={editGiveaway?.title || ''}
+              onChange={(e) => setEditGiveaway({ ...editGiveaway, title: e.target.value })}
+              sx={{ mt: 2 }}
+            />
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              label="Описание"
+              value={editGiveaway?.description || ''}
+              onChange={(e) => setEditGiveaway({ ...editGiveaway, description: e.target.value })}
+              sx={{ mt: 2 }}
+            />
+            <TextField
+              fullWidth
+              label="Описание приза"
+              value={editGiveaway?.prize_description || ''}
+              onChange={(e) => setEditGiveaway({ ...editGiveaway, prize_description: e.target.value })}
+              sx={{ mt: 2 }}
+            />
+            <TextField
+              fullWidth
+              type="datetime-local"
+              label="Дата начала"
+              value={editGiveaway?.start_date ? new Date(editGiveaway.start_date).toISOString().slice(0, 16) : ''}
+              onChange={(e) => setEditGiveaway({ ...editGiveaway, start_date: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+              sx={{ mt: 2 }}
+            />
+            <TextField
+              fullWidth
+              type="datetime-local"
+              label="Дата окончания"
+              value={editGiveaway?.end_date ? new Date(editGiveaway.end_date).toISOString().slice(0, 16) : ''}
+              onChange={(e) => setEditGiveaway({ ...editGiveaway, end_date: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+              sx={{ mt: 2 }}
+            />
+            <FormControl fullWidth sx={{ mt: 2 }}>
+              <InputLabel>Статус</InputLabel>
+              <Select
+                value={editGiveaway?.status || 'draft'}
+                onChange={(e) => setEditGiveaway({ ...editGiveaway, status: e.target.value })}
+              >
+                <MenuItem value="draft">Черновик</MenuItem>
+                <MenuItem value="active">Активен</MenuItem>
+                <MenuItem value="ended">Завершен</MenuItem>
+                <MenuItem value="cancelled">Отменен</MenuItem>
+              </Select>
+            </FormControl>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditGiveaway(null)}>Отмена</Button>
+            <Button
+              onClick={async () => {
+                try {
+                  await botAdminAPI.updateGiveaway(editGiveaway.id, editGiveaway);
+                  setEditGiveaway(null);
+                  loadData();
+                } catch (error) {
+                  console.error('Error updating giveaway:', error);
+                  alert('Ошибка при обновлении розыгрыша');
+                }
+              }}
+              variant="contained"
+            >
+              Сохранить
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Диалог редактирования лид-магнита */}
+        <Dialog open={!!editLeadMagnet} onClose={() => setEditLeadMagnet(null)} maxWidth="md" fullWidth>
+          <DialogTitle>Редактировать лид-магнит</DialogTitle>
+          <DialogContent>
+            <TextField
+              fullWidth
+              label="Название"
+              value={editLeadMagnet?.title || ''}
+              onChange={(e) => setEditLeadMagnet({ ...editLeadMagnet, title: e.target.value })}
+              sx={{ mt: 2 }}
+            />
+            <FormControl fullWidth sx={{ mt: 2 }}>
+              <InputLabel>Тип</InputLabel>
+              <Select
+                value={editLeadMagnet?.type || 'text'}
+                onChange={(e) => setEditLeadMagnet({ ...editLeadMagnet, type: e.target.value })}
+              >
+                <MenuItem value="text">Текст</MenuItem>
+                <MenuItem value="link">Ссылка</MenuItem>
+                <MenuItem value="file">Файл</MenuItem>
+              </Select>
+            </FormControl>
+            {editLeadMagnet?.type === 'text' && (
+              <TextField
+                fullWidth
+                multiline
+                rows={6}
+                label="Текст"
+                value={editLeadMagnet?.text_content || ''}
+                onChange={(e) => setEditLeadMagnet({ ...editLeadMagnet, text_content: e.target.value })}
+                sx={{ mt: 2 }}
+              />
+            )}
+            {editLeadMagnet?.type === 'link' && (
+              <TextField
+                fullWidth
+                label="URL ссылки"
+                value={editLeadMagnet?.link_url || ''}
+                onChange={(e) => setEditLeadMagnet({ ...editLeadMagnet, link_url: e.target.value })}
+                sx={{ mt: 2 }}
+              />
+            )}
+            {editLeadMagnet?.type === 'file' && (
+              <>
+                <TextField
+                  fullWidth
+                  label="File ID (из Telegram)"
+                  value={editLeadMagnet?.file_id || ''}
+                  onChange={(e) => setEditLeadMagnet({ ...editLeadMagnet, file_id: e.target.value })}
+                  sx={{ mt: 2 }}
+                />
+                <TextField
+                  fullWidth
+                  label="Тип файла"
+                  value={editLeadMagnet?.file_type || ''}
+                  onChange={(e) => setEditLeadMagnet({ ...editLeadMagnet, file_type: e.target.value })}
+                  sx={{ mt: 2 }}
+                />
+              </>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditLeadMagnet(null)}>Отмена</Button>
+            <Button
+              onClick={async () => {
+                try {
+                  await botAdminAPI.updateLeadMagnet(editLeadMagnet.id, editLeadMagnet);
+                  setEditLeadMagnet(null);
+                  loadData();
+                } catch (error) {
+                  console.error('Error updating lead magnet:', error);
+                  alert('Ошибка при обновлении лид-магнита');
+                }
+              }}
+              variant="contained"
+            >
+              Сохранить
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Диалог определения победителей розыгрыша */}
+        <Dialog open={winnersDialogOpen} onClose={() => setWinnersDialogOpen(false)} maxWidth="md" fullWidth>
+          <DialogTitle>
+            Определить победителей: {selectedGiveaway?.title}
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Участников: {winners.length}
+            </Typography>
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel>Способ выбора</InputLabel>
+              <Select
+                defaultValue="top"
+                label="Способ выбора"
+              >
+                <MenuItem value="top">Топ по рефералам</MenuItem>
+                <MenuItem value="random">Случайный выбор</MenuItem>
+                <MenuItem value="combined">Комбинированный (50% топ, 50% случайно)</MenuItem>
+              </Select>
+            </FormControl>
+            {winners.length > 0 && (
+              <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Участники (отсортированы по количеству рефералов):
+                </Typography>
+                <List>
+                  {winners.slice(0, 20).map((participant, index) => (
+                    <ListItem key={participant.user_id}>
+                      <ListItemText
+                        primary={`${index + 1}. ${participant.username ? `@${participant.username}` : participant.first_name || `ID: ${participant.user_id}`}`}
+                        secondary={`Рефералов: ${participant.referral_count}`}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setWinnersDialogOpen(false)}>Отмена</Button>
+            <Button
+              variant="contained"
+              onClick={async () => {
+                try {
+                  const response = await botAdminAPI.selectGiveawayWinners(selectedGiveaway.id, 'top');
+                  alert(`Победители определены:\n${response.data.winners.map((w, i) => `${i + 1}. ${w.username || w.first_name || `ID: ${w.user_id}`} - ${w.referral_count} рефералов`).join('\n')}`);
+                  setWinnersDialogOpen(false);
+                  setSelectedGiveaway(null);
+                  setWinners([]);
+                  loadData();
+                } catch (error) {
+                  console.error('Error selecting winners:', error);
+                  alert('Ошибка при определении победителей: ' + (error.response?.data?.error || error.message));
+                }
+              }}
+            >
+              Определить победителей
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Container>
   );
 }

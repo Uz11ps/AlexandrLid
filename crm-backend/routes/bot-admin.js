@@ -719,5 +719,121 @@ router.put('/settings/channel', async (req, res) => {
   }
 });
 
+// Get giveaway participants
+router.get('/giveaways/:id/participants', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      `SELECT gp.*, u.username, u.first_name, u.last_name
+       FROM giveaway_participants gp
+       LEFT JOIN users u ON gp.user_id = u.user_id
+       WHERE gp.giveaway_id = $1
+       ORDER BY gp.referral_count DESC`,
+      [id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching giveaway participants:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Select winners for giveaway
+router.post('/giveaways/:id/winners', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { selection_type } = req.body; // 'top', 'random', 'combined'
+
+    // Get giveaway
+    const giveawayResult = await pool.query('SELECT * FROM giveaways WHERE id = $1', [id]);
+    if (giveawayResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Giveaway not found' });
+    }
+
+    const giveaway = giveawayResult.rows[0];
+
+    if (giveaway.status !== 'ended' && giveaway.status !== 'active') {
+      return res.status(400).json({ error: 'Giveaway is not active or ended' });
+    }
+
+    // Get participants
+    const participantsResult = await pool.query(
+      `SELECT gp.*, u.username, u.first_name, u.last_name
+       FROM giveaway_participants gp
+       LEFT JOIN users u ON gp.user_id = u.user_id
+       WHERE gp.giveaway_id = $1 AND gp.referral_count >= $2
+       ORDER BY gp.referral_count DESC`,
+      [id, giveaway.min_referrals || 0]
+    );
+
+    const eligibleParticipants = participantsResult.rows;
+
+    if (eligibleParticipants.length === 0) {
+      return res.status(400).json({ error: 'No eligible participants' });
+    }
+
+    // Select winners
+    let winners = [];
+    const winnerCount = Math.min(giveaway.winner_count || 1, eligibleParticipants.length);
+    const selectionType = selection_type || giveaway.winner_selection_type || 'top';
+
+    if (selectionType === 'top') {
+      winners = eligibleParticipants.slice(0, winnerCount);
+    } else if (selectionType === 'random') {
+      const shuffled = [...eligibleParticipants].sort(() => Math.random() - 0.5);
+      winners = shuffled.slice(0, winnerCount);
+    } else {
+      // Combined: 50% top, 50% random
+      const topCount = Math.ceil(winnerCount / 2);
+      const randomCount = winnerCount - topCount;
+      
+      winners = eligibleParticipants.slice(0, topCount);
+      const remaining = eligibleParticipants.slice(topCount);
+      const shuffled = [...remaining].sort(() => Math.random() - 0.5);
+      winners.push(...shuffled.slice(0, randomCount));
+    }
+
+    // Update giveaway status
+    await pool.query(
+      'UPDATE giveaways SET status = $1, ended_at = CURRENT_TIMESTAMP WHERE id = $2',
+      ['ended', id]
+    );
+
+    // Notify winners via Telegram bot
+    const { Telegraf } = await import('telegraf');
+    const dotenv = await import('dotenv');
+    dotenv.config();
+    
+    if (process.env.BOT_TOKEN) {
+      const bot = new Telegraf(process.env.BOT_TOKEN);
+      for (const winner of winners) {
+        try {
+          await bot.telegram.sendMessage(
+            winner.user_id,
+            `🎉 Поздравляем! Вы победили в розыгрыше "${giveaway.title}"!\n\n` +
+            `🎁 Приз: ${giveaway.prize_description || 'не указан'}\n\n` +
+            `Свяжитесь с администратором для получения приза.`
+          );
+        } catch (error) {
+          console.error(`Failed to notify winner ${winner.user_id}:`, error);
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      winners: winners.map(w => ({
+        user_id: w.user_id,
+        username: w.username,
+        first_name: w.first_name,
+        referral_count: w.referral_count
+      }))
+    });
+  } catch (error) {
+    console.error('Error selecting winners:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;
 

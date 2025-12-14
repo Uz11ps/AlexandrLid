@@ -113,6 +113,17 @@ export const botAdminAPI = {
   
   updateChannelSettings: (data) => {
     return axios.put('/api/bot-admin/settings/channel', data);
+  },
+  
+  // Giveaway winners
+  getGiveawayParticipants: (id) => {
+    return axios.get(`/api/bot-admin/giveaways/${id}/participants`);
+  },
+  
+  selectGiveawayWinners: (id, selectionType) => {
+    return axios.post(`/api/bot-admin/giveaways/${id}/winners`, {
+      selection_type: selectionType
+    });
   }
 };
 
