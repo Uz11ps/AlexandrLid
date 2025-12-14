@@ -110,6 +110,7 @@ router.post('/', async (req, res) => {
   try {
     const {
       lead_id,
+      manager_id,
       title,
       description,
       task_type,
@@ -122,6 +123,16 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Title and due_date are required' });
     }
 
+    // Определяем manager_id: если админ указал другого менеджера, используем его, иначе текущего пользователя
+    let assignedManagerId = req.user.id;
+    if (manager_id && req.user.role === 'admin') {
+      // Проверяем, что указанный менеджер существует
+      const managerCheck = await pool.query('SELECT id FROM managers WHERE id = $1 AND is_active = TRUE', [manager_id]);
+      if (managerCheck.rows.length > 0) {
+        assignedManagerId = parseInt(manager_id);
+      }
+    }
+
     const result = await pool.query(
       `INSERT INTO tasks (
         lead_id, manager_id, title, description, task_type,
@@ -131,7 +142,7 @@ router.post('/', async (req, res) => {
       RETURNING *`,
       [
         lead_id || null,
-        req.user.id,
+        assignedManagerId,
         title,
         description || null,
         task_type || 'reminder',
@@ -145,7 +156,7 @@ router.post('/', async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating task:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 

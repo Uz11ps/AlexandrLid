@@ -26,9 +26,13 @@ import {
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import { tasksAPI } from '../api/tasks';
+import { managersAPI } from '../api/managers';
+import { useAuth } from '../contexts/AuthContext';
 
 function Tasks() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [tab, setTab] = useState(0);
   const [tasks, setTasks] = useState({
     today: [],
@@ -36,6 +40,7 @@ function Tasks() {
     upcoming: []
   });
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [managers, setManagers] = useState([]);
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -43,12 +48,16 @@ function Tasks() {
     due_date: '',
     due_time: '',
     priority: 'normal',
-    lead_id: ''
+    lead_id: '',
+    manager_id: user?.id || ''
   });
 
   useEffect(() => {
     loadTasks();
-  }, [tab]);
+    if (isAdmin && createDialogOpen) {
+      loadManagers();
+    }
+  }, [tab, createDialogOpen]);
 
   const loadTasks = async () => {
     try {
@@ -65,6 +74,15 @@ function Tasks() {
       });
     } catch (error) {
       console.error('Error loading tasks:', error);
+    }
+  };
+
+  const loadManagers = async () => {
+    try {
+      const response = await managersAPI.getAll();
+      setManagers(response.data || []);
+    } catch (error) {
+      console.error('Error loading managers:', error);
     }
   };
 
@@ -134,7 +152,17 @@ function Tasks() {
 
   const handleCreateTask = async () => {
     try {
-      await tasksAPI.create(newTask);
+      if (!newTask.title || !newTask.due_date) {
+        alert('Пожалуйста, заполните название и дату выполнения');
+        return;
+      }
+
+      const taskData = {
+        ...newTask,
+        manager_id: newTask.manager_id || user?.id
+      };
+
+      await tasksAPI.create(taskData);
       setCreateDialogOpen(false);
       setNewTask({
         title: '',
@@ -143,17 +171,29 @@ function Tasks() {
         due_date: '',
         due_time: '',
         priority: 'normal',
-        lead_id: ''
+        lead_id: '',
+        manager_id: user?.id || ''
       });
       loadTasks();
     } catch (error) {
       console.error('Error creating task:', error);
-      alert('Ошибка при создании задачи');
+      alert('Ошибка при создании задачи: ' + (error.response?.data?.error || error.message));
     }
   };
 
   return (
     <Container maxWidth="lg">
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h4">Задачи</Typography>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateDialogOpen(true)}
+          >
+            Создать задачу
+          </Button>
+        </Box>
+
         <Paper sx={{ p: 3 }}>
           <Tabs value={tab} onChange={(e, newValue) => setTab(newValue)}>
             <Tab label={`Сегодня (${tasks.today.length})`} />
@@ -231,6 +271,22 @@ function Tasks() {
                 <MenuItem value="urgent">Срочный</MenuItem>
               </Select>
             </FormControl>
+            {isAdmin && (
+              <FormControl fullWidth sx={{ mt: 2 }}>
+                <InputLabel>Менеджер</InputLabel>
+                <Select
+                  value={newTask.manager_id || ''}
+                  onChange={(e) => setNewTask({ ...newTask, manager_id: e.target.value })}
+                  label="Менеджер"
+                >
+                  {managers.map((manager) => (
+                    <MenuItem key={manager.id} value={manager.id}>
+                      {manager.name} ({manager.email})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setCreateDialogOpen(false)}>Отмена</Button>
