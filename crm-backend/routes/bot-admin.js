@@ -249,17 +249,23 @@ router.post('/broadcasts/:id/send', async (req, res) => {
     // Получить список пользователей для рассылки
     let usersQuery = 'SELECT user_id FROM users';
     const usersParams = [];
+    let hasWhere = false;
     
     // Фильтрация по сегменту (если указан)
     if (broadcast.segment && broadcast.segment !== 'all') {
       if (broadcast.segment === 'active') {
         usersQuery += " WHERE created_at >= NOW() - INTERVAL '30 days'";
+        hasWhere = true;
       }
       // Можно добавить другие сегменты
     }
     
     // Исключить заблокированных пользователей
-    usersQuery += ' AND user_id NOT IN (SELECT user_id FROM blacklist)';
+    if (hasWhere) {
+      usersQuery += ' AND user_id NOT IN (SELECT user_id FROM blacklist)';
+    } else {
+      usersQuery += ' WHERE user_id NOT IN (SELECT user_id FROM blacklist)';
+    }
     
     const usersResult = await pool.query(usersQuery, usersParams);
     const users = usersResult.rows;
