@@ -1,0 +1,19 @@
+node_modules/
+.env
+*.log
+.DS_Store
+dist/
+*.csv
+*.xlsx
+
+# CRM specific
+crm-backend/node_modules/
+crm-backend/.env
+crm-frontend/node_modules/
+crm-frontend/dist/
+
+# Docker volumes
+postgres_data/
+
+
+
