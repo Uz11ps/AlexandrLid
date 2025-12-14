@@ -90,7 +90,7 @@ router.get('/users/:userId', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching user:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -107,7 +107,7 @@ router.post('/users/:userId/ban', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Error banning user:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -120,7 +120,7 @@ router.post('/users/:userId/unban', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Error unbanning user:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -133,7 +133,7 @@ router.get('/broadcasts', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching broadcasts:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -242,7 +242,7 @@ router.post('/broadcasts/:id/send', async (req, res) => {
     res.json({ success: true, message: 'Broadcast sent' });
   } catch (error) {
     console.error('Error sending broadcast:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -258,7 +258,7 @@ router.delete('/broadcasts/:id', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting broadcast:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -269,7 +269,7 @@ router.get('/autofunnels', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching autofunnels:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -342,7 +342,7 @@ router.put('/autofunnels/:id', async (req, res) => {
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Error updating autofunnel:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -358,7 +358,7 @@ router.delete('/autofunnels/:id', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting autofunnel:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -374,7 +374,7 @@ router.get('/lead-magnets', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching lead magnets:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -462,7 +462,7 @@ router.put('/lead-magnets/:id', async (req, res) => {
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Error updating lead magnet:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -486,7 +486,7 @@ router.post('/lead-magnets/:id/activate', async (req, res) => {
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Error activating lead magnet:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -502,7 +502,7 @@ router.delete('/lead-magnets/:id', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting lead magnet:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -513,7 +513,7 @@ router.get('/giveaways', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching giveaways:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -600,7 +600,7 @@ router.put('/giveaways/:id', async (req, res) => {
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Error updating giveaway:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -616,7 +616,7 @@ router.delete('/giveaways/:id', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting giveaway:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -698,7 +698,7 @@ router.get('/export/:type/:format', async (req, res) => {
     }
   } catch (error) {
     console.error('Error exporting data:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -714,7 +714,7 @@ router.get('/settings', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching settings:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -741,7 +741,7 @@ router.post('/settings', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Error updating channel settings:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -760,7 +760,7 @@ router.get('/giveaways/:id/participants', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching giveaway participants:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -857,7 +857,7 @@ router.post('/giveaways/:id/winners', async (req, res) => {
     });
   } catch (error) {
     console.error('Error selecting winners:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
