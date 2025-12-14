@@ -192,65 +192,66 @@ function LeadsList() {
             ))}
           </Grid>
         ) : (
+          <>
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>ID</TableCell>
+                    <TableCell>ФИО</TableCell>
+                    <TableCell>Телефон</TableCell>
+                    <TableCell>Email</TableCell>
+                    <TableCell>Telegram</TableCell>
+                    <TableCell>Этап</TableCell>
+                    <TableCell>Статус</TableCell>
+                    <TableCell>Приоритет</TableCell>
+                    <TableCell>Дата создания</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {leads.map((lead) => (
+                    <TableRow
+                      key={lead.id}
+                      hover
+                      onClick={() => navigate(`/leads/${lead.id}`)}
+                      sx={{ cursor: 'pointer' }}
+                    >
+                      <TableCell>{lead.id}</TableCell>
+                      <TableCell>{lead.fio || '-'}</TableCell>
+                      <TableCell>{lead.phone || '-'}</TableCell>
+                      <TableCell>{lead.email || '-'}</TableCell>
+                      <TableCell>@{lead.telegram_username || '-'}</TableCell>
+                      <TableCell>{lead.funnel_stage}</TableCell>
+                      <TableCell>{lead.status}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={lead.priority}
+                          color={getPriorityColor(lead.priority)}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {new Date(lead.created_at).toLocaleDateString('ru-RU')}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
 
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>ФИО</TableCell>
-                <TableCell>Телефон</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>Telegram</TableCell>
-                <TableCell>Этап</TableCell>
-                <TableCell>Статус</TableCell>
-                <TableCell>Приоритет</TableCell>
-                <TableCell>Дата создания</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {leads.map((lead) => (
-                <TableRow
-                  key={lead.id}
-                  hover
-                  onClick={() => navigate(`/leads/${lead.id}`)}
-                  sx={{ cursor: 'pointer' }}
-                >
-                  <TableCell>{lead.id}</TableCell>
-                  <TableCell>{lead.fio || '-'}</TableCell>
-                  <TableCell>{lead.phone || '-'}</TableCell>
-                  <TableCell>{lead.email || '-'}</TableCell>
-                  <TableCell>@{lead.telegram_username || '-'}</TableCell>
-                  <TableCell>{lead.funnel_stage}</TableCell>
-                  <TableCell>{lead.status}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={lead.priority}
-                      color={getPriorityColor(lead.priority)}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {new Date(lead.created_at).toLocaleDateString('ru-RU')}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-
-        <TablePagination
-          component="div"
-          count={total}
-          page={page}
-          onPageChange={(e, newPage) => setPage(newPage)}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
-          }}
-          rowsPerPageOptions={[25, 50, 100]}
-        />
+            <TablePagination
+              component="div"
+              count={total}
+              page={page}
+              onPageChange={(e, newPage) => setPage(newPage)}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPage(parseInt(e.target.value, 10));
+                setPage(0);
+              }}
+              rowsPerPageOptions={[25, 50, 100]}
+            />
+          </>
         )}
       </Container>
   );
