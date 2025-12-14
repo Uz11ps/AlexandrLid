@@ -303,7 +303,7 @@ function BotAdmin() {
     try {
       await botAdminAPI.createGiveaway(newGiveaway);
       setGiveawayDialogOpen(false);
-      setNewGiveaway({ title: '', description: '', prize_description: '', end_date: '', status: 'draft' });
+      setNewGiveaway({ title: '', description: '', prize_description: '', start_date: '', end_date: '', status: 'draft' });
       loadData();
     } catch (error) {
       console.error('Error creating giveaway:', error);
@@ -1369,6 +1369,15 @@ function BotAdmin() {
               label="Описание приза"
               value={newGiveaway.prize_description}
               onChange={(e) => setNewGiveaway({ ...newGiveaway, prize_description: e.target.value })}
+              sx={{ mt: 2 }}
+            />
+            <TextField
+              fullWidth
+              type="datetime-local"
+              label="Дата начала"
+              value={newGiveaway.start_date}
+              onChange={(e) => setNewGiveaway({ ...newGiveaway, start_date: e.target.value })}
+              InputLabelProps={{ shrink: true }}
               sx={{ mt: 2 }}
             />
             <TextField
