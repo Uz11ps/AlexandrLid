@@ -168,7 +168,7 @@ router.get('/sources', async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT 
-        l.source,
+        COALESCE(l.source, 'Не указан') as source,
         COUNT(*) as leads_count,
         COUNT(CASE WHEN l.is_student = TRUE THEN 1 END) as converted_count,
         ROUND(COUNT(CASE WHEN l.is_student = TRUE THEN 1 END)::numeric / NULLIF(COUNT(*), 0) * 100, 2) as conversion_rate,
