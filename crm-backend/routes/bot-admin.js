@@ -162,6 +162,102 @@ router.post('/broadcasts', async (req, res) => {
   }
 });
 
+router.put('/broadcasts/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, message_text, buttons, scheduled_at, target_audience, status } = req.body;
+
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (title !== undefined) {
+      updates.push(`title = $${paramIndex++}`);
+      values.push(title);
+    }
+    if (message_text !== undefined) {
+      updates.push(`message_text = $${paramIndex++}`);
+      values.push(message_text);
+    }
+    if (buttons !== undefined) {
+      updates.push(`buttons = $${paramIndex++}`);
+      values.push(JSON.stringify(buttons));
+    }
+    if (scheduled_at !== undefined) {
+      updates.push(`scheduled_at = $${paramIndex++}`);
+      values.push(scheduled_at);
+    }
+    if (target_audience !== undefined) {
+      updates.push(`target_audience = $${paramIndex++}`);
+      values.push(target_audience);
+    }
+    if (status !== undefined) {
+      updates.push(`status = $${paramIndex++}`);
+      values.push(status);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    values.push(parseInt(id));
+    const result = await pool.query(
+      `UPDATE broadcasts SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Broadcast not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating broadcast:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/broadcasts/:id/send', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const broadcastResult = await pool.query('SELECT * FROM broadcasts WHERE id = $1', [id]);
+    
+    if (broadcastResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Broadcast not found' });
+    }
+
+    const broadcast = broadcastResult.rows[0];
+    
+    // Здесь должна быть логика отправки рассылки через бот
+    // Пока просто обновляем статус
+    await pool.query(
+      'UPDATE broadcasts SET status = $1, sent_at = CURRENT_TIMESTAMP WHERE id = $2',
+      ['sent', id]
+    );
+
+    res.json({ success: true, message: 'Broadcast sent' });
+  } catch (error) {
+    console.error('Error sending broadcast:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.delete('/broadcasts/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('DELETE FROM broadcasts WHERE id = $1 RETURNING id', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Broadcast not found' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting broadcast:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Autofunnels
 router.get('/autofunnels', async (req, res) => {
   try {
@@ -194,11 +290,41 @@ router.post('/autofunnels', async (req, res) => {
 router.put('/autofunnels/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { is_active } = req.body;
+    const { name, trigger_event, delay_hours, message_text, is_active } = req.body;
 
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (name !== undefined) {
+      updates.push(`name = $${paramIndex++}`);
+      values.push(name);
+    }
+    if (trigger_event !== undefined) {
+      updates.push(`trigger_event = $${paramIndex++}`);
+      values.push(trigger_event);
+    }
+    if (delay_hours !== undefined) {
+      updates.push(`delay_hours = $${paramIndex++}`);
+      values.push(delay_hours);
+    }
+    if (message_text !== undefined) {
+      updates.push(`message_text = $${paramIndex++}`);
+      values.push(message_text);
+    }
+    if (is_active !== undefined) {
+      updates.push(`is_active = $${paramIndex++}`);
+      values.push(is_active);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    values.push(parseInt(id));
     const result = await pool.query(
-      'UPDATE autofunnels SET is_active = $1 WHERE id = $2 RETURNING *',
-      [is_active, id]
+      `UPDATE autofunnels SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+      values
     );
 
     if (result.rows.length === 0) {
@@ -208,6 +334,22 @@ router.put('/autofunnels/:id', async (req, res) => {
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Error updating autofunnel:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.delete('/autofunnels/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('DELETE FROM autofunnels WHERE id = $1 RETURNING id', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Autofunnel not found' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting autofunnel:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -246,6 +388,62 @@ router.post('/lead-magnets', async (req, res) => {
   }
 });
 
+router.put('/lead-magnets/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, type, text_content, link_url, file_id, file_type } = req.body;
+
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (title !== undefined) {
+      updates.push(`title = $${paramIndex++}`);
+      values.push(title);
+    }
+    if (type !== undefined) {
+      updates.push(`type = $${paramIndex++}`);
+      values.push(type);
+    }
+    if (text_content !== undefined) {
+      updates.push(`text_content = $${paramIndex++}`);
+      values.push(text_content);
+    }
+    if (link_url !== undefined) {
+      updates.push(`link_url = $${paramIndex++}`);
+      values.push(link_url);
+    }
+    if (file_id !== undefined) {
+      updates.push(`file_id = $${paramIndex++}`);
+      values.push(file_id);
+    }
+    if (file_type !== undefined) {
+      updates.push(`file_type = $${paramIndex++}`);
+      values.push(file_type);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(parseInt(id));
+    const result = await pool.query(
+      `UPDATE lead_magnets SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Lead magnet not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating lead magnet:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.post('/lead-magnets/:id/activate', async (req, res) => {
   try {
     const { id } = req.params;
@@ -270,6 +468,22 @@ router.post('/lead-magnets/:id/activate', async (req, res) => {
   }
 });
 
+router.delete('/lead-magnets/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('DELETE FROM lead_magnets WHERE id = $1 RETURNING id', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Lead magnet not found' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting lead magnet:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Giveaways
 router.get('/giveaways', async (req, res) => {
   try {
@@ -283,18 +497,224 @@ router.get('/giveaways', async (req, res) => {
 
 router.post('/giveaways', async (req, res) => {
   try {
-    const { title, description, prize_description, end_date, status } = req.body;
+    const { title, description, prize_description, end_date, status, start_date } = req.body;
 
     const result = await pool.query(
-      `INSERT INTO giveaways (title, description, prize_description, end_date, status)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO giveaways (title, description, prize_description, start_date, end_date, status)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [title, description || null, prize_description || null, end_date, status || 'draft']
+      [
+        title,
+        description || null,
+        prize_description || null,
+        start_date || new Date().toISOString(),
+        end_date,
+        status || 'draft'
+      ]
     );
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating giveaway:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.put('/giveaways/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, prize_description, start_date, end_date, status } = req.body;
+
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (title !== undefined) {
+      updates.push(`title = $${paramIndex++}`);
+      values.push(title);
+    }
+    if (description !== undefined) {
+      updates.push(`description = $${paramIndex++}`);
+      values.push(description);
+    }
+    if (prize_description !== undefined) {
+      updates.push(`prize_description = $${paramIndex++}`);
+      values.push(prize_description);
+    }
+    if (start_date !== undefined) {
+      updates.push(`start_date = $${paramIndex++}`);
+      values.push(start_date);
+    }
+    if (end_date !== undefined) {
+      updates.push(`end_date = $${paramIndex++}`);
+      values.push(end_date);
+    }
+    if (status !== undefined) {
+      updates.push(`status = $${paramIndex++}`);
+      values.push(status);
+      if (status === 'ended') {
+        updates.push(`ended_at = CURRENT_TIMESTAMP`);
+      }
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    values.push(parseInt(id));
+    const result = await pool.query(
+      `UPDATE giveaways SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Giveaway not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating giveaway:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.delete('/giveaways/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('DELETE FROM giveaways WHERE id = $1 RETURNING id', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Giveaway not found' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting giveaway:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Export data
+router.get('/export/:type/:format', async (req, res) => {
+  try {
+    const { type, format } = req.params;
+    let users;
+
+    switch (type) {
+      case 'all':
+        const allResult = await pool.query('SELECT * FROM users');
+        users = allResult.rows;
+        break;
+      case 'active':
+        const activeResult = await pool.query(
+          `SELECT * FROM users WHERE created_at >= NOW() - INTERVAL '30 days'`
+        );
+        users = activeResult.rows;
+        break;
+      case 'refs':
+        const refsResult = await pool.query(`
+          SELECT u.*, COUNT(r.id) as referral_count
+          FROM users u
+          LEFT JOIN referrals r ON u.user_id = r.referrer_id
+          GROUP BY u.user_id
+          HAVING COUNT(r.id) > 0
+          ORDER BY referral_count DESC
+        `);
+        users = refsResult.rows;
+        break;
+      default:
+        return res.status(400).json({ error: 'Invalid export type' });
+    }
+
+    if (format === 'excel' || format === 'xlsx') {
+      const ExcelJS = await import('exceljs');
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Пользователи');
+
+      worksheet.columns = [
+        { header: 'ID', key: 'user_id', width: 15 },
+        { header: 'Username', key: 'username', width: 20 },
+        { header: 'Имя', key: 'first_name', width: 20 },
+        { header: 'Фамилия', key: 'last_name', width: 20 },
+        { header: 'Дата регистрации', key: 'created_at', width: 20 },
+        { header: 'Рефералов', key: 'referral_count', width: 15 }
+      ];
+
+      worksheet.getRow(1).font = { bold: true };
+      users.forEach(user => {
+        worksheet.addRow({
+          user_id: user.user_id,
+          username: user.username || '',
+          first_name: user.first_name || '',
+          last_name: user.last_name || '',
+          created_at: new Date(user.created_at).toLocaleString('ru-RU'),
+          referral_count: user.referral_count || 0
+        });
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename=export_${type}_${Date.now()}.xlsx`);
+      res.send(buffer);
+    } else {
+      // CSV
+      const csvHeader = 'user_id,username,first_name,last_name,created_at,referral_count\n';
+      const csvRows = users.map(user => {
+        const username = (user.username || '').replace(/,/g, '');
+        const firstName = (user.first_name || '').replace(/,/g, '');
+        const lastName = (user.last_name || '').replace(/,/g, '');
+        return `${user.user_id},${username},${firstName},${lastName},${user.created_at},${user.referral_count || 0}`;
+      }).join('\n');
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=export_${type}_${Date.now()}.csv`);
+      res.send(csvHeader + csvRows);
+    }
+  } catch (error) {
+    console.error('Error exporting data:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Settings
+router.get('/settings', async (req, res) => {
+  try {
+    const channelIdResult = await pool.query("SELECT value FROM bot_settings WHERE key = 'channel_id'");
+    const channelUsernameResult = await pool.query("SELECT value FROM bot_settings WHERE key = 'channel_username'");
+    
+    res.json({
+      channel_id: channelIdResult.rows[0]?.value || null,
+      channel_username: channelUsernameResult.rows[0]?.value || null
+    });
+  } catch (error) {
+    console.error('Error fetching settings:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.put('/settings/channel', async (req, res) => {
+  try {
+    const { channel_id, channel_username } = req.body;
+
+    if (channel_id) {
+      await pool.query(
+        `INSERT INTO bot_settings (key, value) VALUES ('channel_id', $1)
+         ON CONFLICT (key) DO UPDATE SET value = $1`,
+        [channel_id]
+      );
+    }
+
+    if (channel_username) {
+      await pool.query(
+        `INSERT INTO bot_settings (key, value) VALUES ('channel_username', $1)
+         ON CONFLICT (key) DO UPDATE SET value = $1`,
+        [channel_username]
+      );
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating channel settings:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

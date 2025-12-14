@@ -16,6 +16,7 @@ import Documents from './pages/Documents';
 import BotAdmin from './pages/BotAdmin';
 import Chat from './pages/Chat';
 import Permissions from './pages/Permissions';
+import UsersManagement from './pages/UsersManagement';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 
@@ -149,6 +150,14 @@ function App() {
             element={
               <PrivateRoute>
                 <Layout><Permissions /></Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/users-management"
+            element={
+              <PrivateRoute>
+                <Layout><UsersManagement /></Layout>
               </PrivateRoute>
             }
           />

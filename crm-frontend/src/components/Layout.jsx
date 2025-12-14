@@ -27,7 +27,8 @@ import {
   Description as DocumentsIcon,
   Settings as SettingsIcon,
   Chat as ChatIcon,
-  Security as SecurityIcon
+  Security as SecurityIcon,
+  People as PeopleIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -46,6 +47,7 @@ const menuItems = [
   { text: 'Чат', icon: <ChatIcon />, path: '/chat' },
   { text: 'Админка бота', icon: <SettingsIcon />, path: '/bot-admin' },
   { text: 'Права доступа', icon: <SecurityIcon />, path: '/permissions' },
+  { text: 'Пользователи CRM', icon: <PeopleIcon />, path: '/users-management' },
 ];
 
 function Layout({ children }) {

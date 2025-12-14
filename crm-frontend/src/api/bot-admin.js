@@ -36,6 +36,14 @@ export const botAdminAPI = {
     return axios.post(`/api/bot-admin/broadcasts/${id}/send`);
   },
   
+  updateBroadcast: (id, data) => {
+    return axios.put(`/api/bot-admin/broadcasts/${id}`, data);
+  },
+  
+  deleteBroadcast: (id) => {
+    return axios.delete(`/api/bot-admin/broadcasts/${id}`);
+  },
+  
   // Autofunnels
   getAutofunnels: () => {
     return axios.get('/api/bot-admin/autofunnels');
@@ -47,6 +55,10 @@ export const botAdminAPI = {
   
   updateAutofunnel: (id, data) => {
     return axios.put(`/api/bot-admin/autofunnels/${id}`, data);
+  },
+  
+  deleteAutofunnel: (id) => {
+    return axios.delete(`/api/bot-admin/autofunnels/${id}`);
   },
   
   // Lead Magnets
@@ -62,6 +74,14 @@ export const botAdminAPI = {
     return axios.post(`/api/bot-admin/lead-magnets/${id}/activate`);
   },
   
+  updateLeadMagnet: (id, data) => {
+    return axios.put(`/api/bot-admin/lead-magnets/${id}`, data);
+  },
+  
+  deleteLeadMagnet: (id) => {
+    return axios.delete(`/api/bot-admin/lead-magnets/${id}`);
+  },
+  
   // Giveaways
   getGiveaways: () => {
     return axios.get('/api/bot-admin/giveaways');
@@ -71,11 +91,28 @@ export const botAdminAPI = {
     return axios.post('/api/bot-admin/giveaways', data);
   },
   
+  updateGiveaway: (id, data) => {
+    return axios.put(`/api/bot-admin/giveaways/${id}`, data);
+  },
+  
+  deleteGiveaway: (id) => {
+    return axios.delete(`/api/bot-admin/giveaways/${id}`);
+  },
+  
   // Export
   exportData: (type, format) => {
     return axios.get(`/api/bot-admin/export/${type}/${format}`, {
       responseType: 'blob'
     });
+  },
+  
+  // Settings
+  getSettings: () => {
+    return axios.get('/api/bot-admin/settings');
+  },
+  
+  updateChannelSettings: (data) => {
+    return axios.put('/api/bot-admin/settings/channel', data);
   }
 };
 
