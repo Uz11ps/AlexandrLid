@@ -692,7 +692,7 @@ router.get('/settings', async (req, res) => {
   }
 });
 
-router.put('/settings/channel', async (req, res) => {
+router.post('/settings', async (req, res) => {
   try {
     const { channel_id, channel_username } = req.body;
 
