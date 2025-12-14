@@ -1168,295 +1168,296 @@ function BotAdmin() {
             </Button>
           </DialogActions>
         </Dialog>
-
-        {/* Диалог создания рассылки */}
-        <Dialog 
-          open={broadcastDialogOpen} 
-          onClose={() => {
-            console.log('Closing broadcast dialog');
-            setBroadcastDialogOpen(false);
-          }} 
-          maxWidth="md" 
-          fullWidth
-        >
-          <DialogTitle>Создать рассылку</DialogTitle>
-          <DialogContent>
-            <TextField
-              fullWidth
-              label="Название"
-              value={newBroadcast.title}
-              onChange={(e) => setNewBroadcast({ ...newBroadcast, title: e.target.value })}
-              sx={{ mt: 2 }}
-            />
-            <TextField
-              fullWidth
-              multiline
-              rows={6}
-              label="Текст сообщения"
-              value={newBroadcast.message_text}
-              onChange={(e) => setNewBroadcast({ ...newBroadcast, message_text: e.target.value })}
-              sx={{ mt: 2 }}
-            />
-            <TextField
-              fullWidth
-              type="datetime-local"
-              label="Запланировать на (необязательно)"
-              value={newBroadcast.scheduled_at}
-              onChange={(e) => setNewBroadcast({ ...newBroadcast, scheduled_at: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-              sx={{ mt: 2 }}
-            />
-            <FormControl fullWidth sx={{ mt: 2 }}>
-              <InputLabel>Аудитория</InputLabel>
-              <Select
-                value={newBroadcast.target_audience}
-                onChange={(e) => setNewBroadcast({ ...newBroadcast, target_audience: e.target.value })}
-              >
-                <MenuItem value="all">Все пользователи</MenuItem>
-                <MenuItem value="active">Активные</MenuItem>
-              </Select>
-            </FormControl>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setBroadcastDialogOpen(false)}>Отмена</Button>
-            <Button
-              onClick={handleCreateBroadcast}
-              variant="contained"
-              disabled={!newBroadcast.title || !newBroadcast.message_text}
-            >
-              Создать
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Диалог создания автоворонки */}
-        <Dialog 
-          open={autofunnelDialogOpen} 
-          onClose={() => {
-            console.log('Closing autofunnel dialog');
-            setAutofunnelDialogOpen(false);
-          }} 
-          maxWidth="md" 
-          fullWidth
-        >
-          <DialogTitle>Создать автоворонку</DialogTitle>
-          <DialogContent>
-            <TextField
-              fullWidth
-              label="Название"
-              value={newAutofunnel.name}
-              onChange={(e) => setNewAutofunnel({ ...newAutofunnel, name: e.target.value })}
-              sx={{ mt: 2 }}
-            />
-            <FormControl fullWidth sx={{ mt: 2 }}>
-              <InputLabel>Триггер</InputLabel>
-              <Select
-                value={newAutofunnel.trigger_event}
-                onChange={(e) => setNewAutofunnel({ ...newAutofunnel, trigger_event: e.target.value })}
-              >
-                <MenuItem value="registration">Регистрация</MenuItem>
-                <MenuItem value="new_referral">Новый реферал</MenuItem>
-                <MenuItem value="no_subscription">Нет подписки</MenuItem>
-                <MenuItem value="inactive">Неактивность</MenuItem>
-              </Select>
-            </FormControl>
-            <TextField
-              fullWidth
-              type="number"
-              label="Задержка (часы)"
-              value={newAutofunnel.delay_hours}
-              onChange={(e) => setNewAutofunnel({ ...newAutofunnel, delay_hours: parseInt(e.target.value) || 0 })}
-              sx={{ mt: 2 }}
-            />
-            <TextField
-              fullWidth
-              multiline
-              rows={6}
-              label="Текст сообщения"
-              value={newAutofunnel.message_text}
-              onChange={(e) => setNewAutofunnel({ ...newAutofunnel, message_text: e.target.value })}
-              sx={{ mt: 2 }}
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={newAutofunnel.is_active}
-                  onChange={(e) => setNewAutofunnel({ ...newAutofunnel, is_active: e.target.checked })}
-                />
-              }
-              label="Активна"
-              sx={{ mt: 2 }}
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setAutofunnelDialogOpen(false)}>Отмена</Button>
-            <Button
-              onClick={handleCreateAutofunnel}
-              variant="contained"
-              disabled={!newAutofunnel.name || !newAutofunnel.message_text}
-            >
-              Создать
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Диалог создания лид-магнита */}
-        <Dialog 
-          open={leadMagnetDialogOpen} 
-          onClose={() => {
-            console.log('Closing lead magnet dialog');
-            setLeadMagnetDialogOpen(false);
-          }} 
-          maxWidth="md" 
-          fullWidth
-        >
-          <DialogTitle>Создать лид-магнит</DialogTitle>
-          <DialogContent>
-            <TextField
-              fullWidth
-              label="Название"
-              value={newLeadMagnet.title}
-              onChange={(e) => setNewLeadMagnet({ ...newLeadMagnet, title: e.target.value })}
-              sx={{ mt: 2 }}
-            />
-            <FormControl fullWidth sx={{ mt: 2 }}>
-              <InputLabel>Тип</InputLabel>
-              <Select
-                value={newLeadMagnet.type}
-                onChange={(e) => setNewLeadMagnet({ ...newLeadMagnet, type: e.target.value })}
-              >
-                <MenuItem value="text">Текст</MenuItem>
-                <MenuItem value="link">Ссылка</MenuItem>
-                <MenuItem value="file">Файл</MenuItem>
-              </Select>
-            </FormControl>
-            {newLeadMagnet.type === 'text' && (
-              <TextField
-                fullWidth
-                multiline
-                rows={6}
-                label="Текст"
-                value={newLeadMagnet.text_content}
-                onChange={(e) => setNewLeadMagnet({ ...newLeadMagnet, text_content: e.target.value })}
-                sx={{ mt: 2 }}
-              />
-            )}
-            {newLeadMagnet.type === 'link' && (
-              <TextField
-                fullWidth
-                label="URL ссылки"
-                value={newLeadMagnet.link_url}
-                onChange={(e) => setNewLeadMagnet({ ...newLeadMagnet, link_url: e.target.value })}
-                sx={{ mt: 2 }}
-              />
-            )}
-            {newLeadMagnet.type === 'file' && (
-              <>
-                <TextField
-                  fullWidth
-                  label="File ID (из Telegram)"
-                  value={newLeadMagnet.file_id}
-                  onChange={(e) => setNewLeadMagnet({ ...newLeadMagnet, file_id: e.target.value })}
-                  sx={{ mt: 2 }}
-                />
-                <TextField
-                  fullWidth
-                  label="Тип файла"
-                  value={newLeadMagnet.file_type}
-                  onChange={(e) => setNewLeadMagnet({ ...newLeadMagnet, file_type: e.target.value })}
-                  sx={{ mt: 2 }}
-                />
-              </>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setLeadMagnetDialogOpen(false)}>Отмена</Button>
-            <Button
-              onClick={handleCreateLeadMagnet}
-              variant="contained"
-              disabled={!newLeadMagnet.title || (newLeadMagnet.type === 'text' && !newLeadMagnet.text_content) || (newLeadMagnet.type === 'link' && !newLeadMagnet.link_url)}
-            >
-              Создать
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Диалог создания розыгрыша */}
-        <Dialog 
-          open={giveawayDialogOpen} 
-          onClose={() => {
-            console.log('Closing giveaway dialog');
-            setGiveawayDialogOpen(false);
-          }} 
-          maxWidth="md" 
-          fullWidth
-        >
-          <DialogTitle>Создать розыгрыш</DialogTitle>
-          <DialogContent>
-            <TextField
-              fullWidth
-              label="Название"
-              value={newGiveaway.title}
-              onChange={(e) => setNewGiveaway({ ...newGiveaway, title: e.target.value })}
-              sx={{ mt: 2 }}
-            />
-            <TextField
-              fullWidth
-              multiline
-              rows={3}
-              label="Описание"
-              value={newGiveaway.description}
-              onChange={(e) => setNewGiveaway({ ...newGiveaway, description: e.target.value })}
-              sx={{ mt: 2 }}
-            />
-            <TextField
-              fullWidth
-              label="Описание приза"
-              value={newGiveaway.prize_description}
-              onChange={(e) => setNewGiveaway({ ...newGiveaway, prize_description: e.target.value })}
-              sx={{ mt: 2 }}
-            />
-            <TextField
-              fullWidth
-              type="datetime-local"
-              label="Дата начала"
-              value={newGiveaway.start_date}
-              onChange={(e) => setNewGiveaway({ ...newGiveaway, start_date: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-              sx={{ mt: 2 }}
-            />
-            <TextField
-              fullWidth
-              type="datetime-local"
-              label="Дата окончания"
-              value={newGiveaway.end_date}
-              onChange={(e) => setNewGiveaway({ ...newGiveaway, end_date: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-              sx={{ mt: 2 }}
-            />
-            <FormControl fullWidth sx={{ mt: 2 }}>
-              <InputLabel>Статус</InputLabel>
-              <Select
-                value={newGiveaway.status}
-                onChange={(e) => setNewGiveaway({ ...newGiveaway, status: e.target.value })}
-              >
-                <MenuItem value="draft">Черновик</MenuItem>
-                <MenuItem value="active">Активен</MenuItem>
-              </Select>
-            </FormControl>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setGiveawayDialogOpen(false)}>Отмена</Button>
-            <Button
-              onClick={handleCreateGiveaway}
-              variant="contained"
-              disabled={!newGiveaway.title || !newGiveaway.end_date}
-            >
-              Создать
-            </Button>
-          </DialogActions>
-        </Dialog>
       </Container>
+
+      {/* Диалоги создания - должны быть вне Container */}
+      {/* Диалог создания рассылки */}
+      <Dialog 
+        open={broadcastDialogOpen} 
+        onClose={() => {
+          console.log('Closing broadcast dialog');
+          setBroadcastDialogOpen(false);
+        }} 
+        maxWidth="md" 
+        fullWidth
+      >
+        <DialogTitle>Создать рассылку</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Название"
+            value={newBroadcast.title}
+            onChange={(e) => setNewBroadcast({ ...newBroadcast, title: e.target.value })}
+            sx={{ mt: 2 }}
+          />
+          <TextField
+            fullWidth
+            multiline
+            rows={6}
+            label="Текст сообщения"
+            value={newBroadcast.message_text}
+            onChange={(e) => setNewBroadcast({ ...newBroadcast, message_text: e.target.value })}
+            sx={{ mt: 2 }}
+          />
+          <TextField
+            fullWidth
+            type="datetime-local"
+            label="Запланировать на (необязательно)"
+            value={newBroadcast.scheduled_at}
+            onChange={(e) => setNewBroadcast({ ...newBroadcast, scheduled_at: e.target.value })}
+            InputLabelProps={{ shrink: true }}
+            sx={{ mt: 2 }}
+          />
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>Аудитория</InputLabel>
+            <Select
+              value={newBroadcast.target_audience}
+              onChange={(e) => setNewBroadcast({ ...newBroadcast, target_audience: e.target.value })}
+            >
+              <MenuItem value="all">Все пользователи</MenuItem>
+              <MenuItem value="active">Активные</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBroadcastDialogOpen(false)}>Отмена</Button>
+          <Button
+            onClick={handleCreateBroadcast}
+            variant="contained"
+            disabled={!newBroadcast.title || !newBroadcast.message_text}
+          >
+            Создать
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Диалог создания автоворонки */}
+      <Dialog 
+        open={autofunnelDialogOpen} 
+        onClose={() => {
+          console.log('Closing autofunnel dialog');
+          setAutofunnelDialogOpen(false);
+        }} 
+        maxWidth="md" 
+        fullWidth
+      >
+        <DialogTitle>Создать автоворонку</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Название"
+            value={newAutofunnel.name}
+            onChange={(e) => setNewAutofunnel({ ...newAutofunnel, name: e.target.value })}
+            sx={{ mt: 2 }}
+          />
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>Триггер</InputLabel>
+            <Select
+              value={newAutofunnel.trigger_event}
+              onChange={(e) => setNewAutofunnel({ ...newAutofunnel, trigger_event: e.target.value })}
+            >
+              <MenuItem value="registration">Регистрация</MenuItem>
+              <MenuItem value="new_referral">Новый реферал</MenuItem>
+              <MenuItem value="no_subscription">Нет подписки</MenuItem>
+              <MenuItem value="inactive">Неактивность</MenuItem>
+            </Select>
+          </FormControl>
+          <TextField
+            fullWidth
+            type="number"
+            label="Задержка (часы)"
+            value={newAutofunnel.delay_hours}
+            onChange={(e) => setNewAutofunnel({ ...newAutofunnel, delay_hours: parseInt(e.target.value) || 0 })}
+            sx={{ mt: 2 }}
+          />
+          <TextField
+            fullWidth
+            multiline
+            rows={6}
+            label="Текст сообщения"
+            value={newAutofunnel.message_text}
+            onChange={(e) => setNewAutofunnel({ ...newAutofunnel, message_text: e.target.value })}
+            sx={{ mt: 2 }}
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={newAutofunnel.is_active}
+                onChange={(e) => setNewAutofunnel({ ...newAutofunnel, is_active: e.target.checked })}
+              />
+            }
+            label="Активна"
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAutofunnelDialogOpen(false)}>Отмена</Button>
+          <Button
+            onClick={handleCreateAutofunnel}
+            variant="contained"
+            disabled={!newAutofunnel.name || !newAutofunnel.message_text}
+          >
+            Создать
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Диалог создания лид-магнита */}
+      <Dialog 
+        open={leadMagnetDialogOpen} 
+        onClose={() => {
+          console.log('Closing lead magnet dialog');
+          setLeadMagnetDialogOpen(false);
+        }} 
+        maxWidth="md" 
+        fullWidth
+      >
+        <DialogTitle>Создать лид-магнит</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Название"
+            value={newLeadMagnet.title}
+            onChange={(e) => setNewLeadMagnet({ ...newLeadMagnet, title: e.target.value })}
+            sx={{ mt: 2 }}
+          />
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>Тип</InputLabel>
+            <Select
+              value={newLeadMagnet.type}
+              onChange={(e) => setNewLeadMagnet({ ...newLeadMagnet, type: e.target.value })}
+            >
+              <MenuItem value="text">Текст</MenuItem>
+              <MenuItem value="link">Ссылка</MenuItem>
+              <MenuItem value="file">Файл</MenuItem>
+            </Select>
+          </FormControl>
+          {newLeadMagnet.type === 'text' && (
+            <TextField
+              fullWidth
+              multiline
+              rows={6}
+              label="Текст"
+              value={newLeadMagnet.text_content}
+              onChange={(e) => setNewLeadMagnet({ ...newLeadMagnet, text_content: e.target.value })}
+              sx={{ mt: 2 }}
+            />
+          )}
+          {newLeadMagnet.type === 'link' && (
+            <TextField
+              fullWidth
+              label="URL ссылки"
+              value={newLeadMagnet.link_url}
+              onChange={(e) => setNewLeadMagnet({ ...newLeadMagnet, link_url: e.target.value })}
+              sx={{ mt: 2 }}
+            />
+          )}
+          {newLeadMagnet.type === 'file' && (
+            <>
+              <TextField
+                fullWidth
+                label="File ID (из Telegram)"
+                value={newLeadMagnet.file_id}
+                onChange={(e) => setNewLeadMagnet({ ...newLeadMagnet, file_id: e.target.value })}
+                sx={{ mt: 2 }}
+              />
+              <TextField
+                fullWidth
+                label="Тип файла"
+                value={newLeadMagnet.file_type}
+                onChange={(e) => setNewLeadMagnet({ ...newLeadMagnet, file_type: e.target.value })}
+                sx={{ mt: 2 }}
+              />
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLeadMagnetDialogOpen(false)}>Отмена</Button>
+          <Button
+            onClick={handleCreateLeadMagnet}
+            variant="contained"
+            disabled={!newLeadMagnet.title || (newLeadMagnet.type === 'text' && !newLeadMagnet.text_content) || (newLeadMagnet.type === 'link' && !newLeadMagnet.link_url)}
+          >
+            Создать
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Диалог создания розыгрыша */}
+      <Dialog 
+        open={giveawayDialogOpen} 
+        onClose={() => {
+          console.log('Closing giveaway dialog');
+          setGiveawayDialogOpen(false);
+        }} 
+        maxWidth="md" 
+        fullWidth
+      >
+        <DialogTitle>Создать розыгрыш</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Название"
+            value={newGiveaway.title}
+            onChange={(e) => setNewGiveaway({ ...newGiveaway, title: e.target.value })}
+            sx={{ mt: 2 }}
+          />
+          <TextField
+            fullWidth
+            multiline
+            rows={3}
+            label="Описание"
+            value={newGiveaway.description}
+            onChange={(e) => setNewGiveaway({ ...newGiveaway, description: e.target.value })}
+            sx={{ mt: 2 }}
+          />
+          <TextField
+            fullWidth
+            label="Описание приза"
+            value={newGiveaway.prize_description}
+            onChange={(e) => setNewGiveaway({ ...newGiveaway, prize_description: e.target.value })}
+            sx={{ mt: 2 }}
+          />
+          <TextField
+            fullWidth
+            type="datetime-local"
+            label="Дата начала"
+            value={newGiveaway.start_date}
+            onChange={(e) => setNewGiveaway({ ...newGiveaway, start_date: e.target.value })}
+            InputLabelProps={{ shrink: true }}
+            sx={{ mt: 2 }}
+          />
+          <TextField
+            fullWidth
+            type="datetime-local"
+            label="Дата окончания"
+            value={newGiveaway.end_date}
+            onChange={(e) => setNewGiveaway({ ...newGiveaway, end_date: e.target.value })}
+            InputLabelProps={{ shrink: true }}
+            sx={{ mt: 2 }}
+          />
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>Статус</InputLabel>
+            <Select
+              value={newGiveaway.status}
+              onChange={(e) => setNewGiveaway({ ...newGiveaway, status: e.target.value })}
+            >
+              <MenuItem value="draft">Черновик</MenuItem>
+              <MenuItem value="active">Активен</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setGiveawayDialogOpen(false)}>Отмена</Button>
+          <Button
+            onClick={handleCreateGiveaway}
+            variant="contained"
+            disabled={!newGiveaway.title || !newGiveaway.end_date}
+          >
+            Создать
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }
