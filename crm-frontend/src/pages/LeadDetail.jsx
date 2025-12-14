@@ -27,7 +27,6 @@ import {
 import { leadsAPI } from '../api/leads';
 import { tasksAPI } from '../api/tasks';
 import { funnelAPI } from '../api/funnel';
-import Layout from '../components/Layout';
 
 const FUNNEL_STAGES = [
   'Новый лид',

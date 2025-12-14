@@ -26,7 +26,6 @@ import {
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import { tasksAPI } from '../api/tasks';
-import Layout from '../components/Layout';
 
 function Tasks() {
   const navigate = useNavigate();

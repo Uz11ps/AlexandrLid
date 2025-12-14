@@ -25,7 +25,6 @@ import {
 } from '@mui/material';
 import { leadsAPI } from '../api/leads';
 import { funnelAPI } from '../api/funnel';
-import Layout from '../components/Layout';
 
 const FUNNEL_STAGES = [
   'Новый лид',
