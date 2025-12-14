@@ -24,7 +24,6 @@ import {
   AttachMoney as MoneyIcon,
   Assessment as AssessmentIcon
 } from '@mui/icons-material';
-import Layout from '../components/Layout';
 import { analyticsAPI } from '../api/analytics';
 import {
   BarChart,
@@ -78,8 +77,7 @@ function Analytics() {
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
   return (
-    <Layout>
-      <Container maxWidth="xl">
+    <Container maxWidth="xl">
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
           <Typography variant="h4">Аналитика</Typography>
           <FormControl sx={{ minWidth: 200 }}>
@@ -247,7 +245,6 @@ function Analytics() {
           </Grid>
         </Grid>
       </Container>
-    </Layout>
   );
 }
 

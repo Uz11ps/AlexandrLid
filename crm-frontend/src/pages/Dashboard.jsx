@@ -52,16 +52,11 @@ function Dashboard() {
   };
 
   if (loading) {
-    return (
-      <Layout>
-        <LinearProgress />
-      </Layout>
-    );
+    return <LinearProgress />;
   }
 
   return (
-    <Layout>
-      <Container maxWidth="lg">
+    <Container maxWidth="lg">
         <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 3 }}>
           Дашборд
         </Typography>
@@ -207,7 +202,6 @@ function Dashboard() {
           </Grid>
         </Grid>
       </Container>
-    </Layout>
   );
 }
 

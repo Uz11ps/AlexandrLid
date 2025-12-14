@@ -38,7 +38,6 @@ import {
   CheckCircle as UnblockIcon,
   Visibility as ViewIcon
 } from '@mui/icons-material';
-import Layout from '../components/Layout';
 import { botAdminAPI } from '../api/bot-admin';
 
 function BotAdmin() {
@@ -408,7 +407,6 @@ function BotAdmin() {
           </TableContainer>
         )}
       </Container>
-    </Layout>
   );
 }
 

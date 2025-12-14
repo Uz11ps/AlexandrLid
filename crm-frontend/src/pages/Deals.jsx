@@ -27,7 +27,6 @@ import {
   LinearProgress
 } from '@mui/material';
 import { Add as AddIcon, Visibility as ViewIcon } from '@mui/icons-material';
-import Layout from '../components/Layout';
 import { dealsAPI } from '../api/deals';
 import { leadsAPI } from '../api/leads';
 import { productsAPI } from '../api/products';
@@ -127,8 +126,7 @@ function Deals() {
   }
 
   return (
-    <Layout>
-      <Container maxWidth="xl">
+    <Container maxWidth="xl">
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
           <Typography variant="h4">Сделки</Typography>
           <Button
@@ -277,7 +275,6 @@ function Deals() {
           </DialogActions>
         </Dialog>
       </Container>
-    </Layout>
   );
 }
 

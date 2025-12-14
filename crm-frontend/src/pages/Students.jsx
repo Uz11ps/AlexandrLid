@@ -26,7 +26,6 @@ import {
   InputLabel
 } from '@mui/material';
 import { Add as AddIcon, Visibility as ViewIcon } from '@mui/icons-material';
-import Layout from '../components/Layout';
 import { studentsAPI } from '../api/students';
 import { leadsAPI } from '../api/leads';
 
@@ -103,8 +102,7 @@ function Students() {
   };
 
   return (
-    <Layout>
-      <Container maxWidth="xl">
+    <Container maxWidth="xl">
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
           <Typography variant="h4">Студенты</Typography>
           <Button
@@ -242,7 +240,6 @@ function Students() {
           </DialogActions>
         </Dialog>
       </Container>
-    </Layout>
   );
 }
 

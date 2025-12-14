@@ -26,7 +26,6 @@ import {
   InputLabel
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon } from '@mui/icons-material';
-import Layout from '../components/Layout';
 import { templatesAPI } from '../api/templates';
 
 function Templates() {
@@ -114,8 +113,7 @@ function Templates() {
   };
 
   return (
-    <Layout>
-      <Container maxWidth="xl">
+    <Container maxWidth="xl">
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
           <Typography variant="h4">Шаблоны сообщений</Typography>
           <Button
@@ -278,7 +276,6 @@ function Templates() {
           </DialogActions>
         </Dialog>
       </Container>
-    </Layout>
   );
 }
 

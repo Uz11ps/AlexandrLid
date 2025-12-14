@@ -22,7 +22,6 @@ import {
   Chip
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon } from '@mui/icons-material';
-import Layout from '../components/Layout';
 import { productsAPI } from '../api/products';
 
 function Products() {
@@ -119,8 +118,7 @@ function Products() {
   };
 
   return (
-    <Layout>
-      <Container maxWidth="xl">
+    <Container maxWidth="xl">
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
           <Typography variant="h4">Продукты и тарифы</Typography>
           <Button
@@ -288,7 +286,6 @@ function Products() {
           </DialogActions>
         </Dialog>
       </Container>
-    </Layout>
   );
 }
 
