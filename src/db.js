@@ -633,6 +633,7 @@ export const db = {
 
       const fio = userData.fio || `${user.first_name || ''} ${user.last_name || ''}`.trim() || null;
       const telegramUsername = user.username || null;
+      const source = userData.source || 'Telegram Bot';
 
       // Проверяем, существует ли уже лид для этого user_id
       const existingLead = await pool.query(
@@ -646,10 +647,11 @@ export const db = {
           `UPDATE leads 
            SET telegram_username = COALESCE($1, telegram_username),
                fio = COALESCE($2, fio),
+               source = CASE WHEN $4 IS NOT NULL AND $4 != 'Telegram Bot' THEN $4 ELSE source END,
                updated_at = CURRENT_TIMESTAMP
            WHERE user_id = $3
            RETURNING *`,
-          [telegramUsername, fio, userId]
+          [telegramUsername, fio, userId, source]
         );
         return result.rows[0];
       } else {
@@ -662,7 +664,7 @@ export const db = {
             userId,
             fio,
             telegramUsername,
-            'Telegram Bot',
+            source,
             'Новый лид',
             'Новый лид'
           ]

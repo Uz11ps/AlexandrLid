@@ -14,6 +14,9 @@ export function getMainMenu() {
           { text: '💬 Тикеты', callback_data: 'menu_tickets' }
         ],
         [
+          { text: '📢 Проверить подписку', callback_data: 'check_subscription' }
+        ],
+        [
           { text: '📋 Помощь', callback_data: 'menu_help' }
         ]
       ]

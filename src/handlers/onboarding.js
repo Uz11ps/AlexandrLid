@@ -132,9 +132,26 @@ export async function handleStart(ctx) {
     });
 
     // Синхронизация с CRM: обновление лида
+    // Также проверяем подписку на канал и обновляем источник лида
     try {
+      const channelId = await db.getSetting('channel_id');
+      let source = 'Telegram Bot';
+      
+      // Проверяем подписку на канал
+      if (channelId) {
+        try {
+          const member = await ctx.telegram.getChatMember(channelId, userId);
+          if (['member', 'administrator', 'creator'].includes(member.status)) {
+            source = 'Channel Subscription';
+          }
+        } catch (error) {
+          console.error('Ошибка при проверке подписки в /start:', error);
+        }
+      }
+      
       await db.createOrUpdateLeadFromUser(userId, {
-        fio: `${firstName || ''} ${lastName || ''}`.trim() || null
+        fio: `${firstName || ''} ${lastName || ''}`.trim() || null,
+        source: source
       });
     } catch (error) {
       console.error('Ошибка при синхронизации лида в CRM:', error);
@@ -162,9 +179,26 @@ export async function handleStart(ctx) {
   });
 
   // Синхронизация с CRM: создание/обновление лида
+  // Также проверяем подписку на канал и обновляем источник лида
   try {
+    const channelId = await db.getSetting('channel_id');
+    let source = 'Telegram Bot';
+    
+    // Проверяем подписку на канал
+    if (channelId) {
+      try {
+        const member = await ctx.telegram.getChatMember(channelId, userId);
+        if (['member', 'administrator', 'creator'].includes(member.status)) {
+          source = 'Channel Subscription';
+        }
+      } catch (error) {
+        console.error('Ошибка при проверке подписки в /start:', error);
+      }
+    }
+    
     await db.createOrUpdateLeadFromUser(userId, {
-      fio: `${firstName || ''} ${lastName || ''}`.trim() || null
+      fio: `${firstName || ''} ${lastName || ''}`.trim() || null,
+      source: source
     });
   } catch (error) {
     console.error('Ошибка при синхронизации лида в CRM:', error);

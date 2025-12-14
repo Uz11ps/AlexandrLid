@@ -242,6 +242,14 @@ bot.on('callback_query', async (ctx) => {
       return;
     }
 
+    // Обработка проверки подписки
+    if (data === 'check_subscription') {
+      await ctx.answerCbQuery('⏳ Проверяю подписку...');
+      const subscriptionHandlers = (await import('./handlers/subscription.js')).default;
+      await subscriptionHandlers.checkSubscriptionAndCreateLead(ctx);
+      return;
+    }
+
     // Обработка пользовательского меню
     if (data.startsWith('menu_')) {
       await ctx.answerCbQuery();

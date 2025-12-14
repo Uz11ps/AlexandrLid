@@ -22,6 +22,19 @@ export const checkChannelSubscription = async (ctx, next) => {
 
       // Разрешенные статусы: member, administrator, creator
       if (['member', 'administrator', 'creator'].includes(status)) {
+        // Пользователь подписан - создаем/обновляем лид с источником "Channel Subscription"
+        try {
+          const user = await db.getUser(userId);
+          if (user) {
+            await db.createOrUpdateLeadFromUser(userId, {
+              fio: `${user.first_name || ''} ${user.last_name || ''}`.trim() || null,
+              source: 'Channel Subscription'
+            });
+          }
+        } catch (error) {
+          console.error('Ошибка при создании лида в middleware:', error);
+          // Не прерываем выполнение, если создание лида не удалось
+        }
         return next();
       } else {
         const channelUsername = await db.getSetting('channel_username') || 'канал';
