@@ -535,6 +535,30 @@ bot.on('callback_query', async (ctx) => {
 });
 
 // Обработка текстовых сообщений (для интерактивных действий)
+// Обработка callback для тикетов
+bot.on('callback_query', async (ctx) => {
+  const data = ctx.callbackQuery?.data;
+  
+  if (data && (data.startsWith('ticket_') || data === 'ticket_new')) {
+    await ctx.answerCbQuery();
+    const ticketHandlers = (await import('./handlers/tickets.js')).default;
+    
+    if (data === 'ticket_new') {
+      await ticketHandlers.handleTicketNew(ctx);
+    } else if (data === 'ticket_reply') {
+      await ctx.reply('💬 Напишите ваше сообщение для ответа в тикет:');
+      if (!ctx.session) ctx.session = {};
+      ctx.session.waitingForTicketReply = true;
+    } else if (data.startsWith('ticket_view_')) {
+      const ticketId = parseInt(data.replace('ticket_view_', ''));
+      await ticketHandlers.handleTicketView(ctx, ticketId);
+    }
+    return;
+  }
+  
+  // Продолжить обработку других callback...
+});
+
 bot.on('text', async (ctx) => {
   // Если это команда, обрабатываем как обычно
   if (ctx.message.text.startsWith('/')) {
