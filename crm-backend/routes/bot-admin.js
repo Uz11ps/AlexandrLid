@@ -764,7 +764,8 @@ router.get('/export/:type/:format', async (req, res) => {
 
     if (format === 'excel' || format === 'xlsx') {
       const ExcelJS = await import('exceljs');
-      const workbook = new ExcelJS.Workbook();
+      const Workbook = ExcelJS.default || ExcelJS;
+      const workbook = new Workbook();
       const worksheet = workbook.addWorksheet('Пользователи');
 
       worksheet.columns = [
