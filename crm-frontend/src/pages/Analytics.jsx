@@ -43,7 +43,9 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer
+  ResponsiveContainer,
+  Area,
+  AreaChart
 } from 'recharts';
 
 function Analytics() {
