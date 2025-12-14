@@ -28,18 +28,18 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'crm-backend' });
 });
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/leads', leadsRoutes);
-app.use('/api/tasks', tasksRoutes);
-app.use('/api/products', productsRoutes);
-app.use('/api/deals', dealsRoutes);
-app.use('/api/students', studentsRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/funnel', funnelRoutes);
-app.use('/api/templates', templatesRoutes);
-app.use('/api/documents', documentsRoutes);
-app.use('/api/webforms', webformsRoutes);
+// Routes (без /api префикса, так как Nginx уже обрабатывает /api)
+app.use('/auth', authRoutes);
+app.use('/leads', leadsRoutes);
+app.use('/tasks', tasksRoutes);
+app.use('/products', productsRoutes);
+app.use('/deals', dealsRoutes);
+app.use('/students', studentsRoutes);
+app.use('/analytics', analyticsRoutes);
+app.use('/funnel', funnelRoutes);
+app.use('/templates', templatesRoutes);
+app.use('/documents', documentsRoutes);
+app.use('/webforms', webformsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
