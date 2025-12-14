@@ -7,8 +7,6 @@ import {
   TextField,
   Button,
   Box,
-  AppBar,
-  Toolbar,
   Grid,
   Select,
   MenuItem,
@@ -23,11 +21,13 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Alert
+  Alert,
+  LinearProgress
 } from '@mui/material';
 import { leadsAPI } from '../api/leads';
 import { tasksAPI } from '../api/tasks';
-import { useAuth } from '../contexts/AuthContext';
+import { funnelAPI } from '../api/funnel';
+import Layout from '../components/Layout';
 
 const FUNNEL_STAGES = [
   'Новый лид',
@@ -44,8 +44,8 @@ const FUNNEL_STAGES = [
 function LeadDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { logout } = useAuth();
   const [lead, setLead] = useState(null);
+  const [funnelStages, setFunnelStages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState('');
   const [messageText, setMessageText] = useState('');
@@ -61,8 +61,18 @@ function LeadDetail() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
+    loadFunnelStages();
     loadLead();
   }, [id]);
+
+  const loadFunnelStages = async () => {
+    try {
+      const response = await funnelAPI.getStages();
+      setFunnelStages(response.data || []);
+    } catch (error) {
+      console.error('Error loading funnel stages:', error);
+    }
+  };
 
   const loadLead = async () => {
     try {
@@ -140,34 +150,38 @@ function LeadDetail() {
     }
   };
 
+  const handleStageChange = async (newStage) => {
+    try {
+      await funnelAPI.updateLeadStage(id, newStage);
+      setLead({ ...lead, funnel_stage: newStage });
+      setSuccess('Этап воронки обновлен');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      console.error('Error updating stage:', error);
+    }
+  };
+
   if (loading) {
-    return <div>Загрузка...</div>;
+    return (
+      <Layout>
+        <LinearProgress />
+      </Layout>
+    );
   }
 
   if (!lead) {
-    return <div>Лид не найден</div>;
+    return (
+      <Layout>
+        <Container>
+          <Typography>Лид не найден</Typography>
+        </Container>
+      </Layout>
+    );
   }
 
   return (
-    <Box sx={{ flexGrow: 1 }}>
-      <AppBar position="static">
-        <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Карточка лида #{lead.id}
-          </Typography>
-          <Button color="inherit" onClick={() => navigate('/leads')}>
-            Назад к списку
-          </Button>
-          <Button color="inherit" onClick={() => navigate('/tasks')}>
-            Задачи
-          </Button>
-          <Button color="inherit" onClick={logout}>
-            Выйти
-          </Button>
-        </Toolbar>
-      </AppBar>
-
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+    <Layout>
+      <Container maxWidth="lg">
         {success && (
           <Alert severity="success" sx={{ mb: 2 }}>
             {success}
@@ -222,10 +236,10 @@ function LeadDetail() {
                     <Select
                       value={lead.funnel_stage || ''}
                       label="Этап воронки"
-                      onChange={(e) => handleUpdate('funnel_stage', e.target.value)}
+                      onChange={(e) => handleStageChange(e.target.value)}
                     >
-                      {FUNNEL_STAGES.map(stage => (
-                        <MenuItem key={stage} value={stage}>{stage}</MenuItem>
+                      {funnelStages.map(stage => (
+                        <MenuItem key={stage.id} value={stage.name}>{stage.name}</MenuItem>
                       ))}
                     </Select>
                   </FormControl>
@@ -414,7 +428,8 @@ function LeadDetail() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+      </Container>
+    </Layout>
   );
 }
 

@@ -7,6 +7,13 @@ import Dashboard from './pages/Dashboard';
 import LeadsList from './pages/LeadsList';
 import LeadDetail from './pages/LeadDetail';
 import Tasks from './pages/Tasks';
+import Students from './pages/Students';
+import Deals from './pages/Deals';
+import Products from './pages/Products';
+import Analytics from './pages/Analytics';
+import Templates from './pages/Templates';
+import Documents from './pages/Documents';
+import BotAdmin from './pages/BotAdmin';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 
@@ -75,7 +82,7 @@ function App() {
             path="/students"
             element={
               <PrivateRoute>
-                <Layout><div>Студенты (в разработке)</div></Layout>
+                <Students />
               </PrivateRoute>
             }
           />
@@ -83,7 +90,7 @@ function App() {
             path="/deals"
             element={
               <PrivateRoute>
-                <Layout><div>Сделки (в разработке)</div></Layout>
+                <Deals />
               </PrivateRoute>
             }
           />
@@ -91,7 +98,7 @@ function App() {
             path="/products"
             element={
               <PrivateRoute>
-                <Layout><div>Продукты (в разработке)</div></Layout>
+                <Products />
               </PrivateRoute>
             }
           />
@@ -99,7 +106,7 @@ function App() {
             path="/analytics"
             element={
               <PrivateRoute>
-                <Layout><div>Аналитика (в разработке)</div></Layout>
+                <Analytics />
               </PrivateRoute>
             }
           />
@@ -107,7 +114,7 @@ function App() {
             path="/templates"
             element={
               <PrivateRoute>
-                <Layout><div>Шаблоны (в разработке)</div></Layout>
+                <Templates />
               </PrivateRoute>
             }
           />
@@ -115,7 +122,15 @@ function App() {
             path="/documents"
             element={
               <PrivateRoute>
-                <Layout><div>Документы (в разработке)</div></Layout>
+                <Documents />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/bot-admin"
+            element={
+              <PrivateRoute>
+                <BotAdmin />
               </PrivateRoute>
             }
           />

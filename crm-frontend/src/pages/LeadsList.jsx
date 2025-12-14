@@ -16,14 +16,16 @@ import {
   FormControl,
   InputLabel,
   Box,
-  AppBar,
-  Toolbar,
   Typography,
   Button,
-  Chip
+  Chip,
+  Grid,
+  Card,
+  CardContent
 } from '@mui/material';
 import { leadsAPI } from '../api/leads';
-import { useAuth } from '../contexts/AuthContext';
+import { funnelAPI } from '../api/funnel';
+import Layout from '../components/Layout';
 
 const FUNNEL_STAGES = [
   'Новый лид',
@@ -38,18 +40,30 @@ const FUNNEL_STAGES = [
 ];
 
 function LeadsList() {
-  const { logout } = useAuth();
   const navigate = useNavigate();
   const [leads, setLeads] = useState([]);
+  const [funnelStages, setFunnelStages] = useState([]);
+  const [leadsByStage, setLeadsByStage] = useState({});
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
   const [total, setTotal] = useState(0);
   const [funnelFilter, setFunnelFilter] = useState('');
   const [search, setSearch] = useState('');
+  const [viewMode, setViewMode] = useState('table'); // 'table' or 'funnel'
 
   useEffect(() => {
+    loadFunnelStages();
     loadLeads();
   }, [page, rowsPerPage, funnelFilter, search]);
+
+  const loadFunnelStages = async () => {
+    try {
+      const response = await funnelAPI.getStages();
+      setFunnelStages(response.data || []);
+    } catch (error) {
+      console.error('Error loading funnel stages:', error);
+    }
+  };
 
   const loadLeads = async () => {
     try {
@@ -61,10 +75,30 @@ function LeadsList() {
       };
 
       const response = await leadsAPI.getAll(params);
-      setLeads(response.data.leads || []);
+      const leadsData = response.data.leads || [];
+      setLeads(leadsData);
       setTotal(response.data.pagination?.total || 0);
+      
+      // Группировка по этапам для воронки
+      const grouped = {};
+      leadsData.forEach(lead => {
+        const stage = lead.funnel_stage || 'Новый лид';
+        if (!grouped[stage]) grouped[stage] = [];
+        grouped[stage].push(lead);
+      });
+      setLeadsByStage(grouped);
     } catch (error) {
       console.error('Error loading leads:', error);
+    }
+  };
+
+  const handleStageChange = async (leadId, newStage) => {
+    try {
+      await funnelAPI.updateLeadStage(leadId, newStage);
+      loadLeads();
+    } catch (error) {
+      console.error('Error updating lead stage:', error);
+      alert('Ошибка при изменении этапа');
     }
   };
 
@@ -77,25 +111,26 @@ function LeadsList() {
   };
 
   return (
-    <Box sx={{ flexGrow: 1 }}>
-      <AppBar position="static">
-        <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Лиды
-          </Typography>
-          <Button color="inherit" onClick={() => navigate('/')}>
-            Dashboard
-          </Button>
-          <Button color="inherit" onClick={() => navigate('/tasks')}>
-            Задачи
-          </Button>
-          <Button color="inherit" onClick={logout}>
-            Выйти
-          </Button>
-        </Toolbar>
-      </AppBar>
+    <Layout>
+      <Container maxWidth="xl">
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h4">Лиды</Typography>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant={viewMode === 'table' ? 'contained' : 'outlined'}
+              onClick={() => setViewMode('table')}
+            >
+              Таблица
+            </Button>
+            <Button
+              variant={viewMode === 'funnel' ? 'contained' : 'outlined'}
+              onClick={() => setViewMode('funnel')}
+            >
+              Воронка
+            </Button>
+          </Box>
+        </Box>
 
-      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
         <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
           <TextField
             label="Поиск"
@@ -112,12 +147,53 @@ function LeadsList() {
               onChange={(e) => setFunnelFilter(e.target.value)}
             >
               <MenuItem value="">Все</MenuItem>
-              {FUNNEL_STAGES.map(stage => (
-                <MenuItem key={stage} value={stage}>{stage}</MenuItem>
+              {funnelStages.map(stage => (
+                <MenuItem key={stage.id} value={stage.name}>{stage.name}</MenuItem>
               ))}
             </Select>
           </FormControl>
         </Box>
+
+        {viewMode === 'funnel' ? (
+          <Grid container spacing={2}>
+            {funnelStages.map(stage => (
+              <Grid item xs={12} md={6} lg={4} key={stage.id}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      {stage.name} ({leadsByStage[stage.name]?.length || 0})
+                    </Typography>
+                    <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+                      {(leadsByStage[stage.name] || []).map(lead => (
+                        <Card
+                          key={lead.id}
+                          sx={{ mb: 1, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                          onClick={() => navigate(`/leads/${lead.id}`)}
+                        >
+                          <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                            <Typography variant="body2" fontWeight="bold">
+                              {lead.fio || lead.telegram_username || `ID: ${lead.id}`}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {lead.phone || lead.email || '-'}
+                            </Typography>
+                            <Box sx={{ mt: 1 }}>
+                              <Chip
+                                label={lead.priority}
+                                color={getPriorityColor(lead.priority)}
+                                size="small"
+                              />
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        ) : (
 
         <TableContainer component={Paper}>
           <Table>
@@ -177,8 +253,9 @@ function LeadsList() {
           }}
           rowsPerPageOptions={[25, 50, 100]}
         />
+        )}
       </Container>
-    </Box>
+    </Layout>
   );
 }
 

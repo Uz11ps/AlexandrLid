@@ -5,8 +5,6 @@ import {
   Paper,
   Typography,
   Box,
-  AppBar,
-  Toolbar,
   Button,
   Tabs,
   Tab,
@@ -14,19 +12,39 @@ import {
   ListItem,
   ListItemText,
   Chip,
-  Grid
+  Grid,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel
 } from '@mui/material';
+import { Add as AddIcon } from '@mui/icons-material';
 import { tasksAPI } from '../api/tasks';
-import { useAuth } from '../contexts/AuthContext';
+import Layout from '../components/Layout';
 
 function Tasks() {
-  const { logout } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState(0);
   const [tasks, setTasks] = useState({
     today: [],
     tomorrow: [],
     upcoming: []
+  });
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newTask, setNewTask] = useState({
+    title: '',
+    description: '',
+    task_type: 'reminder',
+    due_date: '',
+    due_time: '',
+    priority: 'normal',
+    lead_id: ''
   });
 
   useEffect(() => {
@@ -115,26 +133,29 @@ function Tasks() {
     );
   };
 
-  return (
-    <Box sx={{ flexGrow: 1 }}>
-      <AppBar position="static">
-        <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Задачи и напоминания
-          </Typography>
-          <Button color="inherit" onClick={() => navigate('/')}>
-            Dashboard
-          </Button>
-          <Button color="inherit" onClick={() => navigate('/leads')}>
-            Лиды
-          </Button>
-          <Button color="inherit" onClick={logout}>
-            Выйти
-          </Button>
-        </Toolbar>
-      </AppBar>
+  const handleCreateTask = async () => {
+    try {
+      await tasksAPI.create(newTask);
+      setCreateDialogOpen(false);
+      setNewTask({
+        title: '',
+        description: '',
+        task_type: 'reminder',
+        due_date: '',
+        due_time: '',
+        priority: 'normal',
+        lead_id: ''
+      });
+      loadTasks();
+    } catch (error) {
+      console.error('Error creating task:', error);
+      alert('Ошибка при создании задачи');
+    }
+  };
 
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+  return (
+    <Layout>
+      <Container maxWidth="lg">
         <Paper sx={{ p: 3 }}>
           <Tabs value={tab} onChange={(e, newValue) => setTab(newValue)}>
             <Tab label={`Сегодня (${tasks.today.length})`} />
@@ -148,8 +169,80 @@ function Tasks() {
             {tab === 2 && renderTaskList(tasks.upcoming)}
           </Box>
         </Paper>
+
+        {/* Dialog создания задачи */}
+        <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Создать задачу</DialogTitle>
+          <DialogContent>
+            <TextField
+              fullWidth
+              label="Название"
+              value={newTask.title}
+              onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+              sx={{ mt: 2 }}
+            />
+            <TextField
+              fullWidth
+              label="Описание"
+              multiline
+              rows={3}
+              value={newTask.description}
+              onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+              sx={{ mt: 2 }}
+            />
+            <FormControl fullWidth sx={{ mt: 2 }}>
+              <InputLabel>Тип задачи</InputLabel>
+              <Select
+                value={newTask.task_type}
+                onChange={(e) => setNewTask({ ...newTask, task_type: e.target.value })}
+              >
+                <MenuItem value="call">Звонок</MenuItem>
+                <MenuItem value="send_materials">Отправить материалы</MenuItem>
+                <MenuItem value="presentation">Презентация</MenuItem>
+                <MenuItem value="reminder">Напоминание</MenuItem>
+                <MenuItem value="custom">Кастомная</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              fullWidth
+              label="Дата выполнения"
+              type="date"
+              value={newTask.due_date}
+              onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+              sx={{ mt: 2 }}
+            />
+            <TextField
+              fullWidth
+              label="Время"
+              type="time"
+              value={newTask.due_time}
+              onChange={(e) => setNewTask({ ...newTask, due_time: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+              sx={{ mt: 2 }}
+            />
+            <FormControl fullWidth sx={{ mt: 2 }}>
+              <InputLabel>Приоритет</InputLabel>
+              <Select
+                value={newTask.priority}
+                onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
+              >
+                <MenuItem value="low">Низкий</MenuItem>
+                <MenuItem value="normal">Средний</MenuItem>
+                <MenuItem value="high">Высокий</MenuItem>
+                <MenuItem value="urgent">Срочный</MenuItem>
+              </Select>
+            </FormControl>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setCreateDialogOpen(false)}>Отмена</Button>
+            <Button onClick={handleCreateTask} variant="contained">
+              Создать
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Container>
-    </Box>
+    </Layout>
   );
 }
 

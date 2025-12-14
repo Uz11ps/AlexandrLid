@@ -41,6 +41,7 @@ const menuItems = [
   { text: 'Аналитика', icon: <AnalyticsIcon />, path: '/analytics' },
   { text: 'Шаблоны', icon: <MessageIcon />, path: '/templates' },
   { text: 'Документы', icon: <DocumentsIcon />, path: '/documents' },
+  { text: 'Админка бота', icon: <SettingsIcon />, path: '/bot-admin' },
 ];
 
 function Layout({ children }) {

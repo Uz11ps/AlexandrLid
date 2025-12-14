@@ -12,6 +12,7 @@ import funnelRoutes from './routes/funnel.js';
 import templatesRoutes from './routes/templates.js';
 import documentsRoutes from './routes/documents.js';
 import webformsRoutes from './routes/webforms.js';
+import botAdminRoutes from './routes/bot-admin.js';
 
 dotenv.config();
 
@@ -40,6 +41,7 @@ app.use('/funnel', funnelRoutes);
 app.use('/templates', templatesRoutes);
 app.use('/documents', documentsRoutes);
 app.use('/webforms', webformsRoutes);
+app.use('/bot-admin', botAdminRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
