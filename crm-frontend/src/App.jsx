@@ -14,6 +14,8 @@ import Analytics from './pages/Analytics';
 import Templates from './pages/Templates';
 import Documents from './pages/Documents';
 import BotAdmin from './pages/BotAdmin';
+import Chat from './pages/Chat';
+import Permissions from './pages/Permissions';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 
@@ -131,6 +133,22 @@ function App() {
             element={
               <PrivateRoute>
                 <Layout><BotAdmin /></Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/chat"
+            element={
+              <PrivateRoute>
+                <Layout><Chat /></Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/permissions"
+            element={
+              <PrivateRoute>
+                <Layout><Permissions /></Layout>
               </PrivateRoute>
             }
           />

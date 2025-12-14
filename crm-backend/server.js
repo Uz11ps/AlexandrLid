@@ -13,6 +13,9 @@ import templatesRoutes from './routes/templates.js';
 import documentsRoutes from './routes/documents.js';
 import webformsRoutes from './routes/webforms.js';
 import botAdminRoutes from './routes/bot-admin.js';
+import ticketsRoutes from './routes/tickets.js';
+import permissionsRoutes from './routes/permissions.js';
+import managersRoutes from './routes/managers.js';
 
 dotenv.config();
 
@@ -42,6 +45,9 @@ app.use('/templates', templatesRoutes);
 app.use('/documents', documentsRoutes);
 app.use('/webforms', webformsRoutes);
 app.use('/bot-admin', botAdminRoutes);
+app.use('/tickets', ticketsRoutes);
+app.use('/permissions', permissionsRoutes);
+app.use('/managers', managersRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

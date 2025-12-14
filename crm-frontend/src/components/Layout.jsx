@@ -25,7 +25,9 @@ import {
   Task as TaskIcon,
   Message as MessageIcon,
   Description as DocumentsIcon,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  Chat as ChatIcon,
+  Security as SecurityIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -41,7 +43,9 @@ const menuItems = [
   { text: 'Аналитика', icon: <AnalyticsIcon />, path: '/analytics' },
   { text: 'Шаблоны', icon: <MessageIcon />, path: '/templates' },
   { text: 'Документы', icon: <DocumentsIcon />, path: '/documents' },
+  { text: 'Чат', icon: <ChatIcon />, path: '/chat' },
   { text: 'Админка бота', icon: <SettingsIcon />, path: '/bot-admin' },
+  { text: 'Права доступа', icon: <SecurityIcon />, path: '/permissions' },
 ];
 
 function Layout({ children }) {

@@ -45,6 +45,17 @@ bot.catch((err, ctx) => {
 bot.command('start', handleStart);
 bot.start(handleStart); // Также регистрируем через bot.start для совместимости
 
+// Команды для тикетов
+bot.command('ticket', async (ctx) => {
+  const ticketHandlers = (await import('./handlers/tickets.js')).default;
+  await ticketHandlers.handleTicketCommand(ctx);
+});
+
+bot.command('ticket_new', async (ctx) => {
+  const ticketHandlers = (await import('./handlers/tickets.js')).default;
+  await ticketHandlers.handleTicketNew(ctx);
+});
+
 // Админ-команды
 bot.command('admin', isAdmin, adminHandlers.handleAdmin);
 bot.command('stats', isAdmin, adminHandlers.handleStats);
