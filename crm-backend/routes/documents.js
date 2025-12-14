@@ -212,7 +212,7 @@ router.get('/:id', async (req, res) => {
 router.get('/:id/download', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('SELECT file_path, file_name, mime_type FROM documents WHERE id = $1', [id]);
+    const result = await pool.query('SELECT file_path, file_name, mime_type, document_type FROM documents WHERE id = $1', [id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Document not found' });
@@ -220,16 +220,35 @@ router.get('/:id/download', async (req, res) => {
 
     const document = result.rows[0];
 
-    if (!document.file_path) {
-      return res.status(404).json({ error: 'File not found' });
+    // Если файл есть, отдаем его
+    if (document.file_path) {
+      // Если это URL или путь к файлу на сервере
+      if (document.file_path.startsWith('http://') || document.file_path.startsWith('https://')) {
+        return res.redirect(document.file_path);
+      } else {
+        // Если файл хранится локально, нужно отдать его содержимое
+        // Пока просто возвращаем информацию о файле
+        return res.json({
+          file_path: document.file_path,
+          file_name: document.file_name,
+          mime_type: document.mime_type,
+          message: 'File path available. Use file_path to access the file.'
+        });
+      }
     }
 
-    // Если файл хранится на сервере, отдаем его
-    // В данном случае просто возвращаем путь, фронтенд может открыть его напрямую
-    res.redirect(document.file_path);
+    // Если файла нет, возвращаем информацию о документе
+    // В будущем здесь можно генерировать файл на лету из шаблона
+    return res.status(404).json({ 
+      error: 'File not uploaded yet',
+      document_id: id,
+      document_type: document.document_type,
+      file_name: document.file_name,
+      message: 'Document exists but file has not been uploaded. Please upload the file first.'
+    });
   } catch (error) {
     console.error('Error downloading document:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 

@@ -90,27 +90,42 @@ function Documents() {
     setViewDialogOpen(true);
   };
 
-  const handleDownload = async (document) => {
+  const handleDownload = async (doc) => {
     try {
-      if (document.file_path) {
-        // Если есть прямой путь к файлу, открываем его
-        window.open(document.file_path, '_blank');
-      } else {
-        // Пытаемся скачать через API
+      // Если есть прямой путь к файлу (URL), открываем его
+      if (doc.file_path && (doc.file_path.startsWith('http://') || doc.file_path.startsWith('https://'))) {
+        window.open(doc.file_path, '_blank');
+        return;
+      }
+
+      // Если есть локальный путь, пытаемся скачать через API
+      if (doc.file_path) {
         try {
-          const response = await documentsAPI.download(document.id);
-          const url = window.URL.createObjectURL(new Blob([response.data]));
-          const link = document.createElement('a');
-          link.href = url;
-          link.setAttribute('download', document.file_name || `document_${document.id}.pdf`);
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          window.URL.revokeObjectURL(url);
+          const response = await documentsAPI.download(doc.id);
+          if (response.data instanceof Blob) {
+            const url = window.URL.createObjectURL(response.data);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', doc.file_name || `document_${doc.id}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+          } else if (response.data.file_path) {
+            // Если API вернул путь к файлу
+            window.open(response.data.file_path, '_blank');
+          }
         } catch (error) {
-          // Если API не работает, пробуем прямой путь
-          window.open(`/api/documents/${document.id}/download`, '_blank');
+          console.error('Download error:', error);
+          if (error.response?.status === 404) {
+            alert('Файл еще не загружен. Пожалуйста, загрузите файл для этого документа.');
+          } else {
+            alert('Ошибка при скачивании документа: ' + (error.response?.data?.error || error.message));
+          }
         }
+      } else {
+        // Если файла нет, показываем сообщение
+        alert('Файл для этого документа еще не загружен. Пожалуйста, загрузите файл.');
       }
     } catch (error) {
       console.error('Error downloading document:', error);
