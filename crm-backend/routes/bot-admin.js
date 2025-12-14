@@ -141,14 +141,18 @@ router.post('/broadcasts', async (req, res) => {
   try {
     const { title, message_text, buttons, scheduled_at, target_audience } = req.body;
 
+    if (!title || !message_text) {
+      return res.status(400).json({ error: 'Title and message_text are required' });
+    }
+
     const result = await pool.query(
-      `INSERT INTO broadcasts (title, message_text, buttons, scheduled_at, target_audience, status)
+      `INSERT INTO broadcasts (title, message_text, buttons, scheduled_at, segment, status)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
       [
         title,
         message_text,
-        JSON.stringify(buttons || []),
+        buttons ? JSON.stringify(buttons) : null,
         scheduled_at || null,
         target_audience || 'all',
         scheduled_at ? 'scheduled' : 'draft'
@@ -158,7 +162,7 @@ router.post('/broadcasts', async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating broadcast:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -181,14 +185,14 @@ router.put('/broadcasts/:id', async (req, res) => {
     }
     if (buttons !== undefined) {
       updates.push(`buttons = $${paramIndex++}`);
-      values.push(JSON.stringify(buttons));
+      values.push(buttons ? JSON.stringify(buttons) : null);
     }
     if (scheduled_at !== undefined) {
       updates.push(`scheduled_at = $${paramIndex++}`);
-      values.push(scheduled_at);
+      values.push(scheduled_at || null);
     }
     if (target_audience !== undefined) {
-      updates.push(`target_audience = $${paramIndex++}`);
+      updates.push(`segment = $${paramIndex++}`);
       values.push(target_audience);
     }
     if (status !== undefined) {
@@ -213,7 +217,7 @@ router.put('/broadcasts/:id', async (req, res) => {
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Error updating broadcast:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -273,17 +277,21 @@ router.post('/autofunnels', async (req, res) => {
   try {
     const { name, trigger_event, delay_hours, message_text, is_active } = req.body;
 
+    if (!name || !trigger_event || !message_text) {
+      return res.status(400).json({ error: 'Name, trigger_event, and message_text are required' });
+    }
+
     const result = await pool.query(
       `INSERT INTO autofunnels (name, trigger_event, delay_hours, message_text, is_active)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [name, trigger_event, delay_hours, message_text, is_active !== false]
+      [name, trigger_event, delay_hours || 0, message_text, is_active !== false]
     );
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating autofunnel:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -374,6 +382,20 @@ router.post('/lead-magnets', async (req, res) => {
   try {
     const { title, type, text_content, link_url, file_id, file_type } = req.body;
 
+    if (!title || !type) {
+      return res.status(400).json({ error: 'Title and type are required' });
+    }
+
+    if (type === 'text' && !text_content) {
+      return res.status(400).json({ error: 'text_content is required for text type' });
+    }
+    if (type === 'link' && !link_url) {
+      return res.status(400).json({ error: 'link_url is required for link type' });
+    }
+    if (type === 'file' && (!file_id || !file_type)) {
+      return res.status(400).json({ error: 'file_id and file_type are required for file type' });
+    }
+
     const result = await pool.query(
       `INSERT INTO lead_magnets (title, type, text_content, link_url, file_id, file_type)
        VALUES ($1, $2, $3, $4, $5, $6)
@@ -384,7 +406,7 @@ router.post('/lead-magnets', async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating lead magnet:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -499,6 +521,10 @@ router.post('/giveaways', async (req, res) => {
   try {
     const { title, description, prize_description, end_date, status, start_date } = req.body;
 
+    if (!title || !end_date) {
+      return res.status(400).json({ error: 'Title and end_date are required' });
+    }
+
     const result = await pool.query(
       `INSERT INTO giveaways (title, description, prize_description, start_date, end_date, status)
        VALUES ($1, $2, $3, $4, $5, $6)
@@ -516,7 +542,7 @@ router.post('/giveaways', async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating giveaway:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -765,6 +791,8 @@ router.post('/giveaways/:id/winners', async (req, res) => {
        ORDER BY gp.referral_count DESC`,
       [id, giveaway.min_referrals || 0]
     );
+
+    const eligibleParticipants = participantsResult.rows;
 
     if (eligibleParticipants.length === 0) {
       return res.status(400).json({ error: 'No eligible participants' });
