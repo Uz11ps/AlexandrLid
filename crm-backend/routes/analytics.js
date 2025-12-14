@@ -44,7 +44,7 @@ router.get('/funnel', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching funnel analytics:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -54,18 +54,22 @@ router.get('/financial', async (req, res) => {
     const { period = 'month' } = req.query; // day, week, month, year
 
     let dateFilter = '';
+    let dateGroupBy = '';
     switch (period) {
       case 'day':
         dateFilter = "WHERE payment_date = CURRENT_DATE";
         break;
       case 'week':
         dateFilter = "WHERE payment_date >= CURRENT_DATE - INTERVAL '7 days'";
+        dateGroupBy = "GROUP BY DATE(payment_date)";
         break;
       case 'month':
         dateFilter = "WHERE payment_date >= DATE_TRUNC('month', CURRENT_DATE)";
+        dateGroupBy = "GROUP BY DATE(payment_date)";
         break;
       case 'year':
         dateFilter = "WHERE payment_date >= DATE_TRUNC('year', CURRENT_DATE)";
+        dateGroupBy = "GROUP BY DATE_TRUNC('month', payment_date)";
         break;
     }
 
@@ -83,7 +87,7 @@ router.get('/financial', async (req, res) => {
     // Revenue by source
     const sourceResult = await pool.query(
       `SELECT 
-        l.source,
+        COALESCE(l.source, 'Не указан') as source,
         COALESCE(SUM(p.amount), 0) as revenue,
         COUNT(DISTINCT p.student_id) as students_count
       FROM payments p
@@ -103,14 +107,31 @@ router.get('/financial', async (req, res) => {
        WHERE s.payment_status IN ('paid', 'partial')`
     );
 
+    // Revenue trend (daily/monthly)
+    let trendResult = { rows: [] };
+    if (dateGroupBy) {
+      trendResult = await pool.query(
+        `SELECT 
+          DATE(payment_date) as date,
+          COALESCE(SUM(amount), 0) as revenue,
+          COUNT(*) as transactions
+        FROM payments
+        ${dateFilter}
+        WHERE status = 'completed'
+        ${dateGroupBy}
+        ORDER BY date ASC`
+      );
+    }
+
     res.json({
       revenue: revenueResult.rows[0],
       by_source: sourceResult.rows,
-      active_students: parseInt(studentsResult.rows[0].active_students)
+      active_students: parseInt(studentsResult.rows[0]?.active_students || 0),
+      trend: trendResult.rows || []
     });
   } catch (error) {
     console.error('Error fetching financial analytics:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -138,7 +159,7 @@ router.get('/managers', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching manager performance:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -162,7 +183,7 @@ router.get('/sources', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching source analytics:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -206,7 +227,7 @@ router.get('/dashboard', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching dashboard:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
