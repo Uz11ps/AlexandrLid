@@ -53,6 +53,7 @@ function BotAdmin() {
   const [leadMagnets, setLeadMagnets] = useState([]);
   const [giveaways, setGiveaways] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState('');
   const [formData, setFormData] = useState({});
@@ -99,18 +100,62 @@ function BotAdmin() {
   const [editLeadMagnet, setEditLeadMagnet] = useState(null);
 
   useEffect(() => {
-    loadData();
+    let mounted = true;
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        if (tab === 0) {
+          const response = await botAdminAPI.getStats();
+          if (mounted) setStats(response.data);
+        } else if (tab === 1) {
+          const response = await botAdminAPI.getAllUsers();
+          if (mounted) setUsers(response.data?.users || []);
+        } else if (tab === 2) {
+          const response = await botAdminAPI.getBroadcasts();
+          if (mounted) setBroadcasts(response.data || []);
+        } else if (tab === 3) {
+          const response = await botAdminAPI.getAutofunnels();
+          if (mounted) setAutofunnels(response.data || []);
+        } else if (tab === 4) {
+          const response = await botAdminAPI.getLeadMagnets();
+          if (mounted) setLeadMagnets(response.data?.lead_magnets || []);
+        } else if (tab === 5) {
+          const response = await botAdminAPI.getGiveaways();
+          if (mounted) setGiveaways(response.data || []);
+        } else if (tab === 6) {
+          // Экспорт - ничего не загружаем
+        } else if (tab === 7) {
+          const response = await botAdminAPI.getSettings();
+          if (mounted) setSettings(response.data || { channel_id: '', channel_username: '' });
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+        if (mounted) {
+          setError(error.message || 'Ошибка при загрузке данных');
+        }
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    
+    fetchData();
+    
+    return () => {
+      mounted = false;
+    };
   }, [tab]);
 
   const loadData = async () => {
     try {
       setLoading(true);
+      setError(null);
       if (tab === 0) {
         const response = await botAdminAPI.getStats();
         setStats(response.data);
       } else if (tab === 1) {
         const response = await botAdminAPI.getAllUsers();
-        setUsers(response.data.users || []);
+        setUsers(response.data?.users || []);
       } else if (tab === 2) {
         const response = await botAdminAPI.getBroadcasts();
         setBroadcasts(response.data || []);
@@ -119,7 +164,7 @@ function BotAdmin() {
         setAutofunnels(response.data || []);
       } else if (tab === 4) {
         const response = await botAdminAPI.getLeadMagnets();
-        setLeadMagnets(response.data.lead_magnets || []);
+        setLeadMagnets(response.data?.lead_magnets || []);
       } else if (tab === 5) {
         const response = await botAdminAPI.getGiveaways();
         setGiveaways(response.data || []);
@@ -131,6 +176,7 @@ function BotAdmin() {
       }
     } catch (error) {
       console.error('Error loading data:', error);
+      setError(error.message || 'Ошибка при загрузке данных');
     } finally {
       setLoading(false);
     }
