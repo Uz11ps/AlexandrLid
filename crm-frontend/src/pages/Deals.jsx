@@ -118,11 +118,7 @@ function Deals() {
   };
 
   if (loading) {
-    return (
-      <Layout>
-        <LinearProgress />
-      </Layout>
-    );
+    return <LinearProgress />;
   }
 
   return (
