@@ -267,7 +267,68 @@ function LeadDetail() {
 
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>
-                Комментарии
+                История переписки
+              </Typography>
+              <Box sx={{ maxHeight: 400, overflowY: 'auto', mb: 2 }}>
+                {lead.interactions && lead.interactions.length > 0 ? (
+                  <List>
+                    {lead.interactions
+                      .filter(interaction => interaction.interaction_type === 'telegram_message')
+                      .map((interaction) => {
+                        const interactionData = typeof interaction.interaction_data === 'string' 
+                          ? JSON.parse(interaction.interaction_data) 
+                          : interaction.interaction_data;
+                        return (
+                          <ListItem 
+                            key={interaction.id}
+                            sx={{
+                              mb: 1,
+                              bgcolor: interaction.manager_id ? 'action.selected' : 'background.paper',
+                              borderRadius: 1,
+                              border: interaction.manager_id ? '1px solid' : '1px solid',
+                              borderColor: interaction.manager_id ? 'primary.main' : 'divider'
+                            }}
+                          >
+                            <ListItemText
+                              primary={
+                                <Box>
+                                  <Typography variant="body1" component="span">
+                                    {interactionData?.message_text || interaction.notes || 'Сообщение'}
+                                  </Typography>
+                                  {interactionData?.file_id && (
+                                    <Chip 
+                                      label={interactionData.message_type || 'Файл'} 
+                                      size="small" 
+                                      sx={{ ml: 1 }}
+                                    />
+                                  )}
+                                </Box>
+                              }
+                              secondary={
+                                <Box sx={{ mt: 0.5 }}>
+                                  <Typography variant="caption" color="textSecondary">
+                                    {interaction.manager_name ? `👤 ${interaction.manager_name}` : '👤 Пользователь'}
+                                    {' • '}
+                                    {new Date(interaction.created_at).toLocaleString('ru-RU')}
+                                  </Typography>
+                                </Box>
+                              }
+                            />
+                          </ListItem>
+                        );
+                      })}
+                  </List>
+                ) : (
+                  <Typography color="textSecondary" sx={{ p: 2, textAlign: 'center' }}>
+                    История переписки пуста
+                  </Typography>
+                )}
+              </Box>
+            </Paper>
+
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Комментарии менеджеров
               </Typography>
               <Box sx={{ mb: 2 }}>
                 <TextField

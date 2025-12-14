@@ -100,6 +100,14 @@ bot.command('user_ban', isAdmin, async (ctx) => {
   await userHandlers.handleUserBan(ctx);
 });
 
+// Команда просмотра истории переписки с лидом
+bot.command('lead_history', isAdmin, async (ctx) => {
+  const leadHistoryHandlers = (await import('./handlers/admin/leadHistory.js')).default;
+  const args = ctx.message.text.split(' ');
+  const userId = args[1] ? parseInt(args[1]) : null;
+  await leadHistoryHandlers.handleLeadHistory(ctx, userId);
+});
+
 bot.command('user_unban', isAdmin, async (ctx) => {
   const userHandlers = (await import('./handlers/admin/users.js')).default;
   await userHandlers.handleUserUnban(ctx);
@@ -571,6 +579,19 @@ bot.on('callback_query', async (ctx) => {
 
 // Обработка текстовых сообщений (для интерактивных действий)
 bot.on('text', async (ctx) => {
+  const userId = ctx.from.id;
+  const messageText = ctx.message.text;
+
+  // Сохраняем сообщение в историю взаимодействий с лидом (если это не команда)
+  if (!messageText.startsWith('/')) {
+    try {
+      const leadMessages = (await import('./utils/leadMessages.js')).default;
+      await leadMessages.saveLeadMessage(userId, messageText, 'text');
+    } catch (error) {
+      console.error('Ошибка при сохранении сообщения в историю:', error);
+    }
+  }
+
   // Обработка тикетов (приоритет)
   if (ctx.session && (ctx.session.waitingForTicketSubject || ctx.session.waitingForTicketReply || ctx.session.activeTicketId)) {
     const ticketHandlers = (await import('./handlers/tickets.js')).default;
@@ -592,7 +613,6 @@ bot.on('text', async (ctx) => {
   // Проверка на наличие активного тикета (если пользователь просто пишет сообщение)
   try {
     const ticketHandlers = (await import('./handlers/tickets.js')).default;
-    const userId = ctx.from.id;
     
     // Проверить, есть ли открытый тикет
     const { pool } = await import('./db.js');
@@ -603,7 +623,7 @@ bot.on('text', async (ctx) => {
       [userId]
     );
     
-    if (ticketResult.rows.length > 0 && !ctx.message.text.startsWith('/')) {
+    if (ticketResult.rows.length > 0 && !messageText.startsWith('/')) {
       // Если есть открытый тикет и это не команда, обработать как сообщение в тикет
       if (!ctx.session) ctx.session = {};
       ctx.session.activeTicketId = ticketResult.rows[0].id;
