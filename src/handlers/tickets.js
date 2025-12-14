@@ -1,5 +1,106 @@
 import { pool } from '../db.js';
 
+// Меню тикетов - показать список тикетов или создать новый
+export async function handleTicketMenu(ctx) {
+  try {
+    const userId = ctx.from.id;
+    
+    // Получить все тикеты пользователя
+    const ticketsResult = await pool.query(
+      `SELECT * FROM tickets 
+       WHERE user_id = $1 
+       ORDER BY created_at DESC 
+       LIMIT 10`,
+      [userId]
+    );
+
+    const tickets = ticketsResult.rows;
+    
+    // Получить открытые тикеты
+    const openTicketsResult = await pool.query(
+      `SELECT * FROM tickets 
+       WHERE user_id = $1 AND status IN ('open', 'in_progress')
+       ORDER BY created_at DESC`,
+      [userId]
+    );
+
+    const openTickets = openTicketsResult.rows;
+
+    let message = '💬 МОИ ТИКЕТЫ\n\n';
+    
+    if (openTickets.length > 0) {
+      message += `📋 Открытые тикеты (${openTickets.length}):\n\n`;
+      openTickets.forEach((ticket, index) => {
+        const statusEmoji = ticket.status === 'open' ? '🟢' : '🟡';
+        const statusText = ticket.status === 'open' ? 'Открыт' : 'В работе';
+        message += `${statusEmoji} Тикет #${ticket.id}\n`;
+        message += `   Тема: ${ticket.subject || 'Без темы'}\n`;
+        message += `   Статус: ${statusText}\n\n`;
+      });
+    } else {
+      message += '📭 У вас нет открытых тикетов.\n\n';
+    }
+
+    if (tickets.length > 0 && tickets.length > openTickets.length) {
+      message += `📚 Всего тикетов: ${tickets.length}\n\n`;
+    }
+
+    message += '💡 Выберите действие:';
+
+    // Создаем кнопки
+    const buttons = [];
+
+    // Кнопки для открытых тикетов
+    if (openTickets.length > 0) {
+      openTickets.slice(0, 3).forEach(ticket => {
+        buttons.push([
+          { 
+            text: `📋 Тикет #${ticket.id} - ${ticket.subject?.substring(0, 20) || 'Без темы'}${ticket.subject?.length > 20 ? '...' : ''}`, 
+            callback_data: `ticket_view_${ticket.id}` 
+          }
+        ]);
+      });
+    }
+
+    // Кнопка создания нового тикета
+    buttons.push([
+      { text: '➕ Создать новый тикет', callback_data: 'ticket_new' }
+    ]);
+
+    // Кнопка "Ответить в тикет" (если есть открытый тикет)
+    if (openTickets.length > 0) {
+      buttons.push([
+        { text: '💬 Ответить в тикет', callback_data: 'ticket_reply' }
+      ]);
+    }
+
+    // Кнопка назад
+    buttons.push([
+      { text: '◀️ Назад в меню', callback_data: 'menu_main' }
+    ]);
+
+    await ctx.answerCbQuery();
+    
+    try {
+      await ctx.editMessageText(message, {
+        reply_markup: {
+          inline_keyboard: buttons
+        }
+      });
+    } catch (error) {
+      // Если не удалось отредактировать сообщение, отправляем новое
+      await ctx.reply(message, {
+        reply_markup: {
+          inline_keyboard: buttons
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Ошибка при открытии меню тикетов:', error);
+    await ctx.reply('❌ Произошла ошибка. Попробуйте позже.');
+  }
+}
+
 // Команда /ticket - создать тикет
 export async function handleTicketCommand(ctx) {
   try {
@@ -341,6 +442,7 @@ export async function sendMessageToUser(userId, messageText) {
 }
 
 export default {
+  handleTicketMenu,
   handleTicketCommand,
   handleTicketNew,
   handleTicketSubject,

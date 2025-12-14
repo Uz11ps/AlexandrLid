@@ -11,6 +11,9 @@ export function getMainMenu() {
           { text: '🎁 Розыгрыши', callback_data: 'menu_giveaways' }
         ],
         [
+          { text: '💬 Тикеты', callback_data: 'menu_tickets' }
+        ],
+        [
           { text: '📋 Помощь', callback_data: 'menu_help' }
         ]
       ]
