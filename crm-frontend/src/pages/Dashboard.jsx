@@ -3,84 +3,95 @@ import { useNavigate } from 'react-router-dom';
 import {
   Container,
   Grid,
-  Paper,
   Typography,
-  Box,
-  AppBar,
-  Toolbar,
-  Button,
   Card,
-  CardContent
+  CardContent,
+  Button,
+  Box,
+  LinearProgress,
+  Alert
 } from '@mui/material';
-import { useAuth } from '../contexts/AuthContext';
-import { leadsAPI } from '../api/leads';
-import { tasksAPI } from '../api/tasks';
+import {
+  TrendingUp as TrendingUpIcon,
+  People as PeopleIcon,
+  School as SchoolIcon,
+  AttachMoney as MoneyIcon,
+  Assignment as TaskIcon
+} from '@mui/icons-material';
+import Layout from '../components/Layout';
+import { analyticsAPI } from '../api/analytics';
 
 function Dashboard() {
-  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState({
-    totalLeads: 0,
-    todayTasks: 0,
-    newLeads: 0
+    leads: 0,
+    students: 0,
+    revenue: 0,
+    pending_tasks: 0,
+    recent_conversions: 0
   });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    loadStats();
+    loadDashboard();
   }, []);
 
-  const loadStats = async () => {
+  const loadDashboard = async () => {
     try {
-      const [leadsRes, tasksRes] = await Promise.all([
-        leadsAPI.getAll({ limit: 1 }),
-        tasksAPI.getAll({ date_filter: 'today', status: 'new' })
-      ]);
-
-      setStats({
-        totalLeads: leadsRes.data.pagination?.total || 0,
-        todayTasks: tasksRes.data.tasks?.length || 0,
-        newLeads: leadsRes.data.leads?.filter(l => l.status === 'Новый лид').length || 0
-      });
-    } catch (error) {
-      console.error('Error loading stats:', error);
+      setLoading(true);
+      const response = await analyticsAPI.getDashboard();
+      setStats(response.data);
+      setError(null);
+    } catch (err) {
+      console.error('Error loading dashboard:', err);
+      setError('Ошибка загрузки данных');
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <Box sx={{ flexGrow: 1 }}>
-      <AppBar position="static">
-        <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            CRM Dashboard
-          </Typography>
-          <Typography variant="body2" sx={{ mr: 2 }}>
-            {user?.name} ({user?.email})
-          </Typography>
-          <Button color="inherit" onClick={logout}>
-            Выйти
-          </Button>
-        </Toolbar>
-      </AppBar>
+  if (loading) {
+    return (
+      <Layout>
+        <LinearProgress />
+      </Layout>
+    );
+  }
 
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Панель управления
+  return (
+    <Layout>
+      <Container maxWidth="lg">
+        <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 3 }}>
+          Дашборд
         </Typography>
 
-        <Grid container spacing={3} sx={{ mt: 2 }}>
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
+
+        <Grid container spacing={3}>
           <Grid item xs={12} sm={6} md={4}>
-            <Card>
+            <Card sx={{ height: '100%' }}>
               <CardContent>
-                <Typography color="textSecondary" gutterBottom>
-                  Всего лидов
-                </Typography>
-                <Typography variant="h4">
-                  {stats.totalLeads}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <PeopleIcon color="primary" sx={{ mr: 1, fontSize: 40 }} />
+                  <Box>
+                    <Typography color="textSecondary" variant="body2">
+                      Всего лидов
+                    </Typography>
+                    <Typography variant="h4">
+                      {stats.leads || 0}
+                    </Typography>
+                  </Box>
+                </Box>
                 <Button
+                  variant="outlined"
                   size="small"
+                  fullWidth
                   onClick={() => navigate('/leads')}
-                  sx={{ mt: 1 }}
                 >
                   Перейти к лидам
                 </Button>
@@ -89,18 +100,79 @@ function Dashboard() {
           </Grid>
 
           <Grid item xs={12} sm={6} md={4}>
-            <Card>
+            <Card sx={{ height: '100%' }}>
               <CardContent>
-                <Typography color="textSecondary" gutterBottom>
-                  Задачи на сегодня
-                </Typography>
-                <Typography variant="h4">
-                  {stats.todayTasks}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <SchoolIcon color="success" sx={{ mr: 1, fontSize: 40 }} />
+                  <Box>
+                    <Typography color="textSecondary" variant="body2">
+                      Активных студентов
+                    </Typography>
+                    <Typography variant="h4">
+                      {stats.students || 0}
+                    </Typography>
+                  </Box>
+                </Box>
                 <Button
+                  variant="outlined"
                   size="small"
+                  fullWidth
+                  onClick={() => navigate('/students')}
+                >
+                  Перейти к студентам
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} sm={6} md={4}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <MoneyIcon color="warning" sx={{ mr: 1, fontSize: 40 }} />
+                  <Box>
+                    <Typography color="textSecondary" variant="body2">
+                      Выручка (месяц)
+                    </Typography>
+                    <Typography variant="h4">
+                      {new Intl.NumberFormat('ru-RU', {
+                        style: 'currency',
+                        currency: 'RUB'
+                      }).format(stats.revenue || 0)}
+                    </Typography>
+                  </Box>
+                </Box>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  fullWidth
+                  onClick={() => navigate('/analytics')}
+                >
+                  Подробная аналитика
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} sm={6} md={4}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <TaskIcon color="error" sx={{ mr: 1, fontSize: 40 }} />
+                  <Box>
+                    <Typography color="textSecondary" variant="body2">
+                      Активных задач
+                    </Typography>
+                    <Typography variant="h4">
+                      {stats.pending_tasks || 0}
+                    </Typography>
+                  </Box>
+                </Box>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  fullWidth
                   onClick={() => navigate('/tasks')}
-                  sx={{ mt: 1 }}
                 >
                   Перейти к задачам
                 </Button>
@@ -109,20 +181,33 @@ function Dashboard() {
           </Grid>
 
           <Grid item xs={12} sm={6} md={4}>
-            <Card>
+            <Card sx={{ height: '100%' }}>
               <CardContent>
-                <Typography color="textSecondary" gutterBottom>
-                  Новые лиды
-                </Typography>
-                <Typography variant="h4">
-                  {stats.newLeads}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <TrendingUpIcon color="info" sx={{ mr: 1, fontSize: 40 }} />
+                  <Box>
+                    <Typography color="textSecondary" variant="body2">
+                      Конверсий (7 дней)
+                    </Typography>
+                    <Typography variant="h4">
+                      {stats.recent_conversions || 0}
+                    </Typography>
+                  </Box>
+                </Box>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  fullWidth
+                  onClick={() => navigate('/analytics')}
+                >
+                  Смотреть аналитику
+                </Button>
               </CardContent>
             </Card>
           </Grid>
         </Grid>
       </Container>
-    </Box>
+    </Layout>
   );
 }
 

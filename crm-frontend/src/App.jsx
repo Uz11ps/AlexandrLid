@@ -8,6 +8,7 @@ import LeadsList from './pages/LeadsList';
 import LeadDetail from './pages/LeadDetail';
 import Tasks from './pages/Tasks';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import Layout from './components/Layout';
 
 const theme = createTheme({
   palette: {
@@ -50,7 +51,7 @@ function App() {
             path="/leads"
             element={
               <PrivateRoute>
-                <LeadsList />
+                <Layout><LeadsList /></Layout>
               </PrivateRoute>
             }
           />
@@ -58,7 +59,7 @@ function App() {
             path="/leads/:id"
             element={
               <PrivateRoute>
-                <LeadDetail />
+                <Layout><LeadDetail /></Layout>
               </PrivateRoute>
             }
           />
@@ -66,7 +67,55 @@ function App() {
             path="/tasks"
             element={
               <PrivateRoute>
-                <Tasks />
+                <Layout><Tasks /></Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/students"
+            element={
+              <PrivateRoute>
+                <Layout><div>Студенты (в разработке)</div></Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/deals"
+            element={
+              <PrivateRoute>
+                <Layout><div>Сделки (в разработке)</div></Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/products"
+            element={
+              <PrivateRoute>
+                <Layout><div>Продукты (в разработке)</div></Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/analytics"
+            element={
+              <PrivateRoute>
+                <Layout><div>Аналитика (в разработке)</div></Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/templates"
+            element={
+              <PrivateRoute>
+                <Layout><div>Шаблоны (в разработке)</div></Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/documents"
+            element={
+              <PrivateRoute>
+                <Layout><div>Документы (в разработке)</div></Layout>
               </PrivateRoute>
             }
           />
