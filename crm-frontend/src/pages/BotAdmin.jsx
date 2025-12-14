@@ -312,6 +312,7 @@ function BotAdmin() {
   };
 
   return (
+    <>
     <Container maxWidth="xl">
         <Typography variant="h4" gutterBottom>
           Админка бота
