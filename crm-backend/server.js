@@ -176,6 +176,7 @@ async function startServer() {
   try {
     console.log('🔄 Running database migrations...');
     await createCourseTariffsTable();
+    await createRolesTable();
     console.log('✅ Migrations completed');
   } catch (error) {
     console.error('❌ Error running migrations:', error);
