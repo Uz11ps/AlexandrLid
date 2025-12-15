@@ -101,12 +101,7 @@ function UsersManagement() {
       const rolesData = response.data || [];
       console.log('UsersManagement: Roles loaded:', rolesData.length, 'items', rolesData);
       setRoles(rolesData);
-      
-      // Устанавливаем роль по умолчанию для нового пользователя
-      if (rolesData.length > 0 && (!newUser.role || newUser.role === 'manager')) {
-        const defaultRole = typeof rolesData[0] === 'string' ? rolesData[0] : (rolesData[0].name || rolesData[0]);
-        setNewUser(prev => ({ ...prev, role: defaultRole }));
-      }
+      return rolesData;
     } catch (error) {
       console.error('UsersManagement: Error loading roles:', error);
       // Fallback на стандартные роли при ошибке
@@ -114,8 +109,7 @@ function UsersManagement() {
       const fallbackRoles = standardRoles.map(name => ({ name, description: getRoleDescription(name) }));
       console.log('UsersManagement: Using fallback roles:', fallbackRoles);
       setRoles(fallbackRoles);
-      
-      // Роль по умолчанию будет установлена при открытии диалога
+      return fallbackRoles;
     }
   }, []);
 
@@ -285,17 +279,8 @@ function UsersManagement() {
                 // Убеждаемся, что роли загружены перед открытием диалога
                 let currentRoles = roles;
                 if (currentRoles.length === 0) {
-                  try {
-                    const response = await axios.get('/api/roles');
-                    currentRoles = response.data || [];
-                    setRoles(currentRoles);
-                  } catch (error) {
-                    console.error('Error loading roles:', error);
-                    // Fallback на стандартные роли при ошибке
-                    const standardRoles = ['admin', 'manager', 'marketer', 'accountant'];
-                    currentRoles = standardRoles.map(name => ({ name, description: getRoleDescription(name) }));
-                    setRoles(currentRoles);
-                  }
+                  console.log('UsersManagement: Roles not loaded, loading now...');
+                  currentRoles = await loadRoles();
                 }
                 // Устанавливаем первую роль по умолчанию, если роли загружены
                 if (currentRoles.length > 0) {
