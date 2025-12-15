@@ -5,7 +5,18 @@ import { authenticateToken } from './auth.js';
 const router = express.Router();
 router.use(authenticateToken);
 
-// Get all funnel stages
+/**
+ * @swagger
+ * /funnel/stages:
+ *   get:
+ *     summary: Получить все этапы воронки
+ *     tags: [Funnel]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Список этапов воронки
+ */
 router.get('/stages', async (req, res) => {
   try {
     const result = await pool.query(

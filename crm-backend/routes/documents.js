@@ -5,7 +5,23 @@ import { authenticateToken } from './auth.js';
 const router = express.Router();
 router.use(authenticateToken);
 
-// Get document templates
+/**
+ * @swagger
+ * /documents/templates:
+ *   get:
+ *     summary: Получить шаблоны документов
+ *     tags: [Documents]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: document_type
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Список шаблонов
+ */
 router.get('/templates', async (req, res) => {
   try {
     const { document_type } = req.query;

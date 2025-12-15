@@ -6,7 +6,18 @@ import { authenticateToken } from './auth.js';
 const router = express.Router();
 router.use(authenticateToken);
 
-// Получить список менеджеров
+/**
+ * @swagger
+ * /managers:
+ *   get:
+ *     summary: Получить список менеджеров
+ *     tags: [Managers]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Список менеджеров
+ */
 router.get('/', async (req, res) => {
   try {
     const result = await pool.query(
