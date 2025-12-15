@@ -235,7 +235,9 @@ function Permissions() {
   // Загружаем права пользователя когда managers и permissions загружены
   useEffect(() => {
     if (tab === 1 && selectedUserId && managersLoaded && permissionsLoaded && permissions.length > 0) {
-      console.log('useEffect: Loading user permissions for:', selectedUserId, 'permissionsLoaded:', permissionsLoaded, 'permissions.length:', permissions.length);
+      console.log('useEffect: Loading user permissions for:', selectedUserId, 'permissionsLoaded:', permissionsLoaded, 'permissions.length:', permissions.length, 'current userPermissions keys:', Object.keys(userPermissions).length);
+      // Сбрасываем предыдущие права перед загрузкой новых
+      setUserPermissions({});
       loadUserPermissions(selectedUserId);
     }
   }, [tab, selectedUserId, managersLoaded, permissionsLoaded, permissions.length, loadUserPermissions]);
