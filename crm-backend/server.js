@@ -23,22 +23,6 @@ import { createCourseTariffsTable } from './migrations/001_create_course_tariffs
 import { up as createRolesTable } from './migrations/002_create_roles.js';
 import { up as removeRoleCheckConstraint } from './migrations/003_remove_role_check_constraint.js';
 
-// Обертка для удаления CHECK constraint с обработкой ошибок
-async function runRemoveRoleCheckConstraint() {
-  try {
-    await removeRoleCheckConstraint();
-    return true;
-  } catch (error) {
-    console.error('❌ Remove role check constraint migration error:', error);
-    console.error('Error details:', error.message);
-    if (error.stack) {
-      console.error('Stack trace:', error.stack);
-    }
-    return false;
-  }
-}
-import { up as removeRoleCheckConstraint } from './migrations/003_remove_role_check_constraint.js';
-
 // Обертка для миграции ролей с обработкой ошибок
 async function runRolesMigration() {
   try {
@@ -233,6 +217,16 @@ async function startServer() {
     } else {
       console.warn('⚠️ Roles migration failed, but server will continue');
       console.warn('⚠️ Some features related to roles may not work correctly');
+      console.warn('⚠️ Please check the logs above for details');
+    }
+    
+    // Удаление CHECK constraint на role
+    const removeCheckConstraintSuccess = await runRemoveRoleCheckConstraint();
+    if (removeCheckConstraintSuccess) {
+      console.log('✅ Migration 003 (remove role check constraint) completed');
+    } else {
+      console.warn('⚠️ Remove role check constraint migration failed, but server will continue');
+      console.warn('⚠️ Creating users with custom roles may not work');
       console.warn('⚠️ Please check the logs above for details');
     }
     
