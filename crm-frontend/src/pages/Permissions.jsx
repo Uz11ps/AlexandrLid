@@ -172,11 +172,36 @@ function Permissions() {
     initializeData();
   }, [loadPermissions, loadManagers]);
 
+  // Инициализация прав для admin сразу при монтировании
+  useEffect(() => {
+    if (selectedRole === 'admin' && Object.keys(rolePermissions).length === 0) {
+      console.log('Initializing admin permissions on mount');
+      const adminPermissionsMap = {};
+      RESOURCES.forEach(resource => {
+        adminPermissionsMap[resource] = {};
+        ACTIONS.forEach(action => {
+          adminPermissionsMap[resource][action] = true;
+        });
+      });
+      setRolePermissions(adminPermissionsMap);
+    }
+  }, [selectedRole]);
+
   // Загружаем права роли когда permissions загружены и выбрана роль
   useEffect(() => {
     if (tab === 0 && selectedRole) {
       // Для admin загружаем сразу, для остальных ждем загрузки permissions
-      if (selectedRole === 'admin' || (permissionsLoaded && permissions.length > 0)) {
+      if (selectedRole === 'admin') {
+        // Для admin устанавливаем все права сразу
+        const adminPermissionsMap = {};
+        RESOURCES.forEach(resource => {
+          adminPermissionsMap[resource] = {};
+          ACTIONS.forEach(action => {
+            adminPermissionsMap[resource][action] = true;
+          });
+        });
+        setRolePermissions(adminPermissionsMap);
+      } else if (permissionsLoaded && permissions.length > 0) {
         console.log('useEffect: Loading role permissions for:', selectedRole, 'permissionsLoaded:', permissionsLoaded, 'permissions.length:', permissions.length);
         loadRolePermissions(selectedRole);
       }
