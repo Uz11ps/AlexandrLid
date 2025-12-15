@@ -435,16 +435,36 @@ export const db = {
 
   async getScheduledBroadcasts() {
     // Выбираем рассылки со статусом 'scheduled', которые должны быть отправлены
-    // scheduled_at хранится в UTC в БД
+    // scheduled_at хранится в UTC в БД (но PostgreSQL возвращает как MSK)
     // Расширяем окно проверки до 24 часов, чтобы рассылки, созданные позже запланированного времени, тоже отправлялись
+    
+    // Получаем текущее UTC время как timestamp для сравнения
+    const nowUTC = new Date();
+    const nowUTCTimestamp = nowUTCTime.getTime();
+    const nowUTCPlus2Min = new Date(nowUTCTimestamp + (2 * 60 * 1000)).toISOString();
+    const nowUTCMinus24h = new Date(nowUTCTimestamp - (24 * 60 * 60 * 1000)).toISOString();
+    
+    console.log(`\n🔍 [DB] getScheduledBroadcasts:`);
+    console.log(`  Текущее UTC: ${nowUTC.toISOString()}`);
+    console.log(`  Окно поиска: от ${nowUTCMinus24h} до ${nowUTCPlus2Min}`);
+    
+    // Используем сравнение через timestamp, чтобы избежать проблем с timezone
     const result = await pool.query(
       `SELECT * FROM broadcasts 
        WHERE status = 'scheduled' 
        AND scheduled_at IS NOT NULL
-       AND scheduled_at <= (NOW() AT TIME ZONE 'UTC' + INTERVAL '2 minutes')
-       AND scheduled_at >= (NOW() AT TIME ZONE 'UTC' - INTERVAL '24 hours')
-       ORDER BY scheduled_at ASC`
+       AND scheduled_at::timestamptz AT TIME ZONE 'UTC' <= ($1::timestamptz AT TIME ZONE 'UTC' + INTERVAL '2 minutes')
+       AND scheduled_at::timestamptz AT TIME ZONE 'UTC' >= ($1::timestamptz AT TIME ZONE 'UTC' - INTERVAL '24 hours')
+       ORDER BY scheduled_at ASC`,
+      [nowUTC.toISOString()]
     );
+    
+    console.log(`  Найдено рассылок: ${result.rows.length}`);
+    if (result.rows.length > 0) {
+      result.rows.forEach(row => {
+        console.log(`    - ID: ${row.id}, scheduled_at: ${row.scheduled_at}, status: ${row.status}`);
+      });
+    }
     return result.rows.map(row => {
       let buttons = null;
       if (row.buttons) {
