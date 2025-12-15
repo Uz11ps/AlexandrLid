@@ -80,18 +80,11 @@ function Permissions() {
 
   const loadRolePermissions = useCallback(async (role) => {
     try {
-      console.log('loadRolePermissions called for role:', role, 'permissionsLoaded:', permissionsLoaded, 'permissions.length:', permissions.length);
+      console.log('loadRolePermissions called for role:', role);
       setLoading(true);
       
-      // Если permissions еще не загружены, ждем их загрузки
-      if (!permissionsLoaded || permissions.length === 0) {
-        console.log('Waiting for permissions to load...');
-        setLoading(false);
-        return;
-      }
-      
       const response = await permissionsAPI.getRolePermissions(role);
-      console.log('Role permissions response:', response.data?.length || 0, 'items');
+      console.log('Role permissions response:', response.data?.length || 0, 'items', response.data);
       const permissionsMap = {};
       
       // Для роли admin все права должны быть выбранными по умолчанию
@@ -117,7 +110,7 @@ function Permissions() {
         });
       }
       
-      console.log('Setting rolePermissions:', Object.keys(permissionsMap).length, 'resources');
+      console.log('Setting rolePermissions:', Object.keys(permissionsMap).length, 'resources', permissionsMap);
       setRolePermissions(permissionsMap);
     } catch (error) {
       console.error('Error loading role permissions:', error);
@@ -131,12 +124,13 @@ function Permissions() {
             adminPermissionsMap[resource][action] = true;
           });
         });
+        console.log('Admin permissions map:', adminPermissionsMap);
         setRolePermissions(adminPermissionsMap);
       }
     } finally {
       setLoading(false);
     }
-  }, [permissionsLoaded, permissions.length]);
+  }, []);
 
   const loadUserPermissions = useCallback(async (userId) => {
     try {
@@ -180,9 +174,12 @@ function Permissions() {
 
   // Загружаем права роли когда permissions загружены и выбрана роль
   useEffect(() => {
-    if (tab === 0 && selectedRole && permissionsLoaded && permissions.length > 0) {
-      console.log('useEffect: Loading role permissions for:', selectedRole, 'permissionsLoaded:', permissionsLoaded, 'permissions.length:', permissions.length);
-      loadRolePermissions(selectedRole);
+    if (tab === 0 && selectedRole) {
+      // Для admin загружаем сразу, для остальных ждем загрузки permissions
+      if (selectedRole === 'admin' || (permissionsLoaded && permissions.length > 0)) {
+        console.log('useEffect: Loading role permissions for:', selectedRole, 'permissionsLoaded:', permissionsLoaded, 'permissions.length:', permissions.length);
+        loadRolePermissions(selectedRole);
+      }
     }
   }, [tab, selectedRole, permissionsLoaded, permissions.length, loadRolePermissions]);
 
