@@ -179,13 +179,13 @@ async function startServer() {
     await createCourseTariffsTable();
     console.log('✅ Migration 001 (course_tariffs) completed');
     
-    try {
-      await createRolesTable();
+    const rolesMigrationSuccess = await runRolesMigration();
+    if (rolesMigrationSuccess) {
       console.log('✅ Migration 002 (roles) completed');
-    } catch (rolesError) {
-      console.error('❌ Migration 002 (roles) failed:', rolesError);
+    } else {
       console.warn('⚠️ Roles migration failed, but server will continue');
       console.warn('⚠️ Some features related to roles may not work correctly');
+      console.warn('⚠️ Please check the logs above for details');
     }
     
     console.log('✅ All migrations completed');

@@ -230,7 +230,7 @@ function UsersManagement() {
   };
 
   return (
-    <Fragment>
+    <>
     <Container maxWidth="xl">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h4">Управление пользователями</Typography>
@@ -590,7 +590,7 @@ function UsersManagement() {
         </DialogActions>
       </Dialog>
     </Container>
-    </Fragment>
+    </>
   );
 }
 
