@@ -411,6 +411,72 @@ function UsersManagement() {
         </DialogActions>
       </Dialog>
 
+      {/* Диалог создания/редактирования роли */}
+      <Dialog
+        open={roleDialogOpen}
+        onClose={() => {
+          setRoleDialogOpen(false);
+          setSelectedRole(null);
+          setNewRole({ name: '', description: '' });
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {selectedRole ? 'Редактировать роль' : 'Создать роль'}
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Название роли"
+            value={selectedRole ? selectedRole.name : newRole.name}
+            onChange={(e) => {
+              if (selectedRole) {
+                setSelectedRole({ ...selectedRole, name: e.target.value });
+              } else {
+                setNewRole({ ...newRole, name: e.target.value });
+              }
+            }}
+            disabled={selectedRole?.name === 'admin'}
+            sx={{ mt: 2 }}
+            helperText={selectedRole?.name === 'admin' ? 'Название роли администратора нельзя изменить' : ''}
+          />
+          <TextField
+            fullWidth
+            label="Описание"
+            value={selectedRole ? selectedRole.description : newRole.description}
+            onChange={(e) => {
+              if (selectedRole) {
+                setSelectedRole({ ...selectedRole, description: e.target.value });
+              } else {
+                setNewRole({ ...newRole, description: e.target.value });
+              }
+            }}
+            multiline
+            rows={3}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setRoleDialogOpen(false);
+              setSelectedRole(null);
+              setNewRole({ name: '', description: '' });
+            }}
+          >
+            Отмена
+          </Button>
+          <Button
+            onClick={selectedRole ? handleUpdateRole : handleCreateRole}
+            variant="contained"
+            disabled={!selectedRole && (!newRole.name || !newRole.description)}
+          >
+            {selectedRole ? 'Сохранить' : 'Создать'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Диалог управления правами */}
       <Dialog
         open={permissionsDialogOpen}
