@@ -69,12 +69,12 @@ router.get('/courses/:id', async (req, res) => {
       });
     }
     
-    // Get tariffs for this course (включая неактивные для админов)
+    // Get tariffs for this course (только активные тарифы)
     // Используем безопасный запрос с проверкой существования таблицы
     let tariffsResult;
     try {
       tariffsResult = await pool.query(
-        'SELECT * FROM course_tariffs WHERE course_id = $1 ORDER BY order_index, id',
+        'SELECT * FROM course_tariffs WHERE course_id = $1 AND is_active = TRUE ORDER BY order_index, id',
         [courseId]
       );
     } catch (error) {

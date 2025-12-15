@@ -125,11 +125,14 @@ function CourseDetail() {
   const handleDeleteTariff = async (tariffId) => {
     if (!window.confirm('Вы уверены, что хотите удалить этот тариф?')) return;
     try {
-      await productsAPI.deleteTariff(tariffId);
-      loadCourse();
+      const response = await productsAPI.deleteTariff(tariffId);
+      console.log('Tariff deleted:', response.data);
+      // Перезагружаем курс для обновления списка тарифов
+      await loadCourse();
     } catch (error) {
       console.error('Error deleting tariff:', error);
-      alert('Ошибка при удалении тарифа');
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Ошибка при удалении тарифа';
+      alert(errorMessage);
     }
   };
 
