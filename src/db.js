@@ -5,12 +5,21 @@ dotenv.config();
 
 const { Pool } = pg;
 
+// В Docker Compose используем имя сервиса 'postgres', иначе 'localhost'
+const dbHost = process.env.DB_HOST || (process.env.NODE_ENV === 'production' ? 'postgres' : 'localhost');
+const dbPort = parseInt(process.env.DB_PORT || '5432');
+const dbName = process.env.DB_NAME || 'telegram_bot_db';
+const dbUser = process.env.DB_USER || 'postgres';
+const dbPassword = process.env.DB_PASSWORD || 'postgres';
+
+console.log(`🔌 Подключение к БД: ${dbHost}:${dbPort}/${dbName} (user: ${dbUser})`);
+
 const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME || 'telegram_bot_db',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
+  host: dbHost,
+  port: dbPort,
+  database: dbName,
+  user: dbUser,
+  password: dbPassword,
 });
 
 // Устанавливаем московский часовой пояс для всех подключений к БД
