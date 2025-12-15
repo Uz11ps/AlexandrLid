@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Fragment } from 'react';
+import React, { useState, useEffect, useCallback, Fragment } from 'react';
 import {
   Container,
   Paper,
@@ -93,7 +93,7 @@ function UsersManagement() {
     }
   };
 
-  const loadRoles = React.useCallback(async () => {
+  const loadRoles = useCallback(async () => {
     try {
       console.log('UsersManagement: Fetching roles from /api/roles');
       // Получаем список ролей из API
@@ -115,10 +115,7 @@ function UsersManagement() {
       console.log('UsersManagement: Using fallback roles:', fallbackRoles);
       setRoles(fallbackRoles);
       
-      // Устанавливаем роль по умолчанию
-      if (!newUser.role || newUser.role === 'manager') {
-        setNewUser(prev => ({ ...prev, role: 'manager' }));
-      }
+      // Роль по умолчанию будет установлена при открытии диалога
     }
   }, []);
 
