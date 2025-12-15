@@ -77,11 +77,6 @@ function Permissions() {
       const perms = response.data || [];
       setPermissions(perms);
       setPermissionsLoaded(true);
-      
-      // Если мы на вкладке ролей и permissions загружены, сразу загружаем права роли
-      if (tab === 0 && selectedRole && perms.length > 0) {
-        await loadRolePermissions(selectedRole);
-      }
     } catch (error) {
       console.error('Error loading permissions:', error);
       setPermissionsLoaded(true);
@@ -97,11 +92,6 @@ function Permissions() {
       
       if (mgrs.length > 0 && !selectedUserId) {
         setSelectedUserId(mgrs[0].id.toString());
-      }
-      
-      // Если мы на вкладке пользователей и все данные загружены, загружаем права пользователя
-      if (tab === 1 && selectedUserId && permissionsLoaded && permissions.length > 0) {
-        await loadUserPermissions(selectedUserId);
       }
     } catch (error) {
       console.error('Error loading managers:', error);
