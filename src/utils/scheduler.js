@@ -244,6 +244,13 @@ export function initScheduler(bot) {
       console.log('🧪 [Scheduler TEST] Тестовая проверка остановлена');
     }
   }, 10000); // Каждые 10 секунд
+  
+  } catch (error) {
+    console.error('\n❌ [Scheduler] КРИТИЧЕСКАЯ ОШИБКА при инициализации планировщика:');
+    console.error('  Ошибка:', error.message);
+    console.error('  Stack:', error.stack);
+    throw error; // Пробрасываем ошибку дальше
+  }
 }
 
 export default initScheduler;
