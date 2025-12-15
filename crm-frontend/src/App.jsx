@@ -17,6 +17,7 @@ import Analytics from './pages/Analytics';
 import Templates from './pages/Templates';
 import Documents from './pages/Documents';
 import BotAdmin from './pages/BotAdmin';
+import UserActivity from './pages/UserActivity';
 import Chat from './pages/Chat';
 import Permissions from './pages/Permissions';
 import UsersManagement from './pages/UsersManagement';
@@ -161,6 +162,14 @@ function App() {
             element={
               <PrivateRoute>
                 <Layout><BotAdmin /></Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/user-activity"
+            element={
+              <PrivateRoute>
+                <Layout><UserActivity /></Layout>
               </PrivateRoute>
             }
           />

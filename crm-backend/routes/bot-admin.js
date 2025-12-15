@@ -1120,5 +1120,262 @@ router.post('/giveaways/:id/winners', async (req, res) => {
   }
 });
 
+// ============================================
+// Статистика активности пользователей
+// ============================================
+
+// Получить общую статистику активности
+router.get('/activity/stats', async (req, res) => {
+  try {
+    const { days = 30 } = req.query;
+    const daysNum = parseInt(days);
+
+    // Общая статистика по типам активности
+    const activityByType = await pool.query(
+      `SELECT 
+         activity_type,
+         COUNT(*) as total_count,
+         COUNT(DISTINCT user_id) as unique_users
+       FROM user_activity 
+       WHERE created_at >= NOW() - INTERVAL '${daysNum} days'
+       GROUP BY activity_type
+       ORDER BY total_count DESC`
+    );
+
+    // Статистика по дням
+    const activityByDay = await pool.query(
+      `SELECT 
+         DATE(created_at) as activity_date,
+         COUNT(*) as total_count,
+         COUNT(DISTINCT user_id) as unique_users
+       FROM user_activity 
+       WHERE created_at >= NOW() - INTERVAL '${daysNum} days'
+       GROUP BY DATE(created_at)
+       ORDER BY activity_date DESC`
+    );
+
+    // Топ активных пользователей
+    const topUsers = await pool.query(
+      `SELECT 
+         u.user_id,
+         u.username,
+         u.first_name,
+         COUNT(ua.id) as total_activities,
+         COUNT(DISTINCT DATE(ua.created_at)) as active_days,
+         MAX(ua.created_at) as last_activity
+       FROM users u
+       LEFT JOIN user_activity ua ON u.user_id = ua.user_id 
+         AND ua.created_at >= NOW() - INTERVAL '${daysNum} days'
+       GROUP BY u.user_id, u.username, u.first_name
+       HAVING COUNT(ua.id) > 0
+       ORDER BY total_activities DESC
+       LIMIT 20`
+    );
+
+    res.json({
+      period_days: daysNum,
+      activity_by_type: activityByType.rows,
+      activity_by_day: activityByDay.rows,
+      top_users: topUsers.rows
+    });
+  } catch (error) {
+    console.error('Error fetching activity stats:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Получить активность конкретного пользователя
+router.get('/activity/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { days = 30, limit = 50 } = req.query;
+    const daysNum = parseInt(days);
+    const limitNum = parseInt(limit);
+
+    // Активность пользователя
+    const activities = await pool.query(
+      `SELECT * FROM user_activity 
+       WHERE user_id = $1 
+         AND created_at >= NOW() - INTERVAL '${daysNum} days'
+       ORDER BY created_at DESC 
+       LIMIT $2`,
+      [userId, limitNum]
+    );
+
+    // Статистика по типам активности
+    const statsByType = await pool.query(
+      `SELECT 
+         activity_type,
+         COUNT(*) as count,
+         MAX(created_at) as last_activity
+       FROM user_activity 
+       WHERE user_id = $1 
+         AND created_at >= NOW() - INTERVAL '${daysNum} days'
+       GROUP BY activity_type
+       ORDER BY count DESC`,
+      [userId]
+    );
+
+    res.json({
+      user_id: userId,
+      period_days: daysNum,
+      activities: activities.rows,
+      stats_by_type: statsByType.rows
+    });
+  } catch (error) {
+    console.error('Error fetching user activity:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Получить список всех пользователей с их статистикой активности
+router.get('/activity/users', async (req, res) => {
+  try {
+    const { days = 30, page = 1, limit = 50 } = req.query;
+    const daysNum = parseInt(days);
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const offset = (pageNum - 1) * limitNum;
+
+    const users = await pool.query(
+      `SELECT 
+         u.user_id,
+         u.username,
+         u.first_name,
+         u.created_at as user_created_at,
+         COUNT(ua.id) as total_activities,
+         COUNT(DISTINCT DATE(ua.created_at)) as active_days,
+         MAX(ua.created_at) as last_activity,
+         COUNT(CASE WHEN ua.activity_type = 'command' THEN 1 END) as commands_count,
+         COUNT(CASE WHEN ua.activity_type = 'message' THEN 1 END) as messages_count,
+         COUNT(CASE WHEN ua.activity_type = 'callback' THEN 1 END) as callbacks_count,
+         COUNT(CASE WHEN ua.activity_type = 'subscription' THEN 1 END) as subscriptions_count,
+         COUNT(CASE WHEN ua.activity_type = 'giveaway_join' THEN 1 END) as giveaway_joins_count,
+         COUNT(CASE WHEN ua.activity_type = 'referral' THEN 1 END) as referrals_count
+       FROM users u
+       LEFT JOIN user_activity ua ON u.user_id = ua.user_id 
+         AND ua.created_at >= NOW() - INTERVAL '${daysNum} days'
+       GROUP BY u.user_id, u.username, u.first_name, u.created_at
+       ORDER BY total_activities DESC, last_activity DESC NULLS LAST
+       LIMIT $1 OFFSET $2`,
+      [limitNum, offset]
+    );
+
+    const totalResult = await pool.query(
+      `SELECT COUNT(DISTINCT u.user_id) as total
+       FROM users u
+       LEFT JOIN user_activity ua ON u.user_id = ua.user_id 
+         AND ua.created_at >= NOW() - INTERVAL '${daysNum} days'
+       WHERE ua.id IS NOT NULL`
+    );
+
+    res.json({
+      users: users.rows,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: parseInt(totalResult.rows[0]?.total || 0)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching users activity:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// ============================================
+// Управление пригласительными ссылками
+// ============================================
+
+// Получить все пригласительные ссылки
+router.get('/channel-invites', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT ci.*, 
+         COUNT(DISTINCT ucs.user_id) as subscribers_count
+       FROM channel_invites ci
+       LEFT JOIN user_channel_subscriptions ucs ON ci.id = ucs.channel_invite_id AND ucs.is_verified = TRUE
+       GROUP BY ci.id
+       ORDER BY ci.created_at DESC`
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching channel invites:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Создать пригласительную ссылку
+router.post('/channel-invites', async (req, res) => {
+  try {
+    const { channel_id, channel_username, channel_type, invite_link } = req.body;
+
+    if (!channel_id || !channel_type || !invite_link) {
+      return res.status(400).json({ error: 'channel_id, channel_type, and invite_link are required' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO channel_invites (channel_id, channel_username, channel_type, invite_link)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [channel_id, channel_username || null, channel_type, invite_link]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating channel invite:', error);
+    if (error.code === '23505') { // Unique violation
+      res.status(409).json({ error: 'Invite link already exists' });
+    } else {
+      res.status(500).json({ error: 'Internal server error', details: error.message });
+    }
+  }
+});
+
+// Обновить пригласительную ссылку
+router.put('/channel-invites/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { invite_link, is_active } = req.body;
+
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (invite_link !== undefined) {
+      updates.push(`invite_link = $${paramIndex++}`);
+      values.push(invite_link);
+    }
+    if (is_active !== undefined) {
+      updates.push(`is_active = $${paramIndex++}`);
+      values.push(is_active);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(id);
+
+    const result = await pool.query(
+      `UPDATE channel_invites 
+       SET ${updates.join(', ')}
+       WHERE id = $${paramIndex}
+       RETURNING *`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Channel invite not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating channel invite:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
 export default router;
 

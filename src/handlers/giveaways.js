@@ -128,31 +128,88 @@ export async function handleGiveawayJoin(ctx) {
       );
     }
 
-    // Проверка подписки на канал (если требуется)
+    // Проверка подписки на канал через пригласительную ссылку (если требуется)
     if (giveaway.require_channel_subscription) {
       const channelId = await db.getSetting('channel_id');
       if (channelId) {
-        try {
-          const member = await ctx.telegram.getChatMember(channelId, ctx.from.id);
-          if (!['member', 'administrator', 'creator'].includes(member.status)) {
-            const channelUsername = await db.getSetting('channel_username') || 'канал';
-            const errorMsg = `⚠️ Для участия необходимо подписаться на ${channelUsername}`;
+        // Получаем пригласительную ссылку для канала
+        const channelInvite = await db.getChannelInvite(channelId);
+        
+        if (channelInvite) {
+          // Проверяем, подписан ли пользователь через пригласительную ссылку
+          const isSubscribed = await db.checkChannelSubscription(ctx.from.id, channelInvite.id);
+          
+          if (!isSubscribed) {
+            const channelUsername = channelInvite.channel_username || await db.getSetting('channel_username') || 'канал';
+            const inviteMessage = 
+              `⚠️ Для участия в розыгрыше необходимо подписаться на ${channelUsername}\n\n` +
+              `👇 Нажмите на кнопку ниже, чтобы перейти в канал:\n\n` +
+              `После подписки вернитесь и попробуйте снова!`;
+            
+            const keyboard = {
+              inline_keyboard: [
+                [{ text: `📢 Подписаться на ${channelUsername}`, url: channelInvite.invite_link }],
+                [{ text: '🔄 Проверить подписку', callback_data: `check_subscription_${giveawayId}` }]
+              ]
+            };
+            
             if (ctx.callbackQuery) {
               await ctx.answerCbQuery('❌ Нужна подписка');
-              await ctx.telegram.sendMessage(ctx.from.id, errorMsg);
+              await ctx.telegram.sendMessage(ctx.from.id, inviteMessage, { reply_markup: keyboard });
             } else {
-              await ctx.reply(errorMsg);
+              await ctx.reply(inviteMessage, { reply_markup: keyboard });
             }
+            
+            // Логируем попытку участия без подписки
+            await db.logUserActivity(ctx.from.id, 'subscription', {
+              action: 'giveaway_join_attempt',
+              giveaway_id: giveawayId,
+              subscribed: false
+            });
+            
             return;
           }
-        } catch (error) {
-          console.error('Ошибка при проверке подписки:', error);
+          
+          // Логируем успешную проверку подписки
+          await db.logUserActivity(ctx.from.id, 'subscription', {
+            action: 'giveaway_join_verified',
+            giveaway_id: giveawayId,
+            subscribed: true
+          });
+        } else {
+          console.warn(`Пригласительная ссылка не найдена для канала ${channelId}`);
+          // Fallback: пытаемся использовать старый метод (если бот имеет права администратора)
+          try {
+            const member = await ctx.telegram.getChatMember(channelId, ctx.from.id);
+            if (!['member', 'administrator', 'creator'].includes(member.status)) {
+              const channelUsername = await db.getSetting('channel_username') || 'канал';
+              const errorMsg = `⚠️ Для участия необходимо подписаться на ${channelUsername}`;
+              if (ctx.callbackQuery) {
+                await ctx.answerCbQuery('❌ Нужна подписка');
+                await ctx.telegram.sendMessage(ctx.from.id, errorMsg);
+              } else {
+                await ctx.reply(errorMsg);
+              }
+              return;
+            }
+          } catch (error) {
+            console.error('Ошибка при проверке подписки (fallback):', error);
+            // Если не удалось проверить, разрешаем участие (чтобы не блокировать пользователей)
+            console.warn('Разрешаем участие без проверки подписки из-за ошибки');
+          }
         }
       }
     }
 
     // Добавляем участника
     await db.joinGiveaway(giveawayId, ctx.from.id, referralCount);
+
+    // Логируем участие в розыгрыше
+    await db.logUserActivity(ctx.from.id, 'giveaway_join', {
+      giveaway_id: giveawayId,
+      giveaway_title: giveaway.title,
+      referral_count: referralCount
+    });
 
     const successMessage = 
       `✅ Вы успешно зарегистрированы в розыгрыше "${giveaway.title}"!\n\n` +

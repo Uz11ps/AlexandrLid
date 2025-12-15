@@ -848,6 +848,197 @@ export const db = {
     }
   },
 
+  // ============================================
+  // Работа с пригласительными ссылками каналов/групп
+  // ============================================
+  
+  async createChannelInvite(inviteData) {
+    const { channel_id, channel_username, channel_type, invite_link } = inviteData;
+    const result = await pool.query(
+      `INSERT INTO channel_invites (channel_id, channel_username, channel_type, invite_link)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [channel_id, channel_username || null, channel_type, invite_link]
+    );
+    return result.rows[0];
+  },
+
+  async getChannelInvite(channelId) {
+    const result = await pool.query(
+      `SELECT * FROM channel_invites 
+       WHERE channel_id = $1 AND is_active = TRUE 
+       ORDER BY created_at DESC 
+       LIMIT 1`,
+      [channelId]
+    );
+    return result.rows[0] || null;
+  },
+
+  async getAllChannelInvites() {
+    const result = await pool.query(
+      `SELECT * FROM channel_invites 
+       ORDER BY created_at DESC`
+    );
+    return result.rows;
+  },
+
+  async updateChannelInvite(id, updates) {
+    const { invite_link, is_active } = updates;
+    const updatesList = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (invite_link !== undefined) {
+      updatesList.push(`invite_link = $${paramIndex++}`);
+      values.push(invite_link);
+    }
+    if (is_active !== undefined) {
+      updatesList.push(`is_active = $${paramIndex++}`);
+      values.push(is_active);
+    }
+
+    if (updatesList.length === 0) return null;
+
+    updatesList.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(id);
+
+    const result = await pool.query(
+      `UPDATE channel_invites 
+       SET ${updatesList.join(', ')}
+       WHERE id = $${paramIndex}
+       RETURNING *`,
+      values
+    );
+    return result.rows[0] || null;
+  },
+
+  // ============================================
+  // Работа с подписками через пригласительные ссылки
+  // ============================================
+
+  async recordChannelSubscription(userId, channelInviteId) {
+    const result = await pool.query(
+      `INSERT INTO user_channel_subscriptions (user_id, channel_invite_id, subscribed_at, is_verified)
+       VALUES ($1, $2, CURRENT_TIMESTAMP, TRUE)
+       ON CONFLICT (user_id, channel_invite_id) 
+       DO UPDATE SET verified_at = CURRENT_TIMESTAMP, is_verified = TRUE
+       RETURNING *`,
+      [userId, channelInviteId]
+    );
+    return result.rows[0];
+  },
+
+  async checkChannelSubscription(userId, channelInviteId) {
+    const result = await pool.query(
+      `SELECT * FROM user_channel_subscriptions 
+       WHERE user_id = $1 AND channel_invite_id = $2 AND is_verified = TRUE`,
+      [userId, channelInviteId]
+    );
+    return result.rows.length > 0;
+  },
+
+  async getUserChannelSubscriptions(userId) {
+    const result = await pool.query(
+      `SELECT ucs.*, ci.channel_id, ci.channel_username, ci.channel_type, ci.invite_link
+       FROM user_channel_subscriptions ucs
+       JOIN channel_invites ci ON ucs.channel_invite_id = ci.id
+       WHERE ucs.user_id = $1 AND ucs.is_verified = TRUE`,
+      [userId]
+    );
+    return result.rows;
+  },
+
+  // ============================================
+  // Работа с активностью пользователей
+  // ============================================
+
+  async logUserActivity(userId, activityType, activityData = null, metadata = null) {
+    try {
+      const result = await pool.query(
+        `INSERT INTO user_activity (user_id, activity_type, activity_data, metadata)
+         VALUES ($1, $2, $3, $4)
+         RETURNING *`,
+        [
+          userId,
+          activityType,
+          activityData ? JSON.stringify(activityData) : null,
+          metadata ? JSON.stringify(metadata) : null
+        ]
+      );
+      return result.rows[0];
+    } catch (error) {
+      console.error('Ошибка при логировании активности:', error);
+      return null;
+    }
+  },
+
+  async getUserActivity(userId, limit = 50, offset = 0) {
+    const result = await pool.query(
+      `SELECT * FROM user_activity 
+       WHERE user_id = $1 
+       ORDER BY created_at DESC 
+       LIMIT $2 OFFSET $3`,
+      [userId, limit, offset]
+    );
+    return result.rows;
+  },
+
+  async getUserActivityStats(userId, days = 30) {
+    const result = await pool.query(
+      `SELECT 
+         activity_type,
+         COUNT(*) as count,
+         MAX(created_at) as last_activity
+       FROM user_activity 
+       WHERE user_id = $1 
+         AND created_at >= NOW() - INTERVAL '${days} days'
+       GROUP BY activity_type
+       ORDER BY count DESC`,
+      [userId]
+    );
+    return result.rows;
+  },
+
+  async getAllUsersActivityStats(days = 30) {
+    const result = await pool.query(
+      `SELECT 
+         u.user_id,
+         u.username,
+         u.first_name,
+         COUNT(ua.id) as total_activities,
+         COUNT(DISTINCT DATE(ua.created_at)) as active_days,
+         MAX(ua.created_at) as last_activity,
+         COUNT(CASE WHEN ua.activity_type = 'command' THEN 1 END) as commands_count,
+         COUNT(CASE WHEN ua.activity_type = 'message' THEN 1 END) as messages_count,
+         COUNT(CASE WHEN ua.activity_type = 'callback' THEN 1 END) as callbacks_count,
+         COUNT(CASE WHEN ua.activity_type = 'subscription' THEN 1 END) as subscriptions_count,
+         COUNT(CASE WHEN ua.activity_type = 'giveaway_join' THEN 1 END) as giveaway_joins_count,
+         COUNT(CASE WHEN ua.activity_type = 'referral' THEN 1 END) as referrals_count
+       FROM users u
+       LEFT JOIN user_activity ua ON u.user_id = ua.user_id 
+         AND ua.created_at >= NOW() - INTERVAL '${days} days'
+       GROUP BY u.user_id, u.username, u.first_name
+       ORDER BY total_activities DESC, last_activity DESC NULLS LAST
+       LIMIT 100`
+    );
+    return result.rows;
+  },
+
+  async getActivityStatsByType(days = 30) {
+    const result = await pool.query(
+      `SELECT 
+         activity_type,
+         COUNT(*) as total_count,
+         COUNT(DISTINCT user_id) as unique_users,
+         DATE(created_at) as activity_date
+       FROM user_activity 
+       WHERE created_at >= NOW() - INTERVAL '${days} days'
+       GROUP BY activity_type, DATE(created_at)
+       ORDER BY activity_date DESC, total_count DESC`
+    );
+    return result.rows;
+  },
+
   // Закрыть соединение
   async close() {
     await pool.end();

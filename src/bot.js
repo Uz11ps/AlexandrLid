@@ -7,6 +7,7 @@ import adminHandlers from './handlers/admin.js';
 import isAdmin from './middlewares/auth.js';
 import { rateLimit } from './middlewares/rateLimit.js';
 import { checkBlacklist } from './middlewares/blacklist.js';
+import activityLogger from './middlewares/activityLogger.js';
 import broadcastConstructor from './scenes/broadcastConstructor.js';
 import initScheduler from './utils/scheduler.js';
 
@@ -31,6 +32,9 @@ bot.use(stage.middleware());
 
 // Глобальный rate limiting (настройки загружаются из БД)
 bot.use(rateLimit());
+
+// Логирование активности пользователей
+bot.use(activityLogger);
 
 // Проверка черного списка
 bot.use(checkBlacklist);
@@ -251,10 +255,44 @@ bot.on('callback_query', async (ctx) => {
     }
 
     // Обработка проверки подписки
-    if (data === 'check_subscription') {
+    if (data === 'check_subscription' || data.startsWith('check_subscription_')) {
       await ctx.answerCbQuery('⏳ Проверяю подписку...');
-      const subscriptionHandlers = (await import('./handlers/subscription.js')).default;
-      await subscriptionHandlers.checkSubscriptionAndCreateLead(ctx);
+      
+      // Если есть ID розыгрыша, проверяем подписку и пытаемся присоединиться к розыгрышу
+      if (data.startsWith('check_subscription_')) {
+        const giveawayId = parseInt(data.replace('check_subscription_', ''));
+        const channelId = await db.getSetting('channel_id');
+        
+        if (channelId) {
+          const channelInvite = await db.getChannelInvite(channelId);
+          if (channelInvite) {
+            // Проверяем подписку через пригласительную ссылку
+            // В реальности это будет проверяться через событие chat_member
+            // Здесь просто проверяем, есть ли запись о подписке
+            const isSubscribed = await db.checkChannelSubscription(ctx.from.id, channelInvite.id);
+            
+            if (isSubscribed) {
+              await ctx.reply('✅ Подписка подтверждена! Теперь вы можете участвовать в розыгрыше.');
+              // Пытаемся присоединиться к розыгрышу снова
+              const giveawayHandlers = (await import('./handlers/giveaways.js')).default;
+              // Создаем фиктивный callback для повторной попытки
+              const fakeCtx = {
+                ...ctx,
+                callbackQuery: {
+                  ...ctx.callbackQuery,
+                  data: `giveaway_join_${giveawayId}`
+                }
+              };
+              await giveawayHandlers.handleGiveawayJoin(fakeCtx);
+            } else {
+              await ctx.reply('❌ Подписка не подтверждена. Пожалуйста, перейдите по ссылке и подпишитесь на канал, затем нажмите "Проверить подписку" снова.');
+            }
+          }
+        }
+      } else {
+        const subscriptionHandlers = (await import('./handlers/subscription.js')).default;
+        await subscriptionHandlers.checkSubscriptionAndCreateLead(ctx);
+      }
       return;
     }
 
@@ -795,6 +833,52 @@ process.once('SIGTERM', () => {
   bot.stop('SIGTERM');
   db.close();
   process.exit(0);
+});
+
+// Обработка присоединения к каналу/группе через пригласительную ссылку
+bot.on('chat_member', async (ctx) => {
+  try {
+    const chatMember = ctx.chatMember;
+    if (!chatMember) return;
+
+    const userId = chatMember.new_chat_member?.user?.id;
+    const chatId = String(ctx.chat.id);
+    const status = chatMember.new_chat_member?.status;
+
+    // Проверяем, что пользователь присоединился (member, administrator, creator)
+    if (userId && ['member', 'administrator', 'creator'].includes(status)) {
+      // Ищем пригласительную ссылку для этого канала/группы
+      const channelInvite = await db.getChannelInvite(chatId);
+      
+      if (channelInvite) {
+        // Записываем подписку
+        await db.recordChannelSubscription(userId, channelInvite.id);
+        
+        // Логируем активность
+        await db.logUserActivity(userId, 'subscription', {
+          action: 'channel_join',
+          channel_id: chatId,
+          channel_username: channelInvite.channel_username,
+          channel_type: channelInvite.channel_type
+        });
+
+        console.log(`✅ Пользователь ${userId} подписался на канал ${chatId} через пригласительную ссылку`);
+        
+        // Отправляем подтверждение пользователю (если возможно)
+        try {
+          await ctx.telegram.sendMessage(
+            userId,
+            `✅ Спасибо за подписку!\n\nТеперь вы можете участвовать в розыгрышах и получать доступ к эксклюзивному контенту.`
+          );
+        } catch (error) {
+          // Игнорируем ошибку, если не можем отправить сообщение
+          console.log(`Не удалось отправить подтверждение пользователю ${userId}:`, error.message);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Ошибка при обработке chat_member:', error);
+  }
 });
 
 // Обработка медиа-файлов (фото, видео, документы) для сохранения в историю

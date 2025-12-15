@@ -128,6 +128,38 @@ export const botAdminAPI = {
     return axios.post(`/api/bot-admin/giveaways/${id}/winners`, {
       selection_type: selectionType
     });
+  },
+
+  // Activity stats
+  getActivityStats: (days = 30) => {
+    return axios.get('/api/bot-admin/activity/stats', {
+      params: { days }
+    }).then(res => res.data);
+  },
+
+  getUserActivity: (userId, days = 30, limit = 50) => {
+    return axios.get(`/api/bot-admin/activity/user/${userId}`, {
+      params: { days, limit }
+    }).then(res => res.data);
+  },
+
+  getUsersActivity: (days = 30, page = 1, limit = 50) => {
+    return axios.get('/api/bot-admin/activity/users', {
+      params: { days, page, limit }
+    }).then(res => res.data);
+  },
+
+  // Channel invites
+  getChannelInvites: () => {
+    return axios.get('/api/bot-admin/channel-invites').then(res => res.data);
+  },
+
+  createChannelInvite: (data) => {
+    return axios.post('/api/bot-admin/channel-invites', data).then(res => res.data);
+  },
+
+  updateChannelInvite: (id, data) => {
+    return axios.put(`/api/bot-admin/channel-invites/${id}`, data).then(res => res.data);
   }
 };
 
