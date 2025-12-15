@@ -69,6 +69,27 @@ router.post('/templates', async (req, res) => {
 });
 
 // Get documents
+/**
+ * @swagger
+ * /documents:
+ *   get:
+ *     summary: Получить список документов
+ *     tags: [Documents]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: lead_id
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: student_id
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Список документов
+ */
 router.get('/', async (req, res) => {
   try {
     const { lead_id, student_id, deal_id, document_type } = req.query;
