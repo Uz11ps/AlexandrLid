@@ -159,14 +159,17 @@ router.post('/broadcasts', async (req, res) => {
     let scheduledAtUTC = null;
     if (scheduled_at) {
       // datetime-local возвращает время в формате "YYYY-MM-DDTHH:mm" без часового пояса
-      // Интерпретируем его как локальное время и конвертируем в UTC
+      // Интерпретируем его как локальное время браузера и конвертируем в UTC
+      // Создаем Date объект из строки - JavaScript автоматически интерпретирует как локальное время
       const localDate = new Date(scheduled_at);
       // Проверяем, что дата валидна
       if (isNaN(localDate.getTime())) {
         return res.status(400).json({ error: 'Invalid scheduled_at format' });
       }
       // Конвертируем в UTC для сохранения в БД
+      // toISOString() автоматически конвертирует локальное время в UTC
       scheduledAtUTC = localDate.toISOString();
+      console.log(`Broadcast creation: Local time "${scheduled_at}" converted to UTC "${scheduledAtUTC}"`);
     }
 
     const result = await pool.query(
@@ -215,9 +218,13 @@ router.put('/broadcasts/:id', async (req, res) => {
       // Конвертация времени из локального времени браузера в UTC
       let scheduledAtUTC = null;
       if (scheduled_at) {
+        // datetime-local возвращает время в формате "YYYY-MM-DDTHH:mm" без часового пояса
+        // Интерпретируем его как локальное время браузера и конвертируем в UTC
         const localDate = new Date(scheduled_at);
         if (!isNaN(localDate.getTime())) {
+          // toISOString() автоматически конвертирует локальное время в UTC
           scheduledAtUTC = localDate.toISOString();
+          console.log(`Broadcast update: Local time "${scheduled_at}" converted to UTC "${scheduledAtUTC}"`);
         }
       }
       updates.push(`scheduled_at = $${paramIndex++}`);

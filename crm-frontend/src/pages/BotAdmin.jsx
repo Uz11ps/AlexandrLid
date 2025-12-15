@@ -1029,9 +1029,15 @@ function BotAdmin() {
               label="Запланировать на (необязательно)"
               value={editBroadcast?.scheduled_at ? (() => {
                 // Конвертируем UTC время из БД в локальное время для отображения
-                const utcDate = new Date(editBroadcast.scheduled_at);
-                const localDate = new Date(utcDate.getTime() - utcDate.getTimezoneOffset() * 60000);
-                return localDate.toISOString().slice(0, 16);
+                // scheduled_at в БД хранится в UTC, нужно конвертировать в локальное время браузера
+                const utcDate = new Date(editBroadcast.scheduled_at + 'Z'); // Добавляем Z для явного указания UTC
+                // Получаем локальное время в формате YYYY-MM-DDTHH:mm для datetime-local
+                const year = utcDate.getFullYear();
+                const month = String(utcDate.getMonth() + 1).padStart(2, '0');
+                const day = String(utcDate.getDate()).padStart(2, '0');
+                const hours = String(utcDate.getHours()).padStart(2, '0');
+                const minutes = String(utcDate.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
               })() : ''}
               onChange={(e) => setEditBroadcast({ ...editBroadcast, scheduled_at: e.target.value })}
               InputLabelProps={{ shrink: true }}
