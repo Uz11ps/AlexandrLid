@@ -573,7 +573,7 @@ function UsersManagement() {
         </DialogActions>
       </Dialog>
     </Container>
-    </>
+    </Fragment>
   );
 }
 
