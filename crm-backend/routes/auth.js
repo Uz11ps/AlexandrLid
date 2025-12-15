@@ -5,7 +5,55 @@ import pool from '../db.js';
 
 const router = express.Router();
 
-// Simple login endpoint (MVP - no registration endpoint yet)
+/**
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     summary: Авторизация менеджера
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: manager@example.com
+ *               password:
+ *                 type: string
+ *                 example: password123
+ *     responses:
+ *       200:
+ *         description: Успешная авторизация
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     email:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     role:
+ *                       type: string
+ *       400:
+ *         description: Неверный запрос
+ *       401:
+ *         description: Неверные учетные данные
+ */
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;

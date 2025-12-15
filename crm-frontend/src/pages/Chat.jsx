@@ -45,6 +45,8 @@ function Chat() {
     priority: 'normal'
   });
   const [statusFilter, setStatusFilter] = useState('all');
+  const [messagesCache, setMessagesCache] = useState({}); // Кэш сообщений по ticketId
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
   useEffect(() => {
     loadTickets();
@@ -53,14 +55,22 @@ function Chat() {
 
   useEffect(() => {
     if (selectedTicket) {
-      loadTicketMessages(selectedTicket.id);
-      // Обновлять сообщения каждые 5 секунд
+      const ticketId = selectedTicket.id;
+      // Если сообщения уже в кэше, используем их сразу
+      if (messagesCache[ticketId]) {
+        setMessages(messagesCache[ticketId]);
+      } else {
+        // Загружаем только если нет в кэше
+        loadTicketMessages(ticketId);
+      }
+      
+      // Обновлять сообщения каждые 10 секунд (увеличено с 5)
       const interval = setInterval(() => {
-        loadTicketMessages(selectedTicket.id);
-      }, 5000);
+        loadTicketMessages(ticketId, true); // true = silent update
+      }, 10000);
       return () => clearInterval(interval);
     }
-  }, [selectedTicket]);
+  }, [selectedTicket?.id]); // Зависимость только от ID, а не от всего объекта
 
   const loadTickets = async () => {
     try {
@@ -81,13 +91,31 @@ function Chat() {
     }
   };
 
-  const loadTicketMessages = async (ticketId) => {
+  const loadTicketMessages = async (ticketId, silent = false) => {
+    // Предотвращаем множественные одновременные запросы
+    if (loadingMessages && !silent) return;
+    
     try {
+      if (!silent) setLoadingMessages(true);
       const response = await ticketsAPI.getById(ticketId);
-      setSelectedTicket(response.data);
-      setMessages(response.data.messages || []);
+      const ticketMessages = response.data.messages || [];
+      
+      // Обновляем кэш
+      setMessagesCache(prev => ({
+        ...prev,
+        [ticketId]: ticketMessages
+      }));
+      
+      // Обновляем сообщения только если это текущий выбранный тикет
+      if (selectedTicket?.id === ticketId) {
+        setMessages(ticketMessages);
+        // Обновляем только статус тикета, не перезагружая весь объект
+        setSelectedTicket(prev => prev ? { ...prev, ...response.data, messages: ticketMessages } : response.data);
+      }
     } catch (error) {
       console.error('Error loading messages:', error);
+    } finally {
+      if (!silent) setLoadingMessages(false);
     }
   };
 
@@ -111,7 +139,8 @@ function Chat() {
     try {
       await ticketsAPI.sendMessage(selectedTicket.id, newMessage);
       setNewMessage('');
-      loadTicketMessages(selectedTicket.id);
+      // Перезагружаем сообщения после отправки
+      await loadTicketMessages(selectedTicket.id);
     } catch (error) {
       console.error('Error sending message:', error);
       alert('Ошибка при отправке сообщения');
@@ -121,9 +150,11 @@ function Chat() {
   const handleUpdateStatus = async (ticketId, status) => {
     try {
       await ticketsAPI.update(ticketId, { status });
-      loadTickets();
+      // Обновляем статус в списке тикетов
+      setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status } : t));
+      // Обновляем статус в выбранном тикете
       if (selectedTicket && selectedTicket.id === ticketId) {
-        loadTicketMessages(ticketId);
+        setSelectedTicket(prev => prev ? { ...prev, status } : null);
       }
     } catch (error) {
       console.error('Error updating ticket status:', error);
@@ -192,7 +223,15 @@ function Chat() {
                   key={ticket.id}
                   button
                   selected={selectedTicket?.id === ticket.id}
-                  onClick={() => setSelectedTicket(ticket)}
+                  onClick={() => {
+                    // Оптимизация: если тикет уже выбран, не перезагружаем
+                    if (selectedTicket?.id === ticket.id) return;
+                    setSelectedTicket(ticket);
+                    // Если сообщения в кэше, используем их сразу
+                    if (messagesCache[ticket.id]) {
+                      setMessages(messagesCache[ticket.id]);
+                    }
+                  }}
                   sx={{
                     mb: 1,
                     borderRadius: 1,

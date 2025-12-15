@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import swaggerJsdoc from 'swagger-jsdoc';
+import swaggerUi from 'swagger-ui-express';
 import leadsRoutes from './routes/leads.js';
 import tasksRoutes from './routes/tasks.js';
 import authRoutes from './routes/auth.js';
@@ -19,6 +21,44 @@ import managersRoutes from './routes/managers.js';
 
 dotenv.config();
 
+// Swagger configuration
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'CRM API Documentation',
+      version: '1.0.0',
+      description: 'API документация для CRM системы с Telegram ботом',
+      contact: {
+        name: 'API Support'
+      }
+    },
+    servers: [
+      {
+        url: process.env.API_URL || 'http://localhost:3001',
+        description: 'Development server'
+      }
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT'
+        }
+      }
+    },
+    security: [
+      {
+        bearerAuth: []
+      }
+    ]
+  },
+  apis: ['./routes/*.js'] // Путь к файлам с роутами
+};
+
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -26,6 +66,12 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'CRM API Documentation'
+}));
 
 // Health check
 app.get('/health', (req, res) => {
