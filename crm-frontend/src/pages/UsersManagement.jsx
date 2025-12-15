@@ -122,23 +122,36 @@ function UsersManagement() {
 
   const handleCreateUser = async () => {
     try {
+      // Проверяем, что роль выбрана
+      if (!newUser.role || newUser.role.trim() === '') {
+        alert('Пожалуйста, выберите роль для пользователя');
+        return;
+      }
+      
       console.log('Creating user with data:', newUser);
       const response = await axios.post('/api/auth/register', {
         email: newUser.email,
         password: newUser.password,
         name: newUser.name,
-        role: newUser.role || 'manager',
+        role: newUser.role,
         is_active: newUser.is_active !== undefined ? newUser.is_active : true
       });
       console.log('User created successfully:', response.data);
       setUserDialogOpen(false);
-      setNewUser({ email: '', password: '', name: '', role: 'manager', is_active: true });
+      setNewUser({ email: '', password: '', name: '', role: roles.length > 0 ? roles[0].name : 'manager', is_active: true });
       loadManagers();
       alert('Пользователь успешно создан');
     } catch (error) {
       console.error('Error creating user:', error);
       console.error('Error response:', error.response?.data);
-      const errorMessage = error.response?.data?.error || error.response?.data?.details || error.message;
+      const errorData = error.response?.data;
+      let errorMessage = errorData?.error || error.message;
+      
+      // Если есть список доступных ролей, добавляем его в сообщение
+      if (errorData?.availableRoles) {
+        errorMessage += `\n\nДоступные роли: ${errorData.availableRoles.join(', ')}`;
+      }
+      
       alert('Ошибка при создании пользователя: ' + errorMessage);
     }
   };
@@ -481,7 +494,7 @@ function UsersManagement() {
           <Button
             onClick={selectedUser ? handleUpdateUser : handleCreateUser}
             variant="contained"
-            disabled={!selectedUser && (!newUser.email || !newUser.password || !newUser.name)}
+            disabled={!selectedUser && (!newUser.email || !newUser.password || !newUser.name || !newUser.role)}
           >
             {selectedUser ? 'Сохранить' : 'Создать'}
           </Button>

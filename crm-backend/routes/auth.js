@@ -155,9 +155,16 @@ router.post('/register', authenticateToken, async (req, res) => {
     }
 
     // Валидация роли - проверяем существование роли в базе данных
-    const userRole = role || 'manager';
+    let userRole = role;
+    
+    // Если роль не указана, используем 'manager' по умолчанию
+    if (!userRole || userRole.trim() === '') {
+      userRole = 'manager';
+    }
+    
+    // Проверяем существование роли в базе данных
     const roleCheck = await pool.query(
-      'SELECT id FROM roles WHERE name = $1',
+      'SELECT id, name FROM roles WHERE name = $1',
       [userRole]
     );
 
@@ -165,8 +172,16 @@ router.post('/register', authenticateToken, async (req, res) => {
       // Получаем список доступных ролей для сообщения об ошибке
       const availableRoles = await pool.query('SELECT name FROM roles ORDER BY name');
       const roleNames = availableRoles.rows.map(r => r.name);
+      
+      // Если таблица roles пуста или не существует, возвращаем стандартные роли
+      if (roleNames.length === 0) {
+        roleNames.push('admin', 'manager', 'marketer', 'accountant');
+      }
+      
       return res.status(400).json({ 
-        error: `Invalid role. Must be one of: ${roleNames.join(', ')}` 
+        error: `Invalid role "${userRole}". Must be one of: ${roleNames.join(', ')}`,
+        providedRole: userRole,
+        availableRoles: roleNames
       });
     }
 
