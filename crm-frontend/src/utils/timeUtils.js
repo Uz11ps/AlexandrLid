@@ -48,6 +48,17 @@ export function formatMoscowTime(utcDate, options = {}) {
       return '-';
     }
     
+    // Отладочный вывод
+    console.log('formatMoscowTime input:', {
+      original: utcDate,
+      parsed: date.toISOString(),
+      utcHours: date.getUTCHours(),
+      utcMinutes: date.getUTCMinutes(),
+      utcDate: date.getUTCDate(),
+      utcMonth: date.getUTCMonth() + 1,
+      utcYear: date.getUTCFullYear()
+    });
+    
     // Получаем UTC компоненты исходного времени
     const utcYear = date.getUTCFullYear();
     const utcMonth = date.getUTCMonth();
@@ -101,6 +112,7 @@ export function formatMoscowTime(utcDate, options = {}) {
               ? `${hours}:${minutes}`
               : '-');
     
+    console.log('formatMoscowTime result:', result);
     return result;
   } catch (error) {
     console.error('Error in formatMoscowTime:', error, utcDate);
