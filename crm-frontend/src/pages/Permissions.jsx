@@ -188,7 +188,15 @@ function Permissions() {
       });
       setRolePermissions(adminPermissionsMap);
     }
-  }, [selectedRole]);
+  }, [selectedRole, rolePermissions]);
+
+  // Инициализация прав пользователя при переключении на вкладку пользователей
+  useEffect(() => {
+    if (tab === 1 && selectedUserId && managersLoaded && permissionsLoaded && permissions.length > 0 && Object.keys(userPermissions).length === 0) {
+      console.log('Initializing user permissions for userId:', selectedUserId, 'managersLoaded:', managersLoaded, 'permissionsLoaded:', permissionsLoaded);
+      loadUserPermissions(selectedUserId);
+    }
+  }, [tab, selectedUserId, managersLoaded, permissionsLoaded, permissions.length, userPermissions, loadUserPermissions]);
 
   // Загружаем права роли когда permissions загружены и выбрана роль
   useEffect(() => {
