@@ -35,7 +35,9 @@ export function formatMoscowTime(utcDate, options = {}) {
     } else if (typeof utcDate === 'string') {
       // Если строка уже содержит Z (UTC), используем как есть
       // Иначе добавляем Z для явного указания UTC
-      const dateStr = utcDate.endsWith('Z') ? utcDate : utcDate + 'Z';
+      const dateStr = utcDate.endsWith('Z') || utcDate.includes('+') || utcDate.includes('-') 
+        ? utcDate 
+        : utcDate + 'Z';
       date = new Date(dateStr);
     } else {
       date = new Date(utcDate);
@@ -52,14 +54,6 @@ export function formatMoscowTime(utcDate, options = {}) {
     const utcDay = date.getUTCDate();
     const utcHours = date.getUTCHours();
     const utcMinutes = date.getUTCMinutes();
-    const utcSeconds = date.getUTCSeconds();
-    
-    // Отладочный вывод (можно удалить после исправления)
-    console.log('formatMoscowTime:', {
-      input: utcDate,
-      utcISO: date.toISOString(),
-      utcComponents: { utcYear, utcMonth: utcMonth + 1, utcDay, utcHours, utcMinutes }
-    });
     
     // Добавляем 3 часа для московского времени
     let moscowHours = utcHours + 3;
@@ -107,7 +101,6 @@ export function formatMoscowTime(utcDate, options = {}) {
               ? `${hours}:${minutes}`
               : '-');
     
-    console.log('formatMoscowTime result:', result);
     return result;
   } catch (error) {
     console.error('Error in formatMoscowTime:', error, utcDate);

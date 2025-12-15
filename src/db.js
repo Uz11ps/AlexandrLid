@@ -337,9 +337,24 @@ export const db = {
         buttons = null;
       }
     }
+    
+    // Нормализуем scheduled_at к UTC Date объекту
+    let scheduledAt = null;
+    if (row.scheduled_at) {
+      if (row.scheduled_at instanceof Date) {
+        scheduledAt = new Date(row.scheduled_at.getTime() - (3 * 60 * 60 * 1000));
+      } else if (typeof row.scheduled_at === 'string') {
+        const date = new Date(row.scheduled_at);
+        if (!isNaN(date.getTime())) {
+          scheduledAt = new Date(date.getTime() - (3 * 60 * 60 * 1000));
+        }
+      }
+    }
+    
     return {
       ...row,
-      buttons
+      buttons,
+      scheduled_at: scheduledAt || row.scheduled_at
     };
   },
 
@@ -359,9 +374,24 @@ export const db = {
           buttons = null;
         }
       }
+      
+      // Нормализуем scheduled_at к UTC Date объекту
+      let scheduledAt = null;
+      if (row.scheduled_at) {
+        if (row.scheduled_at instanceof Date) {
+          scheduledAt = new Date(row.scheduled_at.getTime() - (3 * 60 * 60 * 1000));
+        } else if (typeof row.scheduled_at === 'string') {
+          const date = new Date(row.scheduled_at);
+          if (!isNaN(date.getTime())) {
+            scheduledAt = new Date(date.getTime() - (3 * 60 * 60 * 1000));
+          }
+        }
+      }
+      
       return {
         ...row,
-        buttons
+        buttons,
+        scheduled_at: scheduledAt || row.scheduled_at
       };
     });
   },
@@ -443,19 +473,30 @@ export const db = {
       }
       
       // Нормализуем scheduled_at к UTC Date объекту
+      // PostgreSQL возвращает TIMESTAMP как локальное время (MSK), но мы сохраняем UTC
+      // Поэтому нужно вычесть 3 часа, чтобы получить правильное UTC время
       let scheduledAt = null;
       if (row.scheduled_at) {
         if (row.scheduled_at instanceof Date) {
-          scheduledAt = row.scheduled_at;
+          // PostgreSQL вернул Date объект, интерпретированный как MSK
+          // Вычитаем 3 часа, чтобы получить UTC
+          scheduledAt = new Date(row.scheduled_at.getTime() - (3 * 60 * 60 * 1000));
         } else if (typeof row.scheduled_at === 'string') {
-          scheduledAt = new Date(row.scheduled_at);
+          // Если это строка без timezone, PostgreSQL вернул её как MSK
+          // Парсим как UTC, вычитая 3 часа
+          const date = new Date(row.scheduled_at);
+          if (!isNaN(date.getTime())) {
+            // Предполагаем, что строка была интерпретирована как локальное время
+            // Вычитаем 3 часа для получения UTC
+            scheduledAt = new Date(date.getTime() - (3 * 60 * 60 * 1000));
+          }
         }
       }
       
       return {
         ...row,
         buttons,
-        scheduled_at: scheduledAt
+        scheduled_at: scheduledAt || row.scheduled_at
       };
     });
   },
