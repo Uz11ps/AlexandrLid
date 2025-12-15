@@ -17,8 +17,16 @@ export const analyticsAPI = {
     return axios.get('/api/analytics/managers');
   },
   
-  getSources: () => {
-    return axios.get('/api/analytics/sources');
+  getSources: (params = {}) => {
+    return axios.get('/api/analytics/sources', { params });
+  },
+  
+  getManagerEfficiency: () => {
+    return axios.get('/api/analytics/manager-efficiency');
+  },
+  
+  getUserActivity: (params = {}) => {
+    return axios.get('/api/analytics/user-activity', { params });
   }
 };
 

@@ -52,6 +52,128 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Export students to Excel
+router.get('/export/excel', async (req, res) => {
+  try {
+    const { course_id, group_id, payment_status } = req.query;
+    
+    let query = `
+      SELECT 
+        s.id,
+        s.contract_number,
+        l.fio,
+        l.phone,
+        l.email,
+        l.telegram_username,
+        c.name as course_name,
+        p.name as package_name,
+        s.payment_amount,
+        s.payment_currency,
+        s.payment_status,
+        s.progress_percent,
+        s.start_date,
+        s.graduation_date,
+        g.name as group_name,
+        m.name as curator_name,
+        s.created_at
+      FROM students s
+      LEFT JOIN leads l ON s.lead_id = l.id
+      LEFT JOIN courses c ON s.course_id = c.id
+      LEFT JOIN packages p ON s.package_id = p.id
+      LEFT JOIN study_groups g ON s.group_id = g.id
+      LEFT JOIN managers m ON s.curator_id = m.id
+      WHERE 1=1
+    `;
+    const params = [];
+    let paramIndex = 1;
+
+    if (course_id) {
+      query += ` AND s.course_id = $${paramIndex++}`;
+      params.push(parseInt(course_id));
+    }
+    if (group_id) {
+      query += ` AND s.group_id = $${paramIndex++}`;
+      params.push(parseInt(group_id));
+    }
+    if (payment_status) {
+      query += ` AND s.payment_status = $${paramIndex++}`;
+      params.push(payment_status);
+    }
+
+    query += ' ORDER BY s.created_at DESC';
+
+    const result = await pool.query(query, params);
+    const students = result.rows;
+
+    // Используем динамический импорт для exceljs
+    const exceljs = await import('exceljs');
+    const ExcelJS = exceljs.default || exceljs;
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Студенты');
+
+    // Заголовки
+    worksheet.columns = [
+      { header: 'ID', key: 'id', width: 10 },
+      { header: 'Номер договора', key: 'contract_number', width: 20 },
+      { header: 'ФИО', key: 'fio', width: 25 },
+      { header: 'Телефон', key: 'phone', width: 15 },
+      { header: 'Email', key: 'email', width: 25 },
+      { header: 'Telegram', key: 'telegram_username', width: 20 },
+      { header: 'Курс', key: 'course_name', width: 25 },
+      { header: 'Тариф', key: 'package_name', width: 20 },
+      { header: 'Сумма оплаты', key: 'payment_amount', width: 15 },
+      { header: 'Валюта', key: 'payment_currency', width: 10 },
+      { header: 'Статус оплаты', key: 'payment_status', width: 15 },
+      { header: 'Прогресс %', key: 'progress_percent', width: 12 },
+      { header: 'Группа', key: 'group_name', width: 20 },
+      { header: 'Куратор', key: 'curator_name', width: 20 },
+      { header: 'Дата начала', key: 'start_date', width: 15 },
+      { header: 'Дата окончания', key: 'graduation_date', width: 15 },
+      { header: 'Дата создания', key: 'created_at', width: 20 }
+    ];
+
+    // Стиль заголовков
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE0E0E0' }
+    };
+
+    // Данные
+    students.forEach(student => {
+      worksheet.addRow({
+        id: student.id,
+        contract_number: student.contract_number || '',
+        fio: student.fio || '',
+        phone: student.phone || '',
+        email: student.email || '',
+        telegram_username: student.telegram_username || '',
+        course_name: student.course_name || '',
+        package_name: student.package_name || '',
+        payment_amount: student.payment_amount || 0,
+        payment_currency: student.payment_currency || 'RUB',
+        payment_status: student.payment_status || '',
+        progress_percent: student.progress_percent || 0,
+        group_name: student.group_name || '',
+        curator_name: student.curator_name || '',
+        start_date: student.start_date ? new Date(student.start_date).toLocaleDateString('ru-RU') : '',
+        graduation_date: student.graduation_date ? new Date(student.graduation_date).toLocaleDateString('ru-RU') : '',
+        created_at: student.created_at ? new Date(student.created_at).toLocaleString('ru-RU') : ''
+      });
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=students_export_${Date.now()}.xlsx`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error('Error exporting students:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
 // Get single student
 router.get('/:id', async (req, res) => {
   try {

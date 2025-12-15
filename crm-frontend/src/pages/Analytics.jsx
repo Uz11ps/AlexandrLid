@@ -53,6 +53,7 @@ function Analytics() {
   const [financialData, setFinancialData] = useState(null);
   const [managersData, setManagersData] = useState([]);
   const [sourcesData, setSourcesData] = useState([]);
+  const [userActivityData, setUserActivityData] = useState([]);
   const [period, setPeriod] = useState('month');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -65,22 +66,25 @@ function Analytics() {
     try {
       setLoading(true);
       setError(null);
-      const [funnelRes, financialRes, managersRes, sourcesRes] = await Promise.all([
-        analyticsAPI.getFunnel().catch(err => ({ data: [], error: err })),
+      const [funnelRes, financialRes, managersRes, sourcesRes, activityRes] = await Promise.all([
+        analyticsAPI.getFunnel({ period }).catch(err => ({ data: [], error: err })),
         analyticsAPI.getFinancial({ period }).catch(err => ({ data: null, error: err })),
         analyticsAPI.getManagers().catch(err => ({ data: [], error: err })),
-        analyticsAPI.getSources().catch(err => ({ data: [], error: err }))
+        analyticsAPI.getSources({ period }).catch(err => ({ data: [], error: err })),
+        analyticsAPI.getUserActivity({ period }).catch(err => ({ data: [], error: err }))
       ]);
 
       if (funnelRes.error) console.error('Funnel error:', funnelRes.error);
       if (financialRes.error) console.error('Financial error:', financialRes.error);
       if (managersRes.error) console.error('Managers error:', managersRes.error);
       if (sourcesRes.error) console.error('Sources error:', sourcesRes.error);
+      if (activityRes.error) console.error('Activity error:', activityRes.error);
 
       setFunnelData(funnelRes.data || []);
       setFinancialData(financialRes.data);
       setManagersData(managersRes.data || []);
       setSourcesData(sourcesRes.data || []);
+      setUserActivityData(activityRes.data || []);
     } catch (error) {
       console.error('Error loading analytics:', error);
       setError('Не удалось загрузить данные аналитики. Пожалуйста, попробуйте позже.');
@@ -399,6 +403,35 @@ function Analytics() {
         </>
       )}
 
+      {/* Активность пользователей */}
+      {userActivityData.length > 0 && (
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Активность пользователей
+          </Typography>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={userActivityData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="date" 
+                angle={-45}
+                textAnchor="end"
+                height={100}
+                tickFormatter={(value) => new Date(value).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })}
+              />
+              <YAxis />
+              <Tooltip 
+                formatter={(value) => [value, '']}
+                labelFormatter={(label) => new Date(label).toLocaleDateString('ru-RU')}
+              />
+              <Legend />
+              <Bar dataKey="users_count" fill="#8884d8" name="Новых пользователей" />
+              <Bar dataKey="leads_count" fill="#82ca9d" name="Созданных лидов" />
+            </BarChart>
+          </ResponsiveContainer>
+        </Paper>
+      )}
+
       {/* Воронка продаж */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" gutterBottom>
@@ -477,9 +510,11 @@ function Analytics() {
                     <TableRow>
                       <TableCell>Менеджер</TableCell>
                       <TableCell align="right">Лидов</TableCell>
+                      <TableCell align="right">За 30д</TableCell>
+                      <TableCell align="right">Продажи</TableCell>
                       <TableCell align="right">Конверсия</TableCell>
+                      <TableCell align="right">Задачи</TableCell>
                       <TableCell align="right">Выручка</TableCell>
-                      <TableCell align="right">Задач</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -487,15 +522,27 @@ function Analytics() {
                       const conversionRate = manager.converted_count && manager.leads_count
                         ? ((manager.converted_count / manager.leads_count) * 100).toFixed(1)
                         : 0;
+                      const tasksRatio = manager.tasks_total 
+                        ? `${manager.tasks_completed || 0}/${manager.tasks_total}`
+                        : '0/0';
                       return (
                         <TableRow key={manager.id}>
                           <TableCell>{manager.name || manager.email}</TableCell>
                           <TableCell align="right">{manager.leads_count || 0}</TableCell>
+                          <TableCell align="right">{manager.leads_30d || 0}</TableCell>
+                          <TableCell align="right">{manager.sales_count || manager.deals_count || 0}</TableCell>
                           <TableCell align="right">
                             <Chip 
                               label={`${conversionRate}%`}
                               size="small"
                               color={conversionRate > 20 ? 'success' : conversionRate > 10 ? 'warning' : 'default'}
+                            />
+                          </TableCell>
+                          <TableCell align="right">
+                            <Chip 
+                              label={tasksRatio}
+                              size="small"
+                              color={manager.tasks_total && manager.tasks_completed / manager.tasks_total >= 0.7 ? 'success' : 'default'}
                             />
                           </TableCell>
                           <TableCell align="right">
@@ -505,7 +552,6 @@ function Analytics() {
                               minimumFractionDigits: 0
                             }).format(manager.total_revenue || 0)}
                           </TableCell>
-                          <TableCell align="right">{manager.tasks_completed || 0}</TableCell>
                         </TableRow>
                       );
                     })}

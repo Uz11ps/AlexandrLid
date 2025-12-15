@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import {
   Container,
   Paper,
@@ -22,7 +23,9 @@ import {
   Select,
   MenuItem,
   FormControl,
-  InputLabel
+  InputLabel,
+  Card,
+  CardContent
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import { tasksAPI } from '../api/tasks';
@@ -34,11 +37,13 @@ function Tasks() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const [tab, setTab] = useState(0);
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'kanban'
   const [tasks, setTasks] = useState({
     today: [],
     tomorrow: [],
     upcoming: []
   });
+  const [allTasks, setAllTasks] = useState([]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
@@ -63,10 +68,11 @@ function Tasks() {
 
   const loadTasks = async () => {
     try {
-      const [todayRes, tomorrowRes, upcomingRes] = await Promise.all([
+      const [todayRes, tomorrowRes, upcomingRes, allRes] = await Promise.all([
         tasksAPI.getAll({ date_filter: 'today' }),
         tasksAPI.getAll({ date_filter: 'tomorrow' }),
-        tasksAPI.getAll({ date_filter: 'upcoming' })
+        tasksAPI.getAll({ date_filter: 'upcoming' }),
+        tasksAPI.getAll({}) // Load all tasks for kanban
       ]);
 
       setTasks({
@@ -74,6 +80,7 @@ function Tasks() {
         tomorrow: tomorrowRes.data.tasks || [],
         upcoming: upcomingRes.data.tasks || []
       });
+      setAllTasks(allRes.data.tasks || []);
     } catch (error) {
       console.error('Error loading tasks:', error);
     }
@@ -121,12 +128,31 @@ function Tasks() {
   const handleUpdateTaskStatus = async (taskId, newStatus) => {
     try {
       await tasksAPI.update(taskId, { status: newStatus });
-      setSelectedTask({ ...selectedTask, status: newStatus });
+      if (selectedTask) {
+        setSelectedTask({ ...selectedTask, status: newStatus });
+      }
       loadTasks();
     } catch (error) {
       console.error('Error updating task status:', error);
       alert('Ошибка при обновлении статуса задачи');
     }
+  };
+
+  const onDragEnd = async (result) => {
+    if (!result.destination) return;
+    
+    const { draggableId, destination } = result;
+    const taskId = parseInt(draggableId);
+    const newStatus = destination.droppableId;
+    
+    if (newStatus && ['new', 'in_progress', 'completed'].includes(newStatus)) {
+      await handleUpdateTaskStatus(taskId, newStatus);
+    }
+  };
+
+  const getTasksByStatus = (status) => {
+    const currentTabTasks = tab === 0 ? tasks.today : tab === 1 ? tasks.tomorrow : tasks.upcoming;
+    return currentTabTasks.filter(task => task.status === status);
   };
 
   const renderTaskList = (taskList) => {
@@ -210,13 +236,27 @@ function Tasks() {
     <Container maxWidth="lg">
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h4">Задачи</Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateDialogOpen(true)}
-          >
-            Создать задачу
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant={viewMode === 'list' ? 'contained' : 'outlined'}
+              onClick={() => setViewMode('list')}
+            >
+              Список
+            </Button>
+            <Button
+              variant={viewMode === 'kanban' ? 'contained' : 'outlined'}
+              onClick={() => setViewMode('kanban')}
+            >
+              Kanban
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateDialogOpen(true)}
+            >
+              Создать задачу
           </Button>
+          </Box>
         </Box>
 
         <Paper sx={{ p: 3 }}>
@@ -227,9 +267,103 @@ function Tasks() {
           </Tabs>
 
           <Box sx={{ mt: 3 }}>
-            {tab === 0 && renderTaskList(tasks.today)}
-            {tab === 1 && renderTaskList(tasks.tomorrow)}
-            {tab === 2 && renderTaskList(tasks.upcoming)}
+            {viewMode === 'list' ? (
+              <>
+                {tab === 0 && renderTaskList(tasks.today)}
+                {tab === 1 && renderTaskList(tasks.tomorrow)}
+                {tab === 2 && renderTaskList(tasks.upcoming)}
+              </>
+            ) : (
+              <DragDropContext onDragEnd={onDragEnd}>
+                <Grid container spacing={2}>
+                  {[
+                    { id: 'new', title: 'Новые', color: '#9e9e9e' },
+                    { id: 'in_progress', title: 'В работе', color: '#2196f3' },
+                    { id: 'completed', title: 'Выполнено', color: '#4caf50' }
+                  ].map((column) => {
+                    const columnTasks = getTasksByStatus(column.id);
+                    return (
+                      <Grid item xs={12} md={4} key={column.id}>
+                        <Droppable droppableId={column.id}>
+                          {(provided, snapshot) => (
+                            <Paper
+                              ref={provided.innerRef}
+                              {...provided.droppableProps}
+                              sx={{
+                                p: 2,
+                                minHeight: 400,
+                                bgcolor: snapshot.isDraggingOver ? 'action.selected' : 'grey.50',
+                                borderRadius: 2,
+                                border: `2px solid ${column.color}`,
+                                transition: 'background-color 0.2s'
+                              }}
+                            >
+                              <Typography variant="h6" gutterBottom sx={{ color: column.color }}>
+                                {column.title} ({columnTasks.length})
+                              </Typography>
+                              <Box sx={{ maxHeight: 600, overflowY: 'auto' }}>
+                                {columnTasks.map((task, index) => (
+                                  <Draggable key={task.id} draggableId={task.id.toString()} index={index}>
+                                    {(provided, snapshot) => (
+                                      <Card
+                                        ref={provided.innerRef}
+                                        {...provided.draggableProps}
+                                        {...provided.dragHandleProps}
+                                        sx={{
+                                          mb: 1,
+                                          cursor: 'grab',
+                                          bgcolor: snapshot.isDragging ? 'action.selected' : 'background.paper',
+                                          boxShadow: snapshot.isDragging ? 4 : 1,
+                                          '&:hover': { boxShadow: 2 },
+                                          '&:active': { cursor: 'grabbing' }
+                                        }}
+                                        onClick={() => handleTaskClick(task)}
+                                      >
+                                        <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                                          <Typography variant="body2" fontWeight="bold" gutterBottom>
+                                            {task.title}
+                                          </Typography>
+                                          {task.description && (
+                                            <Typography variant="caption" color="textSecondary" display="block" sx={{ mb: 1 }}>
+                                              {task.description.substring(0, 50)}{task.description.length > 50 ? '...' : ''}
+                                            </Typography>
+                                          )}
+                                          {task.lead_name && (
+                                            <Typography variant="caption" color="textSecondary" display="block">
+                                              Лид: {task.lead_name}
+                                            </Typography>
+                                          )}
+                                          <Typography variant="caption" color="textSecondary" display="block">
+                                            {new Date(task.due_date).toLocaleDateString('ru-RU')} {task.due_time || ''}
+                                          </Typography>
+                                          <Box sx={{ mt: 1, display: 'flex', gap: 0.5 }}>
+                                            <Chip
+                                              label={task.priority === 'low' ? 'Низкий' : task.priority === 'normal' ? 'Средний' : task.priority === 'high' ? 'Высокий' : 'Срочный'}
+                                              color={getPriorityColor(task.priority)}
+                                              size="small"
+                                            />
+                                          </Box>
+                                        </CardContent>
+                                      </Card>
+                                    )}
+                                  </Draggable>
+                                ))}
+                                {provided.placeholder}
+                                {columnTasks.length === 0 && (
+                                  <Box sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
+                                    Перетащите задачу сюда
+                                  </Box>
+                                )}
+                              </Box>
+                            </Paper>
+                          )}
+                        </Droppable>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              </DragDropContext>
+            )}
           </Box>
         </Paper>
 

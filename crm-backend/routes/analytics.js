@@ -8,11 +8,28 @@ router.use(authenticateToken);
 // Get sales funnel analytics
 router.get('/funnel', async (req, res) => {
   try {
-    const { start_date, end_date } = req.query;
+    const { start_date, end_date, period } = req.query;
 
     let dateFilter = '';
     const params = [];
-    if (start_date && end_date) {
+    
+    // If period is provided, use it instead of start_date/end_date
+    if (period && !start_date && !end_date) {
+      switch (period) {
+        case 'day':
+          dateFilter = "WHERE DATE(l.created_at) = CURRENT_DATE";
+          break;
+        case 'week':
+          dateFilter = "WHERE l.created_at >= CURRENT_DATE - INTERVAL '7 days'";
+          break;
+        case 'month':
+          dateFilter = "WHERE l.created_at >= DATE_TRUNC('month', CURRENT_DATE)";
+          break;
+        case 'year':
+          dateFilter = "WHERE l.created_at >= DATE_TRUNC('year', CURRENT_DATE)";
+          break;
+      }
+    } else if (start_date && end_date) {
       dateFilter = 'WHERE l.created_at BETWEEN $1 AND $2';
       params.push(start_date, end_date);
     }
@@ -145,13 +162,15 @@ router.get('/managers', async (req, res) => {
         m.email,
         COUNT(DISTINCT l.id) as leads_count,
         COUNT(DISTINCT CASE WHEN l.is_student = TRUE THEN l.id END) as converted_count,
+        COUNT(DISTINCT CASE WHEN l.created_at >= CURRENT_DATE - INTERVAL '30 days' THEN l.id END) as leads_30d,
         COUNT(DISTINCT d.id) as deals_count,
         COALESCE(SUM(d.amount), 0) as total_revenue,
-        COUNT(DISTINCT t.id) as tasks_completed
+        COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN t.id END) as tasks_completed,
+        COUNT(DISTINCT t.id) as tasks_total
       FROM managers m
       LEFT JOIN leads l ON m.id = l.manager_id
       LEFT JOIN deals d ON m.id = d.manager_id AND d.stage = 'closed'
-      LEFT JOIN tasks t ON m.id = t.manager_id AND t.status = 'completed'
+      LEFT JOIN tasks t ON m.id = t.manager_id
       GROUP BY m.id, m.name, m.email
       ORDER BY total_revenue DESC`
     );
@@ -163,9 +182,60 @@ router.get('/managers', async (req, res) => {
   }
 });
 
+// Get manager efficiency (detailed)
+router.get('/manager-efficiency', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT 
+        m.id,
+        m.name,
+        m.email,
+        COUNT(DISTINCT l.id) as leads_count,
+        COUNT(DISTINCT CASE WHEN l.created_at >= CURRENT_DATE - INTERVAL '30 days' THEN l.id END) as leads_30d,
+        COUNT(DISTINCT CASE WHEN l.is_student = TRUE THEN l.id END) as converted_count,
+        ROUND(COUNT(DISTINCT CASE WHEN l.is_student = TRUE THEN l.id END)::numeric / NULLIF(COUNT(DISTINCT l.id), 0) * 100, 2) as conversion_rate,
+        COUNT(DISTINCT d.id) as sales_count,
+        COALESCE(SUM(d.amount), 0) as total_revenue,
+        COUNT(DISTINCT CASE WHEN t.status = 'completed' THEN t.id END) as tasks_completed,
+        COUNT(DISTINCT t.id) as tasks_total
+      FROM managers m
+      LEFT JOIN leads l ON m.id = l.manager_id
+      LEFT JOIN deals d ON m.id = d.manager_id AND d.stage = 'closed'
+      LEFT JOIN tasks t ON m.id = t.manager_id
+      GROUP BY m.id, m.name, m.email
+      ORDER BY total_revenue DESC`
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching manager efficiency:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
 // Get source analytics
 router.get('/sources', async (req, res) => {
   try {
+    const { period } = req.query;
+    
+    let dateFilter = '';
+    if (period) {
+      switch (period) {
+        case 'day':
+          dateFilter = "WHERE DATE(l.created_at) = CURRENT_DATE";
+          break;
+        case 'week':
+          dateFilter = "WHERE l.created_at >= CURRENT_DATE - INTERVAL '7 days'";
+          break;
+        case 'month':
+          dateFilter = "WHERE l.created_at >= DATE_TRUNC('month', CURRENT_DATE)";
+          break;
+        case 'year':
+          dateFilter = "WHERE l.created_at >= DATE_TRUNC('year', CURRENT_DATE)";
+          break;
+      }
+    }
+    
     const result = await pool.query(
       `SELECT 
         COALESCE(l.source, 'Не указан') as source,
@@ -176,6 +246,7 @@ router.get('/sources', async (req, res) => {
       FROM leads l
       LEFT JOIN students s ON l.id = s.lead_id
       LEFT JOIN payments p ON s.id = p.student_id AND p.status = 'completed'
+      ${dateFilter}
       GROUP BY l.source
       ORDER BY leads_count DESC`
     );
@@ -183,6 +254,47 @@ router.get('/sources', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching source analytics:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Get user activity
+router.get('/user-activity', async (req, res) => {
+  try {
+    const { period = 'month' } = req.query;
+    
+    let dateFilter = '';
+    switch (period) {
+      case 'day':
+        dateFilter = "WHERE DATE(u.created_at) = CURRENT_DATE";
+        break;
+      case 'week':
+        dateFilter = "WHERE u.created_at >= CURRENT_DATE - INTERVAL '7 days'";
+        break;
+      case 'month':
+        dateFilter = "WHERE u.created_at >= DATE_TRUNC('month', CURRENT_DATE)";
+        break;
+      case 'year':
+        dateFilter = "WHERE u.created_at >= DATE_TRUNC('year', CURRENT_DATE)";
+        break;
+    }
+    
+    const result = await pool.query(
+      `SELECT 
+        DATE(u.created_at) as date,
+        COUNT(*) as users_count,
+        COUNT(DISTINCT CASE WHEN l.id IS NOT NULL THEN u.user_id END) as leads_count
+      FROM users u
+      LEFT JOIN leads l ON u.user_id = l.user_id
+      ${dateFilter}
+      GROUP BY DATE(u.created_at)
+      ORDER BY date DESC
+      LIMIT 30`
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching user activity:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });

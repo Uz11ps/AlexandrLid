@@ -29,7 +29,7 @@ import {
   DialogActions,
   IconButton
 } from '@mui/material';
-import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon, FileDownload as FileDownloadIcon } from '@mui/icons-material';
 import { leadsAPI } from '../api/leads';
 import { funnelAPI } from '../api/funnel';
 
@@ -156,6 +156,35 @@ function LeadsList() {
     }
   };
 
+  const handleExportLeads = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (funnelFilter) params.append('funnel_stage', funnelFilter);
+      if (search) params.append('search', search);
+      
+      const response = await fetch(`/api/leads/export/excel?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (!response.ok) throw new Error('Export failed');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `leads_export_${Date.now()}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error exporting leads:', error);
+      alert('Ошибка при экспорте лидов');
+    }
+  };
+
   const onDragEnd = async (result) => {
     if (!result.destination) return;
     
@@ -173,6 +202,13 @@ function LeadsList() {
         <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h4">Лиды</Typography>
           <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant="outlined"
+              startIcon={<FileDownloadIcon />}
+              onClick={handleExportLeads}
+            >
+              Экспорт в Excel
+            </Button>
             <Button
               variant="contained"
               startIcon={<AddIcon />}

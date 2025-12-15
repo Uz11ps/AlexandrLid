@@ -282,6 +282,109 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// Export leads to Excel
+router.get('/export/excel', async (req, res) => {
+  try {
+    const { start_date, end_date, status, funnel_stage } = req.query;
+    
+    let query = `
+      SELECT 
+        l.id,
+        l.fio,
+        l.phone,
+        l.email,
+        l.telegram_username,
+        l.source,
+        l.status,
+        l.funnel_stage,
+        l.priority,
+        l.created_at,
+        l.updated_at,
+        m.name as manager_name
+      FROM leads l
+      LEFT JOIN managers m ON l.manager_id = m.id
+      WHERE 1=1
+    `;
+    const params = [];
+    let paramIndex = 1;
+
+    if (start_date && end_date) {
+      query += ` AND l.created_at BETWEEN $${paramIndex++} AND $${paramIndex++}`;
+      params.push(start_date, end_date);
+    }
+    if (status) {
+      query += ` AND l.status = $${paramIndex++}`;
+      params.push(status);
+    }
+    if (funnel_stage) {
+      query += ` AND l.funnel_stage = $${paramIndex++}`;
+      params.push(funnel_stage);
+    }
+
+    query += ' ORDER BY l.created_at DESC';
+
+    const result = await pool.query(query, params);
+    const leads = result.rows;
+
+    // Используем динамический импорт для exceljs
+    const exceljs = await import('exceljs');
+    const ExcelJS = exceljs.default || exceljs;
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Лиды');
+
+    // Заголовки
+    worksheet.columns = [
+      { header: 'ID', key: 'id', width: 10 },
+      { header: 'ФИО', key: 'fio', width: 25 },
+      { header: 'Телефон', key: 'phone', width: 15 },
+      { header: 'Email', key: 'email', width: 25 },
+      { header: 'Telegram', key: 'telegram_username', width: 20 },
+      { header: 'Источник', key: 'source', width: 20 },
+      { header: 'Статус', key: 'status', width: 20 },
+      { header: 'Этап воронки', key: 'funnel_stage', width: 25 },
+      { header: 'Приоритет', key: 'priority', width: 15 },
+      { header: 'Менеджер', key: 'manager_name', width: 20 },
+      { header: 'Дата создания', key: 'created_at', width: 20 },
+      { header: 'Дата обновления', key: 'updated_at', width: 20 }
+    ];
+
+    // Стиль заголовков
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE0E0E0' }
+    };
+
+    // Данные
+    leads.forEach(lead => {
+      worksheet.addRow({
+        id: lead.id,
+        fio: lead.fio || '',
+        phone: lead.phone || '',
+        email: lead.email || '',
+        telegram_username: lead.telegram_username || '',
+        source: lead.source || '',
+        status: lead.status || '',
+        funnel_stage: lead.funnel_stage || '',
+        priority: lead.priority || '',
+        manager_name: lead.manager_name || '',
+        created_at: lead.created_at ? new Date(lead.created_at).toLocaleString('ru-RU') : '',
+        updated_at: lead.updated_at ? new Date(lead.updated_at).toLocaleString('ru-RU') : ''
+      });
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=leads_export_${Date.now()}.xlsx`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error('Error exporting leads:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
 // Add comment to lead
 router.post('/:id/comments', async (req, res) => {
   try {

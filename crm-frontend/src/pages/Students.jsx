@@ -25,7 +25,7 @@ import {
   FormControl,
   InputLabel
 } from '@mui/material';
-import { Add as AddIcon, Visibility as ViewIcon } from '@mui/icons-material';
+import { Add as AddIcon, Visibility as ViewIcon, FileDownload as FileDownloadIcon } from '@mui/icons-material';
 import { studentsAPI } from '../api/students';
 import { leadsAPI } from '../api/leads';
 
@@ -91,6 +91,31 @@ function Students() {
     }
   };
 
+  const handleExportStudents = async () => {
+    try {
+      const response = await fetch('/api/students/export/excel', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (!response.ok) throw new Error('Export failed');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `students_export_${Date.now()}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error exporting students:', error);
+      alert('Ошибка при экспорте студентов');
+    }
+  };
+
   const getPaymentStatusColor = (status) => {
     switch (status) {
       case 'paid': return 'success';
@@ -105,13 +130,22 @@ function Students() {
     <Container maxWidth="xl">
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
           <Typography variant="h4">Студенты</Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setConvertDialogOpen(true)}
-          >
-            Конвертировать лид в студента
-          </Button>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant="outlined"
+              startIcon={<FileDownloadIcon />}
+              onClick={handleExportStudents}
+            >
+              Экспорт в Excel
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setConvertDialogOpen(true)}
+            >
+              Конвертировать лид в студента
+            </Button>
+          </Box>
         </Box>
 
         <TableContainer component={Paper}>

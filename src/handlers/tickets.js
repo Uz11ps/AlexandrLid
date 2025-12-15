@@ -267,21 +267,21 @@ export async function handleTicketMessage(ctx) {
       return;
     }
 
-    // Проверить активный тикет из сессии или найти открытый
+    // Проверить активный тикет из сессии или найти открытый/закрытый
     let ticketId = null;
     if (ctx.session && ctx.session.activeTicketId) {
       ticketId = ctx.session.activeTicketId;
     } else {
-      // Найти открытый тикет пользователя
+      // Найти последний тикет пользователя (включая закрытые)
       const ticketResult = await pool.query(
         `SELECT * FROM tickets 
-         WHERE user_id = $1 AND status IN ('open', 'in_progress')
+         WHERE user_id = $1
          ORDER BY created_at DESC LIMIT 1`,
         [userId]
       );
 
       if (ticketResult.rows.length === 0) {
-        // Если нет открытого тикета, создать новый автоматически
+        // Если нет тикета, создать новый автоматически
         const newTicketResult = await pool.query(
           `INSERT INTO tickets (user_id, subject, status)
            VALUES ($1, $2, 'open')
@@ -324,6 +324,15 @@ export async function handleTicketMessage(ctx) {
       }
     }
 
+    // Проверить статус тикета перед добавлением сообщения
+    const ticketCheck = await pool.query(
+      'SELECT status FROM tickets WHERE id = $1',
+      [ticketId]
+    );
+    
+    const wasClosed = ticketCheck.rows.length > 0 && 
+                     (ticketCheck.rows[0].status === 'closed' || ticketCheck.rows[0].status === 'resolved');
+    
     // Добавить сообщение в существующий тикет
     await pool.query(
       `INSERT INTO ticket_messages (ticket_id, sender_type, sender_id, message_text)
@@ -331,26 +340,36 @@ export async function handleTicketMessage(ctx) {
       [ticketId, userId, messageText]
     );
 
-    // Обновить время обновления тикета и статус
-    await pool.query(
-      `UPDATE tickets 
-       SET updated_at = CURRENT_TIMESTAMP, 
-           status = CASE WHEN status = 'closed' THEN 'reopened' ELSE status END
-       WHERE id = $1`,
-      [ticketId]
-    );
+    // Переоткрыть тикет, если он был закрыт
+    if (wasClosed) {
+      await pool.query(
+        `UPDATE tickets 
+         SET updated_at = CURRENT_TIMESTAMP, 
+             status = 'open',
+             closed_at = NULL
+         WHERE id = $1`,
+        [ticketId]
+      );
+      
+      await ctx.reply(
+        `✅ Тикет #${ticketId} переоткрыт. Ваше сообщение добавлено.\n\n` +
+        `Менеджер получит уведомление и ответит вам.`
+      );
+    } else {
+      // Просто обновить время обновления
+      await pool.query(
+        `UPDATE tickets 
+         SET updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [ticketId]
+      );
+      
+      await ctx.reply(
+        `✅ Ваше сообщение добавлено в тикет #${ticketId}\n\n` +
+        `Менеджер получит уведомление и ответит вам.`
+      );
+    }
 
-    await ctx.reply(
-      `✅ Ваше сообщение добавлено в тикет #${ticketId}\n\n` +
-      `Менеджер получит уведомление и ответит вам.`,
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '📋 Просмотреть тикет', callback_data: `ticket_view_${ticketId}` }]
-          ]
-        }
-      }
-    );
   } catch (error) {
     console.error('Ошибка при обработке сообщения тикета:', error);
     await ctx.reply('❌ Произошла ошибка. Попробуйте позже.');

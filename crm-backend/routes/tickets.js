@@ -171,12 +171,15 @@ router.post('/:id/messages', async (req, res) => {
     );
 
     // Обновить статус тикета и время обновления
-    await pool.query(
+    // Если тикет закрыт, переоткрыть его
+    const updateResult = await pool.query(
       `UPDATE tickets 
-       SET status = CASE WHEN status = 'closed' THEN 'open' ELSE status END,
+       SET status = CASE WHEN status IN ('closed', 'resolved') THEN 'open' ELSE status END,
            updated_at = CURRENT_TIMESTAMP,
+           closed_at = CASE WHEN status IN ('closed', 'resolved') THEN NULL ELSE closed_at END,
            manager_id = CASE WHEN manager_id IS NULL THEN $1 ELSE manager_id END
-       WHERE id = $2`,
+       WHERE id = $2
+       RETURNING *`,
       [req.user.id, id]
     );
 
