@@ -547,15 +547,15 @@ function BotAdmin() {
                         {broadcast.scheduled_at ? (() => {
                           // scheduled_at хранится в UTC в БД, конвертируем в московское время для отображения
                           const utcDate = new Date(broadcast.scheduled_at);
-                          // Форматируем в московском часовом поясе
-                          return utcDate.toLocaleString('ru-RU', {
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            timeZone: 'Europe/Moscow'
-                          });
+                          // Добавляем 3 часа (MSK = UTC+3) для конвертации в московское время
+                          const moscowTime = new Date(utcDate.getTime() + (3 * 60 * 60 * 1000));
+                          // Форматируем дату и время
+                          const year = moscowTime.getUTCFullYear();
+                          const month = String(moscowTime.getUTCMonth() + 1).padStart(2, '0');
+                          const day = String(moscowTime.getUTCDate()).padStart(2, '0');
+                          const hours = String(moscowTime.getUTCHours()).padStart(2, '0');
+                          const minutes = String(moscowTime.getUTCMinutes()).padStart(2, '0');
+                          return `${day}.${month}.${year}, ${hours}:${minutes}`;
                         })() : '-'}
                       </TableCell>
                       <TableCell>{broadcast.sent_count || 0}</TableCell>
@@ -1046,21 +1046,14 @@ function BotAdmin() {
               value={editBroadcast?.scheduled_at ? (() => {
                 // scheduled_at хранится в UTC в БД, конвертируем в московское время для отображения
                 const utcDate = new Date(editBroadcast.scheduled_at);
-                // Получаем компоненты времени в московском часовом поясе
-                const moscowDateString = utcDate.toLocaleString('en-US', {
-                  timeZone: 'Europe/Moscow',
-                  year: 'numeric',
-                  month: '2-digit',
-                  day: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: false
-                });
-                // Формат: "MM/DD/YYYY, HH:mm"
-                const [datePart, timePart] = moscowDateString.split(', ');
-                const [month, day, year] = datePart.split('/');
-                const [hours, minutes] = timePart.split(':');
+                // Добавляем 3 часа (MSK = UTC+3) для конвертации в московское время
+                const moscowTime = new Date(utcDate.getTime() + (3 * 60 * 60 * 1000));
                 // Форматируем в формат datetime-local (YYYY-MM-DDTHH:mm)
+                const year = moscowTime.getUTCFullYear();
+                const month = String(moscowTime.getUTCMonth() + 1).padStart(2, '0');
+                const day = String(moscowTime.getUTCDate()).padStart(2, '0');
+                const hours = String(moscowTime.getUTCHours()).padStart(2, '0');
+                const minutes = String(moscowTime.getUTCMinutes()).padStart(2, '0');
                 return `${year}-${month}-${day}T${hours}:${minutes}`;
               })() : ''}
               onChange={(e) => setEditBroadcast({ ...editBroadcast, scheduled_at: e.target.value })}
