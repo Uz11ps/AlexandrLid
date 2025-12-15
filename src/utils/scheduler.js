@@ -196,6 +196,34 @@ export function initScheduler(bot) {
       console.error('❌ Ошибка при первой проверке:', error);
     }
   }, 5000); // Через 5 секунд после запуска
+  
+  // Тестовая проверка каждые 10 секунд для отладки (временно)
+  // Удалить после исправления проблемы
+  let testCounter = 0;
+  const testInterval = setInterval(async () => {
+    testCounter++;
+    console.log(`\n🧪 [Scheduler TEST] Тестовая проверка #${testCounter} в ${new Date().toISOString()}`);
+    try {
+      const scheduledBroadcasts = await db.getScheduledBroadcasts();
+      console.log(`🧪 [Scheduler TEST] Найдено рассылок: ${scheduledBroadcasts.length}`);
+      if (scheduledBroadcasts.length > 0) {
+        const nowUTC = new Date();
+        scheduledBroadcasts.forEach(b => {
+          const scheduledAtUTC = new Date(b.scheduled_at);
+          const timeDiff = nowUTC.getTime() - scheduledAtUTC.getTime();
+          console.log(`🧪 [Scheduler TEST] Рассылка ${b.id}: scheduled_at=${b.scheduled_at}, diff=${(timeDiff / 60000).toFixed(1)} мин`);
+        });
+      }
+    } catch (error) {
+      console.error('🧪 [Scheduler TEST] Ошибка:', error);
+    }
+    
+    // Останавливаем тест через 5 минут
+    if (testCounter >= 30) {
+      clearInterval(testInterval);
+      console.log('🧪 [Scheduler TEST] Тестовая проверка остановлена');
+    }
+  }, 10000); // Каждые 10 секунд
 }
 
 export default initScheduler;
