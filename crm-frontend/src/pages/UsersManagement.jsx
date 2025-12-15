@@ -119,13 +119,24 @@ function UsersManagement() {
 
   const handleCreateUser = async () => {
     try {
-      await axios.post('/api/auth/register', newUser);
+      console.log('Creating user with data:', newUser);
+      const response = await axios.post('/api/auth/register', {
+        email: newUser.email,
+        password: newUser.password,
+        name: newUser.name,
+        role: newUser.role || 'manager',
+        is_active: newUser.is_active !== undefined ? newUser.is_active : true
+      });
+      console.log('User created successfully:', response.data);
       setUserDialogOpen(false);
       setNewUser({ email: '', password: '', name: '', role: 'manager', is_active: true });
       loadManagers();
+      alert('Пользователь успешно создан');
     } catch (error) {
       console.error('Error creating user:', error);
-      alert('Ошибка при создании пользователя: ' + (error.response?.data?.error || error.message));
+      console.error('Error response:', error.response?.data);
+      const errorMessage = error.response?.data?.error || error.response?.data?.details || error.message;
+      alert('Ошибка при создании пользователя: ' + errorMessage);
     }
   };
 
