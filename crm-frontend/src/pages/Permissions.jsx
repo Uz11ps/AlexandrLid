@@ -50,26 +50,19 @@ function Permissions() {
     loadManagers();
   }, []);
 
-  useEffect(() => {
-    if (tab === 0 && selectedRole) {
-      loadRolePermissions(selectedRole);
-    } else if (tab === 1 && selectedUserId) {
-      loadUserPermissions(selectedUserId);
-    }
-  }, [tab, selectedRole, selectedUserId]);
-
-  // Загружаем права при первом открытии вкладки
+  // Загружаем права роли когда permissions загружены и выбрана роль
   useEffect(() => {
     if (tab === 0 && selectedRole && permissions.length > 0) {
       loadRolePermissions(selectedRole);
     }
-  }, [permissions.length]);
+  }, [tab, selectedRole, permissions.length]);
 
+  // Загружаем права пользователя когда managers и permissions загружены
   useEffect(() => {
     if (tab === 1 && selectedUserId && managers.length > 0 && permissions.length > 0) {
       loadUserPermissions(selectedUserId);
     }
-  }, [managers.length, permissions.length]);
+  }, [tab, selectedUserId, managers.length, permissions.length]);
 
   const loadPermissions = async () => {
     try {
@@ -132,6 +125,13 @@ function Permissions() {
   const loadUserPermissions = async (userId) => {
     try {
       setLoading(true);
+      
+      // Если permissions еще не загружены, ждем их загрузки
+      if (permissions.length === 0) {
+        console.log('Waiting for permissions to load...');
+        return;
+      }
+      
       const response = await permissionsAPI.getUserPermissions(userId);
       const permissionsMap = {};
       response.data.forEach(p => {
@@ -251,7 +251,12 @@ function Permissions() {
             </FormControl>
           </Box>
 
-          <TableContainer>
+          {loading && permissions.length === 0 ? (
+            <Box sx={{ p: 4, textAlign: 'center' }}>
+              <Typography variant="body1">Загрузка прав доступа...</Typography>
+            </Box>
+          ) : (
+            <TableContainer>
             <Table>
               <TableHead>
                 <TableRow>
@@ -302,6 +307,7 @@ function Permissions() {
               </TableBody>
             </Table>
           </TableContainer>
+          )}
         </Paper>
       )}
 
@@ -324,7 +330,11 @@ function Permissions() {
             </FormControl>
           </Box>
 
-          {selectedUserId ? (
+          {loading && permissions.length === 0 ? (
+            <Box sx={{ p: 4, textAlign: 'center' }}>
+              <Typography variant="body1">Загрузка прав доступа...</Typography>
+            </Box>
+          ) : selectedUserId ? (
             <TableContainer>
               <Table>
                 <TableHead>
