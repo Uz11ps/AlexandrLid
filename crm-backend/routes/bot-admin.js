@@ -156,15 +156,22 @@ router.post('/broadcasts', async (req, res) => {
     }
 
     // Сохраняем время как московское время
-    // datetime-local возвращает время в формате "YYYY-MM-DDTHH:mm"
+    // datetime-local возвращает время в формате "YYYY-MM-DDTHH:mm" без часового пояса
     // Интерпретируем это время как московское (UTC+3) и конвертируем в UTC для сохранения в БД
     let scheduledAtUTC = null;
     if (scheduled_at) {
-      // Создаем Date объект, интерпретируя время как московское (UTC+3)
-      // Формат: "YYYY-MM-DDTHH:mm" -> интерпретируем как "YYYY-MM-DDTHH:mm+03:00"
-      const moscowDate = new Date(`${scheduled_at}+03:00`);
-      // Конвертируем в UTC для сохранения в БД
-      scheduledAtUTC = moscowDate.toISOString();
+      // Парсим дату и время из формата "YYYY-MM-DDTHH:mm"
+      const [datePart, timePart] = scheduled_at.split('T');
+      const [year, month, day] = datePart.split('-').map(Number);
+      const [hours, minutes] = timePart.split(':').map(Number);
+      
+      // Создаем Date объект в UTC, вычитая 3 часа (московское время = UTC+3)
+      // Используем Date.UTC для явного указания UTC времени
+      const moscowDateUTC = Date.UTC(year, month - 1, day, hours, minutes, 0, 0);
+      // Вычитаем 3 часа (3 * 60 * 60 * 1000 миллисекунд) для конвертации из московского в UTC
+      const utcTimestamp = moscowDateUTC - (3 * 60 * 60 * 1000);
+      scheduledAtUTC = new Date(utcTimestamp).toISOString();
+      
       console.log(`Broadcast creation: Moscow time "${scheduled_at}" converted to UTC "${scheduledAtUTC}"`);
     }
 
@@ -214,11 +221,18 @@ router.put('/broadcasts/:id', async (req, res) => {
       // Сохраняем время как московское время, конвертируя в UTC для БД
       let scheduledAtUTC = null;
       if (scheduled_at) {
-        // Создаем Date объект, интерпретируя время как московское (UTC+3)
-        // Формат: "YYYY-MM-DDTHH:mm" -> интерпретируем как "YYYY-MM-DDTHH:mm+03:00"
-        const moscowDate = new Date(`${scheduled_at}+03:00`);
-        // Конвертируем в UTC для сохранения в БД
-        scheduledAtUTC = moscowDate.toISOString();
+        // Парсим дату и время из формата "YYYY-MM-DDTHH:mm"
+        const [datePart, timePart] = scheduled_at.split('T');
+        const [year, month, day] = datePart.split('-').map(Number);
+        const [hours, minutes] = timePart.split(':').map(Number);
+        
+        // Создаем Date объект в UTC, вычитая 3 часа (московское время = UTC+3)
+        // Используем Date.UTC для явного указания UTC времени
+        const moscowDateUTC = Date.UTC(year, month - 1, day, hours, minutes, 0, 0);
+        // Вычитаем 3 часа (3 * 60 * 60 * 1000 миллисекунд) для конвертации из московского в UTC
+        const utcTimestamp = moscowDateUTC - (3 * 60 * 60 * 1000);
+        scheduledAtUTC = new Date(utcTimestamp).toISOString();
+        
         console.log(`Broadcast update: Moscow time "${scheduled_at}" converted to UTC "${scheduledAtUTC}"`);
       }
       updates.push(`scheduled_at = $${paramIndex++}`);
