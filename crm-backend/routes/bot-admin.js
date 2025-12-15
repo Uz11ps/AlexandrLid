@@ -205,6 +205,27 @@ router.post('/broadcasts', async (req, res) => {
       }
     }
 
+    const status = scheduledAtUTC ? 'scheduled' : 'draft';
+    
+    console.log(`\n📝 [WebAdmin] Создание рассылки через веб-админку:`);
+    console.log(`  Название: "${title}"`);
+    console.log(`  Сегмент: ${target_audience || 'all'}`);
+    console.log(`  Статус: ${status}`);
+    if (scheduledAtUTC) {
+      const moscowTime = new Date(scheduledAtUTC);
+      const moscowStr = new Date(moscowTime.getTime() + (3 * 60 * 60 * 1000)).toLocaleString('ru-RU', { 
+        timeZone: 'UTC',
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+      console.log(`  ⏰ Запланировано на: ${scheduledAtUTC} (UTC) = ${moscowStr} (MSK)`);
+    } else {
+      console.log(`  📤 Отправка: немедленная (draft)`);
+    }
+
     const result = await pool.query(
       `INSERT INTO broadcasts (title, message_text, buttons, scheduled_at, segment, status)
        VALUES ($1, $2, $3, $4, $5, $6)
@@ -215,11 +236,15 @@ router.post('/broadcasts', async (req, res) => {
         buttons ? JSON.stringify(buttons) : null,
         scheduledAtUTC || null,
         target_audience || 'all',
-        scheduledAtUTC ? 'scheduled' : 'draft'
+        status
       ]
     );
 
-    res.status(201).json(result.rows[0]);
+    const broadcast = result.rows[0];
+    console.log(`✅ [WebAdmin] Рассылка создана с ID: ${broadcast.id}`);
+    console.log(`  Время создания: ${broadcast.created_at}`);
+
+    res.status(201).json(broadcast);
   } catch (error) {
     console.error('Error creating broadcast:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
