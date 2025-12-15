@@ -44,44 +44,68 @@ function Permissions() {
   const [selectedUserId, setSelectedUserId] = useState('');
   const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [managersLoaded, setManagersLoaded] = useState(false);
 
   useEffect(() => {
-    loadPermissions();
-    loadManagers();
+    const initializeData = async () => {
+      await Promise.all([
+        loadPermissions(),
+        loadManagers()
+      ]);
+    };
+    initializeData();
   }, []);
 
   // Загружаем права роли когда permissions загружены и выбрана роль
   useEffect(() => {
-    if (tab === 0 && selectedRole && permissions.length > 0) {
+    if (tab === 0 && selectedRole && permissionsLoaded && permissions.length > 0) {
       loadRolePermissions(selectedRole);
     }
-  }, [tab, selectedRole, permissions.length]);
+  }, [tab, selectedRole, permissionsLoaded]);
 
   // Загружаем права пользователя когда managers и permissions загружены
   useEffect(() => {
-    if (tab === 1 && selectedUserId && managers.length > 0 && permissions.length > 0) {
+    if (tab === 1 && selectedUserId && managersLoaded && permissionsLoaded && permissions.length > 0) {
       loadUserPermissions(selectedUserId);
     }
-  }, [tab, selectedUserId, managers.length, permissions.length]);
+  }, [tab, selectedUserId, managersLoaded, permissionsLoaded]);
 
   const loadPermissions = async () => {
     try {
       const response = await permissionsAPI.getAll();
-      setPermissions(response.data || []);
+      const perms = response.data || [];
+      setPermissions(perms);
+      setPermissionsLoaded(true);
+      
+      // Если мы на вкладке ролей и permissions загружены, сразу загружаем права роли
+      if (tab === 0 && selectedRole && perms.length > 0) {
+        await loadRolePermissions(selectedRole);
+      }
     } catch (error) {
       console.error('Error loading permissions:', error);
+      setPermissionsLoaded(true);
     }
   };
 
   const loadManagers = async () => {
     try {
       const response = await axios.get('/api/managers');
-      setManagers(response.data || []);
-      if (response.data && response.data.length > 0 && !selectedUserId) {
-        setSelectedUserId(response.data[0].id.toString());
+      const mgrs = response.data || [];
+      setManagers(mgrs);
+      setManagersLoaded(true);
+      
+      if (mgrs.length > 0 && !selectedUserId) {
+        setSelectedUserId(mgrs[0].id.toString());
+      }
+      
+      // Если мы на вкладке пользователей и все данные загружены, загружаем права пользователя
+      if (tab === 1 && selectedUserId && permissionsLoaded && permissions.length > 0) {
+        await loadUserPermissions(selectedUserId);
       }
     } catch (error) {
       console.error('Error loading managers:', error);
+      setManagersLoaded(true);
     }
   };
 
@@ -127,19 +151,22 @@ function Permissions() {
       setLoading(true);
       
       // Если permissions еще не загружены, ждем их загрузки
-      if (permissions.length === 0) {
+      if (!permissionsLoaded || permissions.length === 0) {
         console.log('Waiting for permissions to load...');
+        setLoading(false);
         return;
       }
       
       const response = await permissionsAPI.getUserPermissions(userId);
       const permissionsMap = {};
-      response.data.forEach(p => {
-        if (!permissionsMap[p.resource]) {
-          permissionsMap[p.resource] = {};
-        }
-        permissionsMap[p.resource][p.action] = p.granted;
-      });
+      if (response.data && response.data.length > 0) {
+        response.data.forEach(p => {
+          if (!permissionsMap[p.resource]) {
+            permissionsMap[p.resource] = {};
+          }
+          permissionsMap[p.resource][p.action] = p.granted === true;
+        });
+      }
       setUserPermissions(permissionsMap);
     } catch (error) {
       console.error('Error loading user permissions:', error);
