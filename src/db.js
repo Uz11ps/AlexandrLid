@@ -440,7 +440,7 @@ export const db = {
     
     // Получаем текущее UTC время как timestamp для сравнения
     const nowUTC = new Date();
-    const nowUTCTimestamp = nowUTCTime.getTime();
+    const nowUTCTimestamp = nowUTC.getTime();
     const nowUTCPlus2Min = new Date(nowUTCTimestamp + (2 * 60 * 1000)).toISOString();
     const nowUTCMinus24h = new Date(nowUTCTimestamp - (24 * 60 * 60 * 1000)).toISOString();
     
