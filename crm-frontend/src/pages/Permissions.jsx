@@ -312,7 +312,7 @@ function Permissions() {
         Управление правами доступа
       </Typography>
 
-      <Tabs value={tab} onChange={(e, newValue) => setTab(newValue)} sx={{ mb: 3 }}>
+      <Tabs value={tab} onChange={handleTabChange} sx={{ mb: 3 }}>
         <Tab label="Права по ролям" />
         <Tab label="Права по пользователям" />
       </Tabs>
