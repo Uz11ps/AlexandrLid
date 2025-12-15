@@ -317,12 +317,14 @@ export const db = {
   },
 
   async getScheduledBroadcasts() {
-    // Выбираем рассылки со статусом 'scheduled', которые должны быть отправлены (scheduled_at <= NOW())
-    // или в ближайшие 5 минут (для обработки задержек)
+    // Выбираем рассылки со статусом 'scheduled', которые должны быть отправлены
+    // NOW() использует московский часовой пояс благодаря SET timezone = 'Europe/Moscow'
+    // Добавляем запас в 2 минуты для учета задержек выполнения cron
     const result = await pool.query(
       `SELECT * FROM broadcasts 
        WHERE status = 'scheduled' 
-       AND scheduled_at <= (NOW() + INTERVAL '5 minutes')
+       AND scheduled_at IS NOT NULL
+       AND scheduled_at <= (NOW() AT TIME ZONE 'Europe/Moscow' + INTERVAL '2 minutes')
        ORDER BY scheduled_at ASC`
     );
     return result.rows.map(row => {

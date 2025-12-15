@@ -36,25 +36,26 @@ export function initScheduler(bot) {
 
       for (const broadcast of scheduledBroadcasts) {
         // scheduled_at хранится в БД с московским часовым поясом (+03:00)
-        // Создаем Date объект из строки времени из БД
+        // PostgreSQL уже вернул его в правильном формате благодаря timezone = 'Europe/Moscow'
         const scheduledAt = new Date(broadcast.scheduled_at);
+        const now = new Date();
         
         // Логируем для отладки (только для первых 3 рассылок, чтобы не засорять логи)
         if (broadcast.id && scheduledBroadcasts.indexOf(broadcast) < 3) {
           console.log(`[Scheduler] Проверка рассылки ${broadcast.id}:`);
           console.log(`  scheduled_at (из БД): ${broadcast.scheduled_at}`);
           console.log(`  scheduled_at (Date): ${scheduledAt.toISOString()}`);
-          console.log(`  now Moscow (Date): ${nowMoscowDate.toISOString()}`);
-          console.log(`  Разница (мс): ${nowMoscowDate.getTime() - scheduledAt.getTime()}`);
+          console.log(`  now (Date): ${now.toISOString()}`);
+          console.log(`  Разница (мс): ${now.getTime() - scheduledAt.getTime()}`);
         }
         
         // Если время наступило (рассылка должна быть отправлена)
-        // Сравниваем с запасом в 1 минуту, чтобы учесть задержки
-        const timeDiff = nowMoscowDate.getTime() - scheduledAt.getTime();
-        if (timeDiff >= 0 && timeDiff < 60000) { // В пределах 1 минуты
+        // Сравниваем с запасом в 2 минуты, чтобы учесть задержки выполнения cron
+        const timeDiff = now.getTime() - scheduledAt.getTime();
+        if (timeDiff >= 0 && timeDiff < 120000) { // В пределах 2 минут
           console.log(`⏰ [Scheduler] Отправка запланированной рассылки: ${broadcast.id}`);
           console.log(`  Запланировано на: ${scheduledAt.toISOString()}`);
-          console.log(`  Текущее время (Moscow): ${nowMoscowDate.toISOString()}`);
+          console.log(`  Текущее время: ${now.toISOString()}`);
           
           try {
             // Импортируем функцию отправки
