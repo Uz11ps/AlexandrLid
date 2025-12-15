@@ -936,17 +936,25 @@ export { bot };
 
 // Запуск бота
 console.log('🚀 Запуск бота...');
+console.log('🔄 [Bot] Вызов bot.launch()...');
+
 bot.launch()
   .then(async () => {
-    console.log('✅ Бот успешно запущен!');
+    console.log('\n✅ [Bot] ============================================');
+    console.log('✅ [Bot] Бот успешно запущен!');
+    console.log('✅ [Bot] ============================================\n');
     
     // Инициализация планировщика
     console.log('\n🔄 [Bot] ============================================');
     console.log('🔄 [Bot] Инициализация планировщика...');
     console.log('🔄 [Bot] ============================================');
+    console.log('🔄 [Bot] Проверка bot instance:', bot ? 'OK' : 'NULL');
+    console.log('🔄 [Bot] Проверка initScheduler:', typeof initScheduler);
+    
     try {
       console.log('🔄 [Bot] Вызов initScheduler(bot)...');
-      initScheduler(bot);
+      const schedulerResult = initScheduler(bot);
+      console.log('🔄 [Bot] initScheduler вернул:', schedulerResult);
       console.log('✅ [Bot] initScheduler вызван успешно');
       console.log('✅ [Bot] Планировщик инициализирован');
     } catch (error) {
@@ -969,8 +977,17 @@ bot.launch()
     console.log('✅ Все компоненты бота инициализированы');
   })
   .catch((error) => {
-    console.error('❌ Ошибка при запуске бота:', error);
-    console.error('  Stack:', error.stack);
+    console.error('\n❌ [Bot] ============================================');
+    console.error('❌ [Bot] ОШИБКА при запуске бота:', error);
+    console.error('   Message:', error.message);
+    console.error('   Stack:', error.stack);
+    console.error('❌ [Bot] ============================================\n');
     process.exit(1);
   });
+
+// Дополнительная проверка через 2 секунды
+setTimeout(() => {
+  console.log('\n🔍 [Bot] Проверка состояния через 2 секунды...');
+  console.log('🔍 [Bot] Bot instance:', bot ? 'существует' : 'NULL');
+}, 2000);
 
