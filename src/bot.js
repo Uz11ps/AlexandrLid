@@ -939,16 +939,32 @@ console.log('🚀 Запуск бота...');
 bot.launch()
   .then(async () => {
     console.log('✅ Бот успешно запущен!');
+    
     // Инициализация планировщика
-    initScheduler(bot);
-    // Устанавливаем bot instance в admin handlers
-    const adminHandlersModule = await import('./handlers/admin.js');
-    if (adminHandlersModule.setBotInstance) {
-      adminHandlersModule.setBotInstance(bot);
+    console.log('🔄 Инициализация планировщика...');
+    try {
+      initScheduler(bot);
+      console.log('✅ Планировщик инициализирован');
+    } catch (error) {
+      console.error('❌ Ошибка при инициализации планировщика:', error);
+      console.error('  Stack:', error.stack);
     }
+    
+    // Устанавливаем bot instance в admin handlers
+    try {
+      const adminHandlersModule = await import('./handlers/admin.js');
+      if (adminHandlersModule.setBotInstance) {
+        adminHandlersModule.setBotInstance(bot);
+      }
+    } catch (error) {
+      console.error('❌ Ошибка при установке bot instance в admin handlers:', error);
+    }
+    
+    console.log('✅ Все компоненты бота инициализированы');
   })
   .catch((error) => {
     console.error('❌ Ошибка при запуске бота:', error);
+    console.error('  Stack:', error.stack);
     process.exit(1);
   });
 
