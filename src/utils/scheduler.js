@@ -153,6 +153,22 @@ export function initScheduler(bot) {
   });
 
   console.log('✅ Планировщик задач запущен');
+  
+  // Запускаем первую проверку сразу при старте (для отладки)
+  setTimeout(async () => {
+    console.log('\n🔍 [Scheduler] Первая проверка при старте бота...');
+    try {
+      const scheduledBroadcasts = await db.getScheduledBroadcasts();
+      console.log(`🔍 [Scheduler] Найдено рассылок со статусом 'scheduled': ${scheduledBroadcasts.length}`);
+      if (scheduledBroadcasts.length > 0) {
+        scheduledBroadcasts.forEach(b => {
+          console.log(`  - ID: ${b.id}, scheduled_at: ${b.scheduled_at}, status: ${b.status}`);
+        });
+      }
+    } catch (error) {
+      console.error('❌ Ошибка при первой проверке:', error);
+    }
+  }, 5000); // Через 5 секунд после запуска
 }
 
 export default initScheduler;
