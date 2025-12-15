@@ -19,15 +19,27 @@ function moscowToUTC(moscowDateTime) {
   const [hours, minutes] = timePart.split(':').map(Number);
   
   if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hours) || isNaN(minutes)) {
+    console.error('Invalid date format:', moscowDateTime);
     return null;
   }
   
-  // Создаем Date объект в UTC, вычитая 3 часа (московское время = UTC+3)
+  // Создаем Date объект в UTC, интерпретируя время как московское
+  // Date.UTC создает timestamp для указанного времени в UTC
+  // Если мы хотим представить московское время, нужно вычесть 3 часа
   const moscowDateUTC = Date.UTC(year, month - 1, day, hours, minutes, 0, 0);
-  // Вычитаем 3 часа для конвертации из московского в UTC
-  const utcTimestamp = moscowDateUTC - (3 * 60 * 60 * 1000);
   
-  return new Date(utcTimestamp);
+  // Вычитаем 3 часа для конвертации из московского в UTC
+  // 3 часа = 3 * 60 * 60 * 1000 миллисекунд
+  const utcTimestamp = moscowDateUTC - (3 * 60 * 60 * 1000);
+  const result = new Date(utcTimestamp);
+  
+  // Отладочный вывод
+  console.log(`moscowToUTC: "${moscowDateTime}" -> UTC: ${result.toISOString()}`);
+  console.log(`  Moscow: ${year}-${month}-${day} ${hours}:${minutes}`);
+  console.log(`  UTC timestamp before: ${moscowDateUTC} (${new Date(moscowDateUTC).toISOString()})`);
+  console.log(`  UTC timestamp after: ${utcTimestamp} (${result.toISOString()})`);
+  
+  return result;
 }
 
 const router = express.Router();
