@@ -319,12 +319,12 @@ export const db = {
   async getScheduledBroadcasts() {
     // Выбираем рассылки со статусом 'scheduled', которые должны быть отправлены
     // scheduled_at хранится в UTC в БД
-    // Конвертируем текущее московское время в UTC для сравнения
+    // Сравниваем с текущим UTC временем (NOW() возвращает UTC при правильной настройке timezone)
     const result = await pool.query(
       `SELECT * FROM broadcasts 
        WHERE status = 'scheduled' 
        AND scheduled_at IS NOT NULL
-       AND scheduled_at <= ((NOW() AT TIME ZONE 'Europe/Moscow') AT TIME ZONE 'UTC' + INTERVAL '2 minutes')
+       AND scheduled_at <= (NOW() AT TIME ZONE 'UTC' + INTERVAL '2 minutes')
        ORDER BY scheduled_at ASC`
     );
     return result.rows.map(row => {
