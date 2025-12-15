@@ -21,21 +21,34 @@ export function initScheduler(bot) {
       for (const broadcast of scheduledBroadcasts) {
         // scheduled_at хранится в БД в UTC
         const scheduledAtUTC = new Date(broadcast.scheduled_at);
+        const createdAtUTC = new Date(broadcast.created_at);
+        
+        // Проверяем, что рассылка была создана хотя бы 10 секунд назад
+        // Это предотвращает отправку рассылок, которые только что созданы
+        const timeSinceCreation = nowUTC.getTime() - createdAtUTC.getTime();
+        const minCreationDelay = 10 * 1000; // 10 секунд
         
         // Логируем для отладки
         console.log(`[Scheduler] Проверка рассылки ${broadcast.id}:`);
+        console.log(`  Название: "${broadcast.title}"`);
         console.log(`  scheduled_at (из БД): ${broadcast.scheduled_at}`);
         console.log(`  scheduled_at (UTC Date): ${scheduledAtUTC.toISOString()}`);
+        console.log(`  created_at: ${broadcast.created_at}`);
         console.log(`  now (UTC): ${nowUTC.toISOString()}`);
-        console.log(`  Разница (мс): ${nowUTC.getTime() - scheduledAtUTC.getTime()}`);
-        console.log(`  Разница (минуты): ${(nowUTC.getTime() - scheduledAtUTC.getTime()) / 60000}`);
+        
+        const timeDiff = nowUTC.getTime() - scheduledAtUTC.getTime();
+        console.log(`  Разница до запланированного времени: ${(timeDiff / 60000).toFixed(1)} минут`);
+        console.log(`  Время с момента создания: ${(timeSinceCreation / 1000).toFixed(1)} секунд`);
         
         // Если время наступило (рассылка должна быть отправлена)
         // Расширяем окно проверки до 24 часов, чтобы рассылки, созданные позже запланированного времени, тоже отправлялись
-        const timeDiff = nowUTC.getTime() - scheduledAtUTC.getTime();
         const maxDelay = 24 * 60 * 60 * 1000; // 24 часа в миллисекундах
         
-        if (timeDiff >= 0 && timeDiff < maxDelay) {
+        // Проверяем, что:
+        // 1. Время наступило (timeDiff >= 0)
+        // 2. Не прошло более 24 часов (timeDiff < maxDelay)
+        // 3. Рассылка была создана хотя бы 10 секунд назад (чтобы не отправлять только что созданные)
+        if (timeDiff >= 0 && timeDiff < maxDelay && timeSinceCreation >= minCreationDelay) {
           // Время наступило и не прошло более 24 часов
           const moscowTime = new Date(scheduledAtUTC.getTime() + (3 * 60 * 60 * 1000));
           const moscowStr = moscowTime.toLocaleString('ru-RU', { 
@@ -90,8 +103,10 @@ export function initScheduler(bot) {
             }
           }
           console.log(`⏰ [Scheduler] ════════════════════════════════════════════════════\n`);
+        } else if (timeSinceCreation < minCreationDelay) {
+          console.log(`⏸️ [Scheduler] Рассылка ${broadcast.id} только что создана (${(timeSinceCreation / 1000).toFixed(1)} сек назад), пропускаем до следующей проверки`);
         } else if (timeDiff < 0) {
-          console.log(`⏳ [Scheduler] Рассылка ${broadcast.id} еще не наступила (осталось ${Math.abs(timeDiff / 60000)} минут)`);
+          console.log(`⏳ [Scheduler] Рассылка ${broadcast.id} еще не наступила (осталось ${Math.abs(timeDiff / 60000).toFixed(1)} минут)`);
         } else {
           console.log(`⚠️ [Scheduler] Рассылка ${broadcast.id} пропущена (прошло ${Math.round(timeDiff / 60000)} минут, более 24 часов)`);
         }
