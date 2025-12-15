@@ -176,7 +176,32 @@ router.get('/broadcasts', async (req, res) => {
     const result = await pool.query(
       'SELECT * FROM broadcasts ORDER BY created_at DESC'
     );
-    res.json(result.rows);
+    
+    // Нормализуем scheduled_at: PostgreSQL возвращает TIMESTAMP как MSK, но мы сохраняем UTC
+    // Вычитаем 3 часа, чтобы получить правильное UTC время
+    const normalizedBroadcasts = result.rows.map(row => {
+      let scheduledAt = null;
+      if (row.scheduled_at) {
+        if (row.scheduled_at instanceof Date) {
+          // PostgreSQL вернул Date объект, интерпретированный как MSK
+          // Вычитаем 3 часа, чтобы получить UTC
+          scheduledAt = new Date(row.scheduled_at.getTime() - (3 * 60 * 60 * 1000));
+        } else if (typeof row.scheduled_at === 'string') {
+          // Если это строка без timezone, PostgreSQL вернул её как MSK
+          const date = new Date(row.scheduled_at);
+          if (!isNaN(date.getTime())) {
+            scheduledAt = new Date(date.getTime() - (3 * 60 * 60 * 1000));
+          }
+        }
+      }
+      
+      return {
+        ...row,
+        scheduled_at: scheduledAt ? scheduledAt.toISOString() : row.scheduled_at
+      };
+    });
+    
+    res.json(normalizedBroadcasts);
   } catch (error) {
     console.error('Error fetching broadcasts:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
