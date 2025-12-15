@@ -1,5 +1,12 @@
-import isAdmin from './auth.js';
-import db from '../db.js';
+import dotenv from 'dotenv';
+import pg from 'pg';
+
+dotenv.config();
+
+const { Pool } = pg;
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL
+});
 
 // Простой rate limiting middleware
 const userRequests = new Map();
@@ -15,7 +22,6 @@ let rateLimitSettings = {
 // Загрузка настроек лимитов из БД
 async function loadRateLimitSettings() {
   try {
-    const pool = (await import('../db.js')).default;
     const settingsResult = await pool.query(
       "SELECT key, value FROM bot_settings WHERE key IN ('user_rate_limit', 'user_rate_window', 'admin_rate_limit', 'admin_rate_window')"
     );
