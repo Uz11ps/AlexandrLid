@@ -13,6 +13,11 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD || 'postgres',
 });
 
+// Устанавливаем московский часовой пояс для всех подключений к БД
+pool.on('connect', async (client) => {
+  await client.query('SET timezone = \'Europe/Moscow\'');
+});
+
 pool.on('error', (err) => {
   console.error('❌ Unexpected error on idle client', err);
   process.exit(-1);
