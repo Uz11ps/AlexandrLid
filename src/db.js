@@ -30,26 +30,44 @@ pool.on('connect', async (client) => {
 /**
  * Нормализует время из БД в UTC
  * PostgreSQL возвращает TIMESTAMP как локальное время сервера (Moscow),
- * но мы сохраняем его как UTC, поэтому нужно скорректировать
+ * но мы сохраняем его как UTC, поэтому нужно добавить 3 часа обратно
+ * 
+ * Логика:
+ * - Сохраняем UTC время (например, 22:00 UTC = 01:00 MSK)
+ * - PostgreSQL конвертирует в MSK и сохраняет как локальное время (01:00)
+ * - При чтении PostgreSQL возвращает 01:00 как локальное время
+ * - Node.js интерпретирует это как MSK и конвертирует в UTC: 01:00 MSK - 3ч = 22:00 UTC предыдущего дня
+ * - Но нам нужно получить исходное UTC время, поэтому добавляем 3 часа обратно
  */
 function normalizeUTCTime(dbValue) {
   if (!dbValue) return null;
   
   if (dbValue instanceof Date) {
     // PostgreSQL вернул Date объект, интерпретированный как MSK
-    // Но на самом деле это UTC, поэтому вычитаем 3 часа
+    // Но на самом деле мы сохранили UTC, поэтому добавляем 3 часа обратно
     const mskTimestamp = dbValue.getTime();
-    const utcTimestamp = mskTimestamp - (3 * 60 * 60 * 1000);
+    const utcTimestamp = mskTimestamp + (3 * 60 * 60 * 1000);
     return new Date(utcTimestamp);
   } else if (typeof dbValue === 'string') {
-    // Если это строка, парсим как UTC
-    const dateStr = dbValue.endsWith('Z') || dbValue.includes('+') || dbValue.includes('-') 
-      ? dbValue 
-      : dbValue + 'Z';
-    return new Date(dateStr);
+    // Если это строка с timezone (Z, +, -), парсим как есть
+    if (dbValue.includes('Z') || dbValue.includes('+') || dbValue.includes('-')) {
+      const parsedDate = new Date(dbValue);
+      // Если это ISO строка UTC, возвращаем как есть
+      if (dbValue.endsWith('Z')) {
+        return parsedDate;
+      }
+      // Иначе добавляем 3 часа (PostgreSQL вернул как MSK)
+      return new Date(parsedDate.getTime() + (3 * 60 * 60 * 1000));
+    } else {
+      // Строка без timezone - PostgreSQL вернул как MSK, добавляем 3 часа
+      const parsedDate = new Date(dbValue + 'Z');
+      return new Date(parsedDate.getTime() + (3 * 60 * 60 * 1000));
+    }
   }
   
-  return new Date(dbValue);
+  // Для других типов добавляем 3 часа
+  const date = new Date(dbValue);
+  return new Date(date.getTime() + (3 * 60 * 60 * 1000));
 }
 
 // Проверка подключения и установка московского часового пояса
@@ -327,22 +345,33 @@ export const db = {
     console.log(`  💾 Сохранение в БД:`);
     console.log(`    scheduled_at (ISO UTC): ${scheduledAtISO || 'null'}`);
     
+    // Используем AT TIME ZONE 'UTC' для явного указания, что сохраняем UTC время
+    // Это предотвращает конвертацию PostgreSQL в локальное время
     const result = await pool.query(
       `INSERT INTO broadcasts (title, message_text, message_type, file_id, buttons, segment, scheduled_at, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       VALUES ($1, $2, $3, $4, $5, $6, 
+         CASE WHEN $7 IS NULL THEN NULL 
+              ELSE ($7::timestamptz AT TIME ZONE 'UTC')::timestamp 
+         END, 
+         $8)
        RETURNING *`,
       [title, message_text, message_type || 'text', file_id || null, buttons ? JSON.stringify(buttons) : null, segment || null, scheduledAtISO, created_by || null]
     );
     
-    // Нормализуем scheduled_at из БД (PostgreSQL возвращает его как MSK, но это должно быть UTC)
+    // Нормализуем scheduled_at из БД
+    // PostgreSQL возвращает время как локальное (MSK), но мы сохранили UTC
+    // Поэтому нужно добавить 3 часа обратно, чтобы получить правильный UTC
     if (result.rows[0]?.scheduled_at) {
-      const normalizedDate = normalizeUTCTime(result.rows[0].scheduled_at);
+      const dbValue = result.rows[0].scheduled_at;
+      const normalizedDate = normalizeUTCTime(dbValue);
       result.rows[0].scheduled_at = normalizedDate.toISOString();
       
       console.log(`  ✅ Сохранено в БД:`);
-      console.log(`    scheduled_at (из БД raw): ${result.rows[0].scheduled_at}`);
+      console.log(`    scheduled_at (из БД raw): ${dbValue} (${dbValue instanceof Date ? dbValue.toISOString() : typeof dbValue})`);
       console.log(`    scheduled_at (нормализовано UTC ISO): ${normalizedDate.toISOString()}`);
       console.log(`    scheduled_at (UTC timestamp): ${normalizedDate.getTime()}`);
+      console.log(`    Ожидалось: ${scheduledAtISO}`);
+      console.log(`    Совпадает: ${normalizedDate.toISOString() === scheduledAtISO}`);
     }
     
     const broadcast = result.rows[0];
