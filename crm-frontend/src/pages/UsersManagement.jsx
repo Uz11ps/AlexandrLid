@@ -59,28 +59,14 @@ function UsersManagement() {
     description: ''
   });
 
-  // Загружаем роли при монтировании компонента
-  useEffect(() => {
-    console.log('UsersManagement: Loading roles on mount');
-    loadRoles();
-  }, [loadRoles]);
-
-  useEffect(() => {
-    loadData();
-  }, [tab]);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      if (tab === 0) {
-        await loadManagers();
-      } else if (tab === 1) {
-        await loadPermissions();
-      }
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
+  // Вспомогательная функция для описания ролей (объявлена до использования)
+  const getRoleDescription = (role) => {
+    switch (role) {
+      case 'admin': return 'Полный доступ ко всем функциям';
+      case 'manager': return 'Работа с лидами и перепиской';
+      case 'marketer': return 'Маркетинг и аналитика';
+      case 'accountant': return 'Просмотр финансовых данных';
+      default: return '';
     }
   };
 
@@ -90,6 +76,15 @@ function UsersManagement() {
       setManagers(response.data || []);
     } catch (error) {
       console.error('Error loading managers:', error);
+    }
+  };
+
+  const loadPermissions = async () => {
+    try {
+      const response = await permissionsAPI.getAll();
+      setPermissions(response.data || []);
+    } catch (error) {
+      console.error('Error loading permissions:', error);
     }
   };
 
@@ -113,24 +108,30 @@ function UsersManagement() {
     }
   }, []);
 
-  const loadPermissions = async () => {
+  const loadData = async () => {
     try {
-      const response = await permissionsAPI.getAll();
-      setPermissions(response.data || []);
+      setLoading(true);
+      if (tab === 0) {
+        await loadManagers();
+      } else if (tab === 1) {
+        await loadPermissions();
+      }
     } catch (error) {
-      console.error('Error loading permissions:', error);
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getRoleDescription = (role) => {
-    switch (role) {
-      case 'admin': return 'Полный доступ ко всем функциям';
-      case 'manager': return 'Работа с лидами и перепиской';
-      case 'marketer': return 'Маркетинг и аналитика';
-      case 'accountant': return 'Просмотр финансовых данных';
-      default: return '';
-    }
-  };
+  // Загружаем роли при монтировании компонента
+  useEffect(() => {
+    console.log('UsersManagement: Loading roles on mount');
+    loadRoles();
+  }, [loadRoles]);
+
+  useEffect(() => {
+    loadData();
+  }, [tab]);
 
   const handleCreateUser = async () => {
     try {
