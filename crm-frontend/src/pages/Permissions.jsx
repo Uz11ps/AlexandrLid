@@ -437,8 +437,19 @@ function Permissions() {
             <FormControl sx={{ minWidth: 200 }}>
               <InputLabel>Пользователь</InputLabel>
               <Select
-                value={selectedUserId}
-                onChange={(e) => setSelectedUserId(e.target.value)}
+                value={selectedUserId || ''}
+                onChange={(e) => {
+                  const newUserId = e.target.value;
+                  console.log('User selection changed to:', newUserId);
+                  setSelectedUserId(newUserId);
+                  setUserPermissions({}); // Сбрасываем права перед загрузкой новых
+                  // Загружаем права для нового пользователя
+                  if (newUserId && managersLoaded && permissionsLoaded && permissions.length > 0) {
+                    setTimeout(() => {
+                      loadUserPermissions(newUserId);
+                    }, 100);
+                  }
+                }}
               >
                 <MenuItem value="">Выберите пользователя</MenuItem>
                 {managers.map(manager => (
