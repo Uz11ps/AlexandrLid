@@ -188,16 +188,22 @@ router.get('/broadcasts', async (req, res) => {
           scheduledAt = new Date(row.scheduled_at.getTime() - (3 * 60 * 60 * 1000));
         } else if (typeof row.scheduled_at === 'string') {
           // Если это строка без timezone, PostgreSQL вернул её как MSK
-          const date = new Date(row.scheduled_at);
+          // Парсим строку и вычитаем 3 часа
+          // Формат может быть: "2025-12-15T20:52:00" или "2025-12-15 20:52:00"
+          const dateStr = row.scheduled_at.replace(' ', 'T');
+          const date = new Date(dateStr);
           if (!isNaN(date.getTime())) {
+            // Вычитаем 3 часа для получения UTC
             scheduledAt = new Date(date.getTime() - (3 * 60 * 60 * 1000));
+          } else {
+            console.warn('Failed to parse scheduled_at:', row.scheduled_at);
           }
         }
       }
       
       return {
         ...row,
-        scheduled_at: scheduledAt ? scheduledAt.toISOString() : row.scheduled_at
+        scheduled_at: scheduledAt ? scheduledAt.toISOString() : null
       };
     });
     
