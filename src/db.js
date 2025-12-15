@@ -290,9 +290,16 @@ export const db = {
       console.log(`  📤 Отправка: немедленная`);
     }
     
+    // Сохраняем scheduled_at как ISO строку UTC для гарантии правильного сохранения
+    let scheduledAtISO = null;
+    if (scheduledAtValue) {
+      scheduledAtISO = scheduledAtValue.toISOString();
+      console.log(`  💾 Сохранение scheduled_at как UTC ISO: ${scheduledAtISO}`);
+    }
+    
     const result = await pool.query(
       `INSERT INTO broadcasts (title, message_text, message_type, file_id, buttons, segment, scheduled_at, created_by, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::timestamp, $8, $9)
        RETURNING *`,
       [
         title, 
@@ -301,7 +308,7 @@ export const db = {
         file_id || null, 
         buttons ? JSON.stringify(buttons) : null, 
         segment || null, 
-        scheduledAtValue, 
+        scheduledAtISO, // Явно указываем тип timestamp
         created_by || null,
         scheduledAtValue ? 'scheduled' : 'draft'
       ]
@@ -361,25 +368,32 @@ export const db = {
 
   async getScheduledBroadcasts() {
     // Выбираем рассылки со статусом 'scheduled', время которых наступило
-    // scheduled_at хранится в UTC формате в БД
+    // scheduled_at хранится как TIMESTAMP (без timezone), но мы сохраняем UTC время
     
     const nowUTC = new Date();
     const nowUTCISO = nowUTC.toISOString();
+    // Преобразуем в формат, который PostgreSQL понимает как UTC
+    const nowUTCString = nowUTC.toISOString().replace('T', ' ').replace('Z', '');
     
     console.log(`\n🔍 [DB] getScheduledBroadcasts:`);
     console.log(`  Текущее UTC время: ${nowUTCISO}`);
     console.log(`  Текущее время (timestamp): ${nowUTC.getTime()}`);
+    console.log(`  PostgreSQL формат: ${nowUTCString}`);
     
-    // Используем UTC для сравнения, так как scheduled_at хранится в UTC
-    // Ищем рассылки, которые должны были быть отправлены (включая те, что пропущены за последние 24 часа)
+    // Используем параметризованный запрос для точного сравнения
+    // scheduled_at хранится как TIMESTAMP (без timezone), но мы сохраняем UTC значения
+    // PostgreSQL интерпретирует TIMESTAMP как локальное время, поэтому нужно явно указать UTC
     const result = await pool.query(
       `SELECT * FROM broadcasts 
        WHERE status = 'scheduled' 
        AND scheduled_at IS NOT NULL
-       AND scheduled_at <= NOW() AT TIME ZONE 'UTC'
-       AND scheduled_at >= (NOW() AT TIME ZONE 'UTC' - INTERVAL '24 hours')
+       AND (scheduled_at AT TIME ZONE 'UTC')::timestamptz <= $1::timestamptz
+       AND (scheduled_at AT TIME ZONE 'UTC')::timestamptz >= $2::timestamptz
        ORDER BY scheduled_at ASC`,
-      []
+      [
+        nowUTCISO, // Текущее время UTC
+        new Date(nowUTC.getTime() - 24 * 60 * 60 * 1000).toISOString() // 24 часа назад UTC
+      ]
     );
     
     console.log(`  Найдено рассылок для отправки: ${result.rows.length}`);
