@@ -177,8 +177,18 @@ async function startServer() {
   try {
     console.log('🔄 Running database migrations...');
     await createCourseTariffsTable();
-    await createRolesTable();
-    console.log('✅ Migrations completed');
+    console.log('✅ Migration 001 (course_tariffs) completed');
+    
+    try {
+      await createRolesTable();
+      console.log('✅ Migration 002 (roles) completed');
+    } catch (rolesError) {
+      console.error('❌ Migration 002 (roles) failed:', rolesError);
+      console.warn('⚠️ Roles migration failed, but server will continue');
+      console.warn('⚠️ Some features related to roles may not work correctly');
+    }
+    
+    console.log('✅ All migrations completed');
   } catch (error) {
     console.error('❌ Error running migrations:', error);
     // Не останавливаем сервер, но логируем ошибку
