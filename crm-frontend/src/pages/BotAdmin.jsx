@@ -1027,9 +1027,15 @@ function BotAdmin() {
               fullWidth
               type="datetime-local"
               label="Запланировать на (необязательно)"
-              value={editBroadcast?.scheduled_at ? new Date(editBroadcast.scheduled_at).toISOString().slice(0, 16) : ''}
+              value={editBroadcast?.scheduled_at ? (() => {
+                // Конвертируем UTC время из БД в локальное время для отображения
+                const utcDate = new Date(editBroadcast.scheduled_at);
+                const localDate = new Date(utcDate.getTime() - utcDate.getTimezoneOffset() * 60000);
+                return localDate.toISOString().slice(0, 16);
+              })() : ''}
               onChange={(e) => setEditBroadcast({ ...editBroadcast, scheduled_at: e.target.value })}
               InputLabelProps={{ shrink: true }}
+              helperText={`Время указывается в вашем локальном времени (${Intl.DateTimeFormat().resolvedOptions().timeZone}). Сервер: ${settings.server_timezone || 'UTC'}`}
               sx={{ mt: 2 }}
             />
             <FormControl fullWidth sx={{ mt: 2 }}>
