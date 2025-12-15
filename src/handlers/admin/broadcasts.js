@@ -1,5 +1,6 @@
 import db from '../../db.js';
 import { sendBroadcast } from '../../utils/broadcastSender.js';
+import { formatMoscowTime } from '../../utils/timeUtils.js';
 
 // Список всех рассылок
 export async function handleBroadcastList(ctx) {
@@ -36,12 +37,12 @@ export async function handleBroadcastList(ctx) {
 
       const emoji = statusEmoji[broadcast.status] || '📄';
       const scheduled = broadcast.scheduled_at ? 
-        new Date(broadcast.scheduled_at).toLocaleString('ru-RU') : 'сейчас';
+        formatMoscowTime(broadcast.scheduled_at) : 'сейчас';
       
       message += `${emoji} ${broadcast.title}\n`;
       message += `   ID: ${broadcast.id} | Статус: ${broadcast.status}\n`;
       if (broadcast.status === 'scheduled') {
-        message += `   Запланировано: ${scheduled}\n`;
+        message += `   Запланировано: ${scheduled} (МСК)\n`;
       }
       if (broadcast.status === 'sent') {
         message += `   Отправлено: ${broadcast.sent_count || 0} | Ошибок: ${broadcast.error_count || 0}\n`;

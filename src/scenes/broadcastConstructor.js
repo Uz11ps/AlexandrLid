@@ -1,5 +1,6 @@
 import { Scenes } from 'telegraf';
 import db from '../db.js';
+import { parseMoscowDateTime, formatMoscowTime } from '../utils/timeUtils.js';
 
 const broadcastConstructor = new Scenes.WizardScene(
   'broadcastConstructor',
@@ -147,20 +148,18 @@ const broadcastConstructor = new Scenes.WizardScene(
         scheduledAt = null;
       }
     } else {
-      // Парсинг даты и времени
+      // Парсинг даты и времени в московском формате
       const dateTimeStr = ctx.message.text;
-      const [datePart, timePart] = dateTimeStr.split(' ');
-      const [day, month, year] = datePart.split('.');
-      const [hour, minute] = timePart.split(':');
-
-      scheduledAt = new Date(`${year}-${month}-${day}T${hour}:${minute}:00`);
+      scheduledAt = parseMoscowDateTime(dateTimeStr);
       
-      if (isNaN(scheduledAt.getTime())) {
-        await ctx.reply('❌ Неверный формат даты. Используйте: ДД.ММ.ГГГГ ЧЧ:ММ');
+      if (!scheduledAt || isNaN(scheduledAt.getTime())) {
+        await ctx.reply('❌ Неверный формат даты. Используйте: ДД.ММ.ГГГГ ЧЧ:ММ (московское время)');
         return;
       }
 
-      if (scheduledAt < new Date()) {
+      // Проверяем, что время в будущем (в московском времени)
+      const nowUTC = new Date();
+      if (scheduledAt <= nowUTC) {
         await ctx.reply('❌ Указанная дата в прошлом. Выберите будущую дату.');
         return;
       }
@@ -213,7 +212,7 @@ const broadcastConstructor = new Scenes.WizardScene(
     await ctx.reply(
       `✅ Рассылка "${ctx.wizard.state.title}" создана!\n\n` +
       `Сегмент: ${ctx.wizard.state.segment}\n` +
-      `${scheduledAt ? `Запланирована на: ${scheduledAt.toLocaleString('ru-RU')}` : 'Будет отправлена сейчас'}\n\n` +
+      `${scheduledAt ? `Запланирована на: ${formatMoscowTime(scheduledAt)} (московское время)` : 'Будет отправлена сейчас'}\n\n` +
       `Для отправки используйте /broadcast_send ${broadcast.id}`
     );
 

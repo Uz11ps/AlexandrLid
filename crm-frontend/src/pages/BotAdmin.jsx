@@ -43,6 +43,7 @@ import {
   Delete as DeleteIcon
 } from '@mui/icons-material';
 import { botAdminAPI } from '../api/bot-admin';
+import { formatMoscowTime } from '../utils/timeUtils';
 
 function BotAdmin() {
   const [tab, setTab] = useState(0);
@@ -544,19 +545,7 @@ function BotAdmin() {
                         />
                       </TableCell>
                       <TableCell>
-                        {broadcast.scheduled_at ? (() => {
-                          // scheduled_at хранится в UTC в БД, конвертируем в московское время для отображения
-                          const utcDate = new Date(broadcast.scheduled_at);
-                          // Добавляем 3 часа (MSK = UTC+3) для конвертации в московское время
-                          const moscowTime = new Date(utcDate.getTime() + (3 * 60 * 60 * 1000));
-                          // Форматируем дату и время
-                          const year = moscowTime.getUTCFullYear();
-                          const month = String(moscowTime.getUTCMonth() + 1).padStart(2, '0');
-                          const day = String(moscowTime.getUTCDate()).padStart(2, '0');
-                          const hours = String(moscowTime.getUTCHours()).padStart(2, '0');
-                          const minutes = String(moscowTime.getUTCMinutes()).padStart(2, '0');
-                          return `${day}.${month}.${year}, ${hours}:${minutes}`;
-                        })() : '-'}
+                        {formatMoscowTime(broadcast.scheduled_at)}
                       </TableCell>
                       <TableCell>{broadcast.sent_count || 0}</TableCell>
                       <TableCell>
@@ -1043,19 +1032,7 @@ function BotAdmin() {
               fullWidth
               type="datetime-local"
               label="Запланировать на (необязательно)"
-              value={editBroadcast?.scheduled_at ? (() => {
-                // scheduled_at хранится в UTC в БД, конвертируем в московское время для отображения
-                const utcDate = new Date(editBroadcast.scheduled_at);
-                // Добавляем 3 часа (MSK = UTC+3) для конвертации в московское время
-                const moscowTime = new Date(utcDate.getTime() + (3 * 60 * 60 * 1000));
-                // Форматируем в формат datetime-local (YYYY-MM-DDTHH:mm)
-                const year = moscowTime.getUTCFullYear();
-                const month = String(moscowTime.getUTCMonth() + 1).padStart(2, '0');
-                const day = String(moscowTime.getUTCDate()).padStart(2, '0');
-                const hours = String(moscowTime.getUTCHours()).padStart(2, '0');
-                const minutes = String(moscowTime.getUTCMinutes()).padStart(2, '0');
-                return `${year}-${month}-${day}T${hours}:${minutes}`;
-              })() : ''}
+              value={editBroadcast?.scheduled_at ? formatMoscowTime(editBroadcast.scheduled_at, { format: 'datetime-local' }) : ''}
               onChange={(e) => setEditBroadcast({ ...editBroadcast, scheduled_at: e.target.value })}
               InputLabelProps={{ shrink: true }}
               helperText={`Время указывается в московском времени (Europe/Moscow)`}
