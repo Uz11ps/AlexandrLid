@@ -19,13 +19,33 @@ router.use(authenticateToken);
  */
 router.get('/', async (req, res) => {
   try {
+    // Проверяем, существует ли таблица roles
+    const tableExists = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'roles'
+      );
+    `);
+
+    if (!tableExists.rows[0].exists) {
+      return res.status(503).json({ 
+        error: 'Roles table does not exist. Please run migrations.',
+        details: 'The roles table has not been created yet. Please restart the backend to run migrations.'
+      });
+    }
+
     const result = await pool.query(
       'SELECT id, name, description, is_system, created_at FROM roles ORDER BY name'
     );
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching roles:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Error details:', error.message, error.stack);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
