@@ -525,6 +525,7 @@ function BotAdmin() {
                     <TableCell>ID</TableCell>
                     <TableCell>Название</TableCell>
                     <TableCell>Статус</TableCell>
+                    <TableCell>Запланировано</TableCell>
                     <TableCell>Отправлено</TableCell>
                     <TableCell>Дата создания</TableCell>
                     <TableCell>Действия</TableCell>
@@ -541,6 +542,20 @@ function BotAdmin() {
                           color={broadcast.status === 'sent' ? 'success' : 'default'}
                           size="small"
                         />
+                      </TableCell>
+                      <TableCell>
+                        {broadcast.scheduled_at ? (() => {
+                          // Конвертируем UTC время из БД в локальное время для отображения
+                          const utcDate = new Date(broadcast.scheduled_at + 'Z');
+                          return utcDate.toLocaleString('ru-RU', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                          });
+                        })() : '-'}
                       </TableCell>
                       <TableCell>{broadcast.sent_count || 0}</TableCell>
                       <TableCell>
