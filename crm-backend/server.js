@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+
+// Устанавливаем московский часовой пояс для всего приложения
+process.env.TZ = 'Europe/Moscow';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import leadsRoutes from './routes/leads.js';

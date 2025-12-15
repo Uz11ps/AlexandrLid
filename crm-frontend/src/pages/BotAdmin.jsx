@@ -545,15 +545,15 @@ function BotAdmin() {
                       </TableCell>
                       <TableCell>
                         {broadcast.scheduled_at ? (() => {
-                          // Конвертируем UTC время из БД в локальное время для отображения
-                          const utcDate = new Date(broadcast.scheduled_at + 'Z');
-                          return utcDate.toLocaleString('ru-RU', {
+                          // Время хранится в московском часовом поясе, просто форматируем для отображения
+                          const moscowDate = new Date(broadcast.scheduled_at);
+                          return moscowDate.toLocaleString('ru-RU', {
                             year: 'numeric',
                             month: '2-digit',
                             day: '2-digit',
                             hour: '2-digit',
                             minute: '2-digit',
-                            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                            timeZone: 'Europe/Moscow'
                           });
                         })() : '-'}
                       </TableCell>
@@ -1043,15 +1043,14 @@ function BotAdmin() {
               type="datetime-local"
               label="Запланировать на (необязательно)"
               value={editBroadcast?.scheduled_at ? (() => {
-                // Конвертируем UTC время из БД в локальное время для отображения
-                // scheduled_at в БД хранится в UTC, нужно конвертировать в локальное время браузера
-                const utcDate = new Date(editBroadcast.scheduled_at + 'Z'); // Добавляем Z для явного указания UTC
-                // Получаем локальное время в формате YYYY-MM-DDTHH:mm для datetime-local
-                const year = utcDate.getFullYear();
-                const month = String(utcDate.getMonth() + 1).padStart(2, '0');
-                const day = String(utcDate.getDate()).padStart(2, '0');
-                const hours = String(utcDate.getHours()).padStart(2, '0');
-                const minutes = String(utcDate.getMinutes()).padStart(2, '0');
+                // Время хранится в московском часовом поясе, просто извлекаем дату и время
+                const moscowDate = new Date(editBroadcast.scheduled_at);
+                // Форматируем в формат datetime-local (YYYY-MM-DDTHH:mm)
+                const year = moscowDate.getFullYear();
+                const month = String(moscowDate.getMonth() + 1).padStart(2, '0');
+                const day = String(moscowDate.getDate()).padStart(2, '0');
+                const hours = String(moscowDate.getHours()).padStart(2, '0');
+                const minutes = String(moscowDate.getMinutes()).padStart(2, '0');
                 return `${year}-${month}-${day}T${hours}:${minutes}`;
               })() : ''}
               onChange={(e) => setEditBroadcast({ ...editBroadcast, scheduled_at: e.target.value })}

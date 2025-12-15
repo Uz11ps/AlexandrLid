@@ -155,21 +155,14 @@ router.post('/broadcasts', async (req, res) => {
       return res.status(400).json({ error: 'Title and message_text are required' });
     }
 
-    // Конвертация времени из локального времени браузера в UTC
-    let scheduledAtUTC = null;
+    // Сохраняем время как московское время без конвертации
+    // datetime-local возвращает время в формате "YYYY-MM-DDTHH:mm"
+    // Добавляем московский часовой пояс и сохраняем как есть
+    let scheduledAtMoscow = null;
     if (scheduled_at) {
-      // datetime-local возвращает время в формате "YYYY-MM-DDTHH:mm" без часового пояса
-      // Интерпретируем его как локальное время браузера и конвертируем в UTC
-      // Создаем Date объект из строки - JavaScript автоматически интерпретирует как локальное время
-      const localDate = new Date(scheduled_at);
-      // Проверяем, что дата валидна
-      if (isNaN(localDate.getTime())) {
-        return res.status(400).json({ error: 'Invalid scheduled_at format' });
-      }
-      // Конвертируем в UTC для сохранения в БД
-      // toISOString() автоматически конвертирует локальное время в UTC
-      scheduledAtUTC = localDate.toISOString();
-      console.log(`Broadcast creation: Local time "${scheduled_at}" converted to UTC "${scheduledAtUTC}"`);
+      // Добавляем московский часовой пояс к времени
+      scheduledAtMoscow = `${scheduled_at}:00+03:00`;
+      console.log(`Broadcast creation: Moscow time "${scheduled_at}" saved as "${scheduledAtMoscow}"`);
     }
 
     const result = await pool.query(
@@ -180,9 +173,9 @@ router.post('/broadcasts', async (req, res) => {
         title,
         message_text,
         buttons ? JSON.stringify(buttons) : null,
-        scheduledAtUTC || null,
+        scheduledAtMoscow || null,
         target_audience || 'all',
-        scheduledAtUTC ? 'scheduled' : 'draft'
+        scheduledAtMoscow ? 'scheduled' : 'draft'
       ]
     );
 
@@ -215,20 +208,15 @@ router.put('/broadcasts/:id', async (req, res) => {
       values.push(buttons ? JSON.stringify(buttons) : null);
     }
     if (scheduled_at !== undefined) {
-      // Конвертация времени из локального времени браузера в UTC
-      let scheduledAtUTC = null;
+      // Сохраняем время как московское время без конвертации
+      let scheduledAtMoscow = null;
       if (scheduled_at) {
-        // datetime-local возвращает время в формате "YYYY-MM-DDTHH:mm" без часового пояса
-        // Интерпретируем его как локальное время браузера и конвертируем в UTC
-        const localDate = new Date(scheduled_at);
-        if (!isNaN(localDate.getTime())) {
-          // toISOString() автоматически конвертирует локальное время в UTC
-          scheduledAtUTC = localDate.toISOString();
-          console.log(`Broadcast update: Local time "${scheduled_at}" converted to UTC "${scheduledAtUTC}"`);
-        }
+        // Добавляем московский часовой пояс к времени
+        scheduledAtMoscow = `${scheduled_at}:00+03:00`;
+        console.log(`Broadcast update: Moscow time "${scheduled_at}" saved as "${scheduledAtMoscow}"`);
       }
       updates.push(`scheduled_at = $${paramIndex++}`);
-      values.push(scheduledAtUTC || null);
+      values.push(scheduledAtMoscow || null);
     }
     if (target_audience !== undefined) {
       updates.push(`segment = $${paramIndex++}`);
