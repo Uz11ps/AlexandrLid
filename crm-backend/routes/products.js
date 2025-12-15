@@ -70,10 +70,22 @@ router.get('/courses/:id', async (req, res) => {
     }
     
     // Get tariffs for this course (включая неактивные для админов)
-    const tariffsResult = await pool.query(
-      'SELECT * FROM course_tariffs WHERE course_id = $1 ORDER BY order_index, id',
-      [courseId]
-    );
+    // Используем безопасный запрос с проверкой существования таблицы
+    let tariffsResult;
+    try {
+      tariffsResult = await pool.query(
+        'SELECT * FROM course_tariffs WHERE course_id = $1 ORDER BY order_index, id',
+        [courseId]
+      );
+    } catch (error) {
+      // Если таблица не существует, возвращаем пустой массив
+      if (error.message.includes('does not exist')) {
+        console.warn('Table course_tariffs does not exist. Please run create_course_tariffs_table.sql');
+        tariffsResult = { rows: [] };
+      } else {
+        throw error;
+      }
+    }
     
     const course = courseResult.rows[0];
     
