@@ -27,49 +27,6 @@ pool.on('connect', async (client) => {
   await client.query('SET timezone = \'Europe/Moscow\'');
 });
 
-/**
- * Нормализует время из БД в UTC
- * PostgreSQL возвращает TIMESTAMP как локальное время сервера (Moscow),
- * но мы сохраняем его как UTC, поэтому нужно добавить 3 часа обратно
- * 
- * Логика:
- * - Сохраняем UTC время (например, 22:00 UTC = 01:00 MSK)
- * - PostgreSQL конвертирует в MSK и сохраняет как локальное время (01:00)
- * - При чтении PostgreSQL возвращает 01:00 как локальное время
- * - Node.js интерпретирует это как MSK и конвертирует в UTC: 01:00 MSK - 3ч = 22:00 UTC предыдущего дня
- * - Но нам нужно получить исходное UTC время, поэтому добавляем 3 часа обратно
- */
-function normalizeUTCTime(dbValue) {
-  if (!dbValue) return null;
-  
-  if (dbValue instanceof Date) {
-    // PostgreSQL вернул Date объект, интерпретированный как MSK
-    // Но на самом деле мы сохранили UTC, поэтому добавляем 3 часа обратно
-    const mskTimestamp = dbValue.getTime();
-    const utcTimestamp = mskTimestamp + (3 * 60 * 60 * 1000);
-    return new Date(utcTimestamp);
-  } else if (typeof dbValue === 'string') {
-    // Если это строка с timezone (Z, +, -), парсим как есть
-    if (dbValue.includes('Z') || dbValue.includes('+') || dbValue.includes('-')) {
-      const parsedDate = new Date(dbValue);
-      // Если это ISO строка UTC, возвращаем как есть
-      if (dbValue.endsWith('Z')) {
-        return parsedDate;
-      }
-      // Иначе добавляем 3 часа (PostgreSQL вернул как MSK)
-      return new Date(parsedDate.getTime() + (3 * 60 * 60 * 1000));
-    } else {
-      // Строка без timezone - PostgreSQL вернул как MSK, добавляем 3 часа
-      const parsedDate = new Date(dbValue + 'Z');
-      return new Date(parsedDate.getTime() + (3 * 60 * 60 * 1000));
-    }
-  }
-  
-  // Для других типов добавляем 3 часа
-  const date = new Date(dbValue);
-  return new Date(date.getTime() + (3 * 60 * 60 * 1000));
-}
-
 // Проверка подключения и установка московского часового пояса
 pool.on('connect', async (client) => {
   await client.query('SET timezone = \'Europe/Moscow\'');
@@ -318,61 +275,40 @@ export const db = {
     console.log(`  Тип сообщения: ${message_type || 'text'}`);
     console.log(`  Создано пользователем: ${created_by || 'система'}`);
     
-    // Конвертируем scheduled_at в ISO строку UTC для правильного сохранения в БД
-    let scheduledAtISO = null;
+    // Сохраняем scheduled_at напрямую - передаем Date объект или ISO строку
+    // PostgreSQL с timezone='Europe/Moscow' обработает корректно
+    let scheduledAtValue = null;
     if (scheduled_at) {
-      const scheduledDate = scheduled_at instanceof Date ? scheduled_at : new Date(scheduled_at);
-      if (!isNaN(scheduledDate.getTime())) {
-        scheduledAtISO = scheduledDate.toISOString(); // Всегда UTC формат
-        const moscowTime = new Date(scheduledDate.getTime() + (3 * 60 * 60 * 1000));
-        const moscowStr = moscowTime.toLocaleString('ru-RU', { 
-          timeZone: 'UTC',
-          year: 'numeric', 
-          month: '2-digit', 
-          day: '2-digit', 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        });
-        console.log(`  ⏰ Запланировано на: ${scheduledAtISO} (UTC) = ${moscowStr} (MSK)`);
-        console.log(`  Статус: scheduled`);
-      } else {
+      scheduledAtValue = scheduled_at instanceof Date ? scheduled_at : new Date(scheduled_at);
+      if (isNaN(scheduledAtValue.getTime())) {
         console.warn(`  ⚠️ Некорректное время scheduled_at: ${scheduled_at}`);
+        scheduledAtValue = null;
+      } else {
+        console.log(`  ⏰ Запланировано на: ${scheduledAtValue.toISOString()}`);
       }
     } else {
-      console.log(`  📤 Отправка: немедленная (draft)`);
+      console.log(`  📤 Отправка: немедленная`);
     }
     
-    console.log(`  💾 Сохранение в БД:`);
-    console.log(`    scheduled_at (ISO UTC): ${scheduledAtISO || 'null'}`);
-    
-    // Сохраняем scheduled_at как ISO строку UTC
-    // PostgreSQL автоматически конвертирует её в локальное время при сохранении в TIMESTAMP колонку
-    // При чтении мы будем нормализовать его обратно в UTC
     const result = await pool.query(
-      `INSERT INTO broadcasts (title, message_text, message_type, file_id, buttons, segment, scheduled_at, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7::timestamp, $8)
+      `INSERT INTO broadcasts (title, message_text, message_type, file_id, buttons, segment, scheduled_at, created_by, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
-      [title, message_text, message_type || 'text', file_id || null, buttons ? JSON.stringify(buttons) : null, segment || null, scheduledAtISO, created_by || null]
+      [
+        title, 
+        message_text, 
+        message_type || 'text', 
+        file_id || null, 
+        buttons ? JSON.stringify(buttons) : null, 
+        segment || null, 
+        scheduledAtValue, 
+        created_by || null,
+        scheduledAtValue ? 'scheduled' : 'draft'
+      ]
     );
     
-    // Нормализуем scheduled_at из БД
-    // PostgreSQL возвращает время как локальное (MSK), но мы сохранили UTC
-    // Поэтому нужно добавить 3 часа обратно, чтобы получить правильный UTC
-    if (result.rows[0]?.scheduled_at) {
-      const dbValue = result.rows[0].scheduled_at;
-      const normalizedDate = normalizeUTCTime(dbValue);
-      result.rows[0].scheduled_at = normalizedDate.toISOString();
-      
-      console.log(`  ✅ Сохранено в БД:`);
-      console.log(`    scheduled_at (из БД raw): ${dbValue} (${dbValue instanceof Date ? dbValue.toISOString() : typeof dbValue})`);
-      console.log(`    scheduled_at (нормализовано UTC ISO): ${normalizedDate.toISOString()}`);
-      console.log(`    scheduled_at (UTC timestamp): ${normalizedDate.getTime()}`);
-      console.log(`    Ожидалось: ${scheduledAtISO}`);
-      console.log(`    Совпадает: ${normalizedDate.toISOString() === scheduledAtISO}`);
-    }
-    
     const broadcast = result.rows[0];
-    console.log(`✅ [Broadcast] Рассылка создана с ID: ${broadcast.id}`);
+    console.log(`✅ [Broadcast] Рассылка создана с ID: ${broadcast.id}, статус: ${broadcast.status}`);
     
     return broadcast;
   },
@@ -384,7 +320,6 @@ export const db = {
     let buttons = null;
     if (row.buttons) {
       try {
-        // Если buttons уже объект (JSONB), используем как есть
         if (typeof row.buttons === 'object') {
           buttons = row.buttons;
         } else if (typeof row.buttons === 'string') {
@@ -394,10 +329,6 @@ export const db = {
         console.error('Ошибка при парсинге buttons:', error);
         buttons = null;
       }
-    }
-    // Нормализуем scheduled_at
-    if (row.scheduled_at) {
-      row.scheduled_at = normalizeUTCTime(row.scheduled_at).toISOString();
     }
     return {
       ...row,
@@ -411,7 +342,6 @@ export const db = {
       let buttons = null;
       if (row.buttons) {
         try {
-          // Если buttons уже объект (JSONB), используем как есть
           if (typeof row.buttons === 'object') {
             buttons = row.buttons;
           } else if (typeof row.buttons === 'string') {
@@ -421,10 +351,6 @@ export const db = {
           console.error('Ошибка при парсинге buttons:', error);
           buttons = null;
         }
-      }
-      // Нормализуем scheduled_at
-      if (row.scheduled_at) {
-        row.scheduled_at = normalizeUTCTime(row.scheduled_at).toISOString();
       }
       return {
         ...row,
@@ -434,42 +360,40 @@ export const db = {
   },
 
   async getScheduledBroadcasts() {
-    // Выбираем рассылки со статусом 'scheduled', которые должны быть отправлены
-    // scheduled_at хранится в UTC в БД (но PostgreSQL возвращает как MSK)
-    // Расширяем окно проверки до 24 часов, чтобы рассылки, созданные позже запланированного времени, тоже отправлялись
+    // Выбираем рассылки со статусом 'scheduled', время которых наступило
+    // scheduled_at хранится в UTC формате в БД
     
-    // Получаем текущее UTC время как timestamp для сравнения
     const nowUTC = new Date();
-    const nowUTCTimestamp = nowUTC.getTime();
-    const nowUTCPlus2Min = new Date(nowUTCTimestamp + (2 * 60 * 1000)).toISOString();
-    const nowUTCMinus24h = new Date(nowUTCTimestamp - (24 * 60 * 60 * 1000)).toISOString();
+    const nowUTCISO = nowUTC.toISOString();
     
     console.log(`\n🔍 [DB] getScheduledBroadcasts:`);
-    console.log(`  Текущее UTC: ${nowUTC.toISOString()}`);
-    console.log(`  Окно поиска: от ${nowUTCMinus24h} до ${nowUTCPlus2Min}`);
+    console.log(`  Текущее UTC время: ${nowUTCISO}`);
     
-    // Используем сравнение через timestamp, чтобы избежать проблем с timezone
+    // Используем UTC для сравнения, так как scheduled_at хранится в UTC
+    // Добавляем небольшой буфер (2 минуты) для обработки рассылок, которые могли быть пропущены
     const result = await pool.query(
       `SELECT * FROM broadcasts 
        WHERE status = 'scheduled' 
        AND scheduled_at IS NOT NULL
-       AND scheduled_at::timestamptz AT TIME ZONE 'UTC' <= ($1::timestamptz AT TIME ZONE 'UTC' + INTERVAL '2 minutes')
-       AND scheduled_at::timestamptz AT TIME ZONE 'UTC' >= ($1::timestamptz AT TIME ZONE 'UTC' - INTERVAL '24 hours')
+       AND scheduled_at <= $1::timestamp
+       AND scheduled_at >= $1::timestamp - INTERVAL '24 hours'
        ORDER BY scheduled_at ASC`,
-      [nowUTC.toISOString()]
+      [nowUTCISO]
     );
     
-    console.log(`  Найдено рассылок: ${result.rows.length}`);
+    console.log(`  Найдено рассылок для отправки: ${result.rows.length}`);
     if (result.rows.length > 0) {
       result.rows.forEach(row => {
-        console.log(`    - ID: ${row.id}, scheduled_at: ${row.scheduled_at}, status: ${row.status}`);
+        const scheduledTime = row.scheduled_at ? new Date(row.scheduled_at).toISOString() : 'N/A';
+        const timeDiff = row.scheduled_at ? Math.round((nowUTC.getTime() - new Date(row.scheduled_at).getTime()) / 1000 / 60) : 0;
+        console.log(`    - ID: ${row.id}, scheduled_at: ${scheduledTime}, title: "${row.title}", прошло минут: ${timeDiff}`);
       });
     }
+    
     return result.rows.map(row => {
       let buttons = null;
       if (row.buttons) {
         try {
-          // Если buttons уже объект (JSONB), используем как есть
           if (typeof row.buttons === 'object') {
             buttons = row.buttons;
           } else if (typeof row.buttons === 'string') {
@@ -480,13 +404,21 @@ export const db = {
           buttons = null;
         }
       }
-      // Нормализуем scheduled_at
+      
+      // Нормализуем scheduled_at к UTC Date объекту
+      let scheduledAt = null;
       if (row.scheduled_at) {
-        row.scheduled_at = normalizeUTCTime(row.scheduled_at).toISOString();
+        if (row.scheduled_at instanceof Date) {
+          scheduledAt = row.scheduled_at;
+        } else if (typeof row.scheduled_at === 'string') {
+          scheduledAt = new Date(row.scheduled_at);
+        }
       }
+      
       return {
         ...row,
-        buttons
+        buttons,
+        scheduled_at: scheduledAt
       };
     });
   },
@@ -820,15 +752,20 @@ export const db = {
 
       if (existingLead.rows.length > 0) {
         // Обновляем существующего лида
+        // Исправляем SQL: явно указываем тип для $4 перед использованием в CASE
         const result = await pool.query(
           `UPDATE leads 
            SET telegram_username = COALESCE($1, telegram_username),
                fio = COALESCE($2, fio),
-               source = CASE WHEN $4 IS NOT NULL AND $4 != 'Telegram Bot' THEN $4 ELSE source END,
+               source = CASE 
+                 WHEN CAST($4 AS TEXT) IS NOT NULL AND CAST($4 AS TEXT) != 'Telegram Bot' 
+                 THEN CAST($4 AS TEXT) 
+                 ELSE source 
+               END,
                updated_at = CURRENT_TIMESTAMP
            WHERE user_id = $3
            RETURNING *`,
-          [telegramUsername, fio, userId, source]
+          [telegramUsername, fio, userId, source || null]
         );
         return result.rows[0];
       } else {
@@ -987,6 +924,12 @@ export const db = {
       );
       return result.rows[0];
     } catch (error) {
+      // Игнорируем ошибку FK violation (23503) - пользователь еще не создан
+      // Это происходит когда activityLogger срабатывает до создания пользователя
+      if (error.code === '23503') {
+        // Тихо игнорируем - пользователь будет создан позже
+        return null;
+      }
       console.error('Ошибка при логировании активности:', error);
       return null;
     }

@@ -45,10 +45,27 @@ export const activityLogger = async (ctx, next) => {
     }
 
     // Логируем активность асинхронно (не блокируем выполнение)
+    // Проверяем существование пользователя перед логированием, чтобы избежать foreign key violation
     if (activityType) {
-      db.logUserActivity(userId, activityType, activityData, metadata).catch(err => {
-        console.error('Ошибка при логировании активности:', err);
-      });
+      // Проверяем, существует ли пользователь в БД
+      db.getUser(userId)
+        .then(user => {
+          if (user) {
+            // Пользователь существует, логируем активность
+            return db.logUserActivity(userId, activityType, activityData, metadata);
+          } else {
+            // Пользователь не найден - это нормально для новых пользователей
+            // Логирование будет выполнено после создания пользователя
+            return Promise.resolve();
+          }
+        })
+        .catch(err => {
+          // Игнорируем ошибки проверки пользователя и логирования
+          // Не прерываем выполнение основного потока
+          if (err.code !== '23503') { // Игнорируем только foreign key violations
+            console.error('Ошибка при логировании активности:', err.message);
+          }
+        });
     }
   } catch (error) {
     // Не прерываем выполнение при ошибке логирования

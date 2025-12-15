@@ -4,31 +4,49 @@ import { processSubscriptionReminders } from './subscriptionReminder.js';
 import { sendBroadcast } from './broadcastSender.js';
 
 let botInstance = null;
+let schedulerInitialized = false;
 
 // Инициализация планировщика
 export function initScheduler(bot) {
   if (!bot) {
+    console.error('❌ [Scheduler] Bot instance не передан в initScheduler');
     throw new Error('Bot instance не передан в initScheduler');
+  }
+  
+  if (schedulerInitialized) {
+    console.warn('⚠️ [Scheduler] Планировщик уже инициализирован, пропускаем повторную инициализацию');
+    return;
   }
   
   botInstance = bot;
   
+  console.log('🕐 [Scheduler] ============================================');
   console.log('🕐 [Scheduler] Инициализация планировщика задач...');
+  console.log('🕐 [Scheduler] ============================================');
 
   // Функция проверки и отправки запланированных рассылок
   const checkScheduledBroadcasts = async () => {
+    const checkTime = new Date().toISOString();
+    console.log(`\n⏰ [Scheduler] Проверка запланированных рассылок в ${checkTime}`);
+    
     try {
       // Получаем все рассылки, время которых наступило
       const scheduledBroadcasts = await db.getScheduledBroadcasts();
       
       if (scheduledBroadcasts.length === 0) {
-        return; // Тихо выходим, если нет рассылок
+        console.log(`   ℹ️  Нет рассылок для отправки`);
+        return;
       }
       
-      console.log(`⏰ [Scheduler] Найдено ${scheduledBroadcasts.length} рассылок для отправки`);
+      console.log(`   📋 Найдено ${scheduledBroadcasts.length} рассылок для отправки`);
       
       for (const broadcast of scheduledBroadcasts) {
-        console.log(`📤 [Scheduler] Отправка рассылки ID: ${broadcast.id} - "${broadcast.title}"`);
+        const scheduledTime = broadcast.scheduled_at ? new Date(broadcast.scheduled_at).toISOString() : 'N/A';
+        console.log(`\n   📤 [Scheduler] Обработка рассылки:`);
+        console.log(`      ID: ${broadcast.id}`);
+        console.log(`      Название: "${broadcast.title}"`);
+        console.log(`      Запланировано на: ${scheduledTime}`);
+        console.log(`      Текущее время: ${checkTime}`);
         
         try {
           // Создаем контекст для отправки
@@ -39,26 +57,52 @@ export function initScheduler(bot) {
           const result = await sendBroadcast(fakeCtx, broadcast.id);
           
           if (result.success) {
-            console.log(`✅ [Scheduler] Рассылка ${broadcast.id} отправлена: ${result.sent}/${result.total}`);
+            console.log(`      ✅ Рассылка ${broadcast.id} успешно отправлена: ${result.sent}/${result.total} пользователей`);
           } else {
-            console.error(`❌ [Scheduler] Ошибка рассылки ${broadcast.id}: ${result.error}`);
+            console.error(`      ❌ Ошибка рассылки ${broadcast.id}: ${result.error}`);
           }
         } catch (error) {
-          console.error(`❌ [Scheduler] Критическая ошибка рассылки ${broadcast.id}:`, error.message);
+          console.error(`      ❌ Критическая ошибка рассылки ${broadcast.id}:`, error.message);
+          console.error(`      Stack:`, error.stack);
           // Помечаем как отмененную при критической ошибке
-          await db.updateBroadcastStatus(broadcast.id, 'cancelled');
+          try {
+            await db.updateBroadcastStatus(broadcast.id, 'cancelled');
+          } catch (updateError) {
+            console.error(`      ❌ Не удалось обновить статус рассылки:`, updateError.message);
+          }
         }
       }
     } catch (error) {
-      console.error('❌ [Scheduler] Ошибка в checkScheduledBroadcasts:', error.message);
+      console.error('❌ [Scheduler] Критическая ошибка в checkScheduledBroadcasts:', error.message);
+      console.error('   Stack:', error.stack);
     }
   };
   
   // Проверка запланированных рассылок каждую минуту
-  cron.schedule('* * * * *', checkScheduledBroadcasts);
+  try {
+    cron.schedule('* * * * *', () => {
+      console.log('⏰ [Scheduler] Cron задача выполнена (каждую минуту)');
+      checkScheduledBroadcasts().catch(err => {
+        console.error('❌ [Scheduler] Необработанная ошибка в cron задаче:', err);
+      });
+    });
+    console.log('✅ [Scheduler] Cron задача для рассылок настроена (каждую минуту)');
+  } catch (error) {
+    console.error('❌ [Scheduler] Ошибка настройки cron задачи:', error);
+  }
   
   // Также проверяем каждые 30 секунд для более точного времени отправки
-  setInterval(checkScheduledBroadcasts, 30 * 1000);
+  try {
+    setInterval(() => {
+      console.log('⏰ [Scheduler] Interval задача выполнена (каждые 30 сек)');
+      checkScheduledBroadcasts().catch(err => {
+        console.error('❌ [Scheduler] Необработанная ошибка в interval задаче:', err);
+      });
+    }, 30 * 1000);
+    console.log('✅ [Scheduler] Interval задача для рассылок настроена (каждые 30 сек)');
+  } catch (error) {
+    console.error('❌ [Scheduler] Ошибка настройки interval задачи:', error);
+  }
 
   // Проверка окончания розыгрышей каждые 5 минут
   cron.schedule('*/5 * * * *', async () => {
@@ -93,9 +137,17 @@ export function initScheduler(bot) {
   console.log('   - Рассылки: каждую минуту + каждые 30 сек');
   console.log('   - Розыгрыши: каждые 5 минут');
   console.log('   - Напоминания: каждые 6 часов');
+  console.log('🕐 [Scheduler] ============================================\n');
+  
+  schedulerInitialized = true;
   
   // Первая проверка через 5 секунд после запуска
-  setTimeout(checkScheduledBroadcasts, 5000);
+  setTimeout(() => {
+    console.log('🔄 [Scheduler] Первая проверка запланированных рассылок...');
+    checkScheduledBroadcasts().catch(err => {
+      console.error('❌ [Scheduler] Ошибка при первой проверке:', err);
+    });
+  }, 5000);
 }
 
 export default initScheduler;

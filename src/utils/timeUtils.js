@@ -71,16 +71,16 @@ export function utcToMoscow(utcDate) {
 }
 
 /**
- * Форматирует UTC время в строку московского времени для отображения
- * @param {Date|string} utcDate - Date объект или ISO строка в UTC
+ * Форматирует время в строку московского времени для отображения
+ * @param {Date|string} dateValue - Date объект или ISO строка
  * @param {object} options - Опции форматирования
- * @returns {string} - Отформатированная строка времени
+ * @returns {string} - Отформатированная строка времени в московском часовом поясе
  */
-export function formatMoscowTime(utcDate, options = {}) {
-  if (!utcDate) return '-';
+export function formatMoscowTime(dateValue, options = {}) {
+  if (!dateValue) return '-';
   
-  const moscowDate = utcToMoscow(utcDate);
-  if (!moscowDate) return '-';
+  const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+  if (isNaN(date.getTime())) return '-';
   
   const {
     includeDate = true,
@@ -88,42 +88,39 @@ export function formatMoscowTime(utcDate, options = {}) {
     format = 'ru-RU'
   } = options;
   
+  // Используем toLocaleString с московским часовым поясом для корректного отображения
   if (format === 'datetime-local') {
     // Формат для input[type="datetime-local"]: YYYY-MM-DDTHH:mm
-    const year = moscowDate.getUTCFullYear();
-    const month = String(moscowDate.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(moscowDate.getUTCDate()).padStart(2, '0');
-    const hours = String(moscowDate.getUTCHours()).padStart(2, '0');
-    const minutes = String(moscowDate.getUTCMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+    const formatter = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'Europe/Moscow',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    return formatter.format(date).replace(' ', 'T');
   }
   
-  if (format === 'ru-RU') {
-    // Формат для отображения: ДД.ММ.ГГГГ, ЧЧ:ММ
-    const year = moscowDate.getUTCFullYear();
-    const month = String(moscowDate.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(moscowDate.getUTCDate()).padStart(2, '0');
-    const hours = String(moscowDate.getUTCHours()).padStart(2, '0');
-    const minutes = String(moscowDate.getUTCMinutes()).padStart(2, '0');
-    
-    if (includeDate && includeTime) {
-      return `${day}.${month}.${year}, ${hours}:${minutes}`;
-    } else if (includeDate) {
-      return `${day}.${month}.${year}`;
-    } else if (includeTime) {
-      return `${hours}:${minutes}`;
-    }
+  // Формат для отображения в русском стиле
+  const formatOptions = {
+    timeZone: 'Europe/Moscow',
+    hour12: false
+  };
+  
+  if (includeDate) {
+    formatOptions.year = 'numeric';
+    formatOptions.month = '2-digit';
+    formatOptions.day = '2-digit';
   }
   
-  // По умолчанию используем стандартное форматирование
-  return moscowDate.toLocaleString('ru-RU', {
-    year: includeDate ? 'numeric' : undefined,
-    month: includeDate ? '2-digit' : undefined,
-    day: includeDate ? '2-digit' : undefined,
-    hour: includeTime ? '2-digit' : undefined,
-    minute: includeTime ? '2-digit' : undefined,
-    timeZone: 'UTC' // Используем UTC, так как уже добавили смещение
-  });
+  if (includeTime) {
+    formatOptions.hour = '2-digit';
+    formatOptions.minute = '2-digit';
+  }
+  
+  return date.toLocaleString('ru-RU', formatOptions);
 }
 
 /**

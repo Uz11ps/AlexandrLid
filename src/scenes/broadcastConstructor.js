@@ -1,6 +1,7 @@
 import { Scenes } from 'telegraf';
 import db from '../db.js';
 import { parseMoscowDateTime, formatMoscowTime } from '../utils/timeUtils.js';
+import { sendBroadcast } from '../utils/broadcastSender.js';
 
 const broadcastConstructor = new Scenes.WizardScene(
   'broadcastConstructor',
@@ -142,6 +143,7 @@ const broadcastConstructor = new Scenes.WizardScene(
   },
   async (ctx) => {
     let scheduledAt = null;
+    let sendImmediately = false;
 
     if (ctx.callbackQuery) {
       if (ctx.callbackQuery.data === 'cancel') {
@@ -150,8 +152,8 @@ const broadcastConstructor = new Scenes.WizardScene(
         return ctx.scene.leave();
       }
       if (ctx.callbackQuery.data === 'send_now') {
-        await ctx.answerCbQuery();
-        scheduledAt = null;
+        await ctx.answerCbQuery('📤 Начинаю отправку...');
+        sendImmediately = true;
       }
     } else {
       // Парсинг даты и времени в московском формате
@@ -167,19 +169,8 @@ const broadcastConstructor = new Scenes.WizardScene(
       }
 
       const nowUTC = new Date();
-      const moscowTime = new Date(scheduledAt.getTime() + (3 * 60 * 60 * 1000));
-      const moscowStr = moscowTime.toLocaleString('ru-RU', { 
-        timeZone: 'UTC',
-        year: 'numeric', 
-        month: '2-digit', 
-        day: '2-digit', 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
-      
       console.log(`  Входное время (MSK): ${dateTimeStr}`);
       console.log(`  Распарсенное UTC: ${scheduledAt.toISOString()}`);
-      console.log(`  Для отображения MSK: ${moscowStr}`);
       console.log(`  Текущее UTC: ${nowUTC.toISOString()}`);
       console.log(`  Разница: ${((scheduledAt.getTime() - nowUTC.getTime()) / 60000).toFixed(1)} минут`);
 
@@ -206,85 +197,50 @@ const broadcastConstructor = new Scenes.WizardScene(
       created_by: ctx.from.id,
     });
 
-    // Предпросмотр отправляем ТОЛЬКО если рассылка не запланирована (немедленная отправка)
-    // Для запланированных рассылок предпросмотр не нужен, чтобы не путать пользователя
-    if (!scheduledAt) {
-      const previewOptions = {
-        parse_mode: 'HTML',
-      };
-
-      if (ctx.wizard.state.buttons) {
-        previewOptions.reply_markup = {
-          inline_keyboard: ctx.wizard.state.buttons
-        };
-      }
-
-      console.log(`📋 [BroadcastConstructor] Отправка предпросмотра (рассылка будет отправлена немедленно)`);
-      
-      if (ctx.wizard.state.fileId) {
-        if (ctx.wizard.state.messageType === 'photo') {
-          await ctx.replyWithPhoto(ctx.wizard.state.fileId, {
-            caption: ctx.wizard.state.messageText,
-            ...previewOptions
-          });
-        } else if (ctx.wizard.state.messageType === 'video') {
-          await ctx.replyWithVideo(ctx.wizard.state.fileId, {
-            caption: ctx.wizard.state.messageText,
-            ...previewOptions
-          });
-        } else {
-          await ctx.replyWithDocument(ctx.wizard.state.fileId, {
-            caption: ctx.wizard.state.messageText,
-            ...previewOptions
-          });
-        }
-      } else {
-        await ctx.reply(ctx.wizard.state.messageText, previewOptions);
-      }
-    } else {
-      console.log(`📋 [BroadcastConstructor] Предпросмотр не отправляется (рассылка запланирована)`);
-    }
-
-    const moscowTimeStr = scheduledAt ? formatMoscowTime(scheduledAt) : null;
-    
     console.log(`\n📢 [BroadcastConstructor] Рассылка создана:`);
     console.log(`  ID: ${broadcast.id}`);
     console.log(`  Название: "${ctx.wizard.state.title}"`);
     console.log(`  Сегмент: ${ctx.wizard.state.segment}`);
-    console.log(`  scheduled_at в БД: ${broadcast.scheduled_at || 'null'}`);
-    console.log(`  Статус в БД: ${broadcast.status || 'не установлен'}`);
-    
-    if (scheduledAt) {
-      const moscowTime = new Date(scheduledAt.getTime() + (3 * 60 * 60 * 1000));
-      const moscowStr = moscowTime.toLocaleString('ru-RU', { 
-        timeZone: 'UTC',
-        year: 'numeric', 
-        month: '2-digit', 
-        day: '2-digit', 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
-      console.log(`  Запланировано на (MSK): ${moscowStr}`);
+    console.log(`  Статус: ${broadcast.status}`);
+
+    if (sendImmediately) {
+      // Немедленная отправка рассылки
+      console.log(`🚀 [BroadcastConstructor] Запуск немедленной отправки рассылки ${broadcast.id}`);
+      
+      await ctx.reply(`📤 Начинаю отправку рассылки "${ctx.wizard.state.title}"...`);
+      
+      try {
+        const result = await sendBroadcast(ctx, broadcast.id);
+        
+        if (result.success) {
+          await ctx.reply(
+            `✅ Рассылка "${ctx.wizard.state.title}" отправлена!\n\n` +
+            `✅ Успешно: ${result.sent}\n` +
+            `❌ Ошибок: ${result.errors}\n` +
+            `📊 Всего: ${result.total}`
+          );
+          console.log(`✅ [BroadcastConstructor] Рассылка ${broadcast.id} успешно отправлена`);
+        } else {
+          await ctx.reply(`❌ Ошибка при отправке: ${result.error}`);
+          console.error(`❌ [BroadcastConstructor] Ошибка при отправке рассылки ${broadcast.id}: ${result.error}`);
+        }
+      } catch (error) {
+        console.error(`❌ [BroadcastConstructor] Критическая ошибка при отправке:`, error);
+        await ctx.reply(`❌ Ошибка при отправке рассылки: ${error.message}`);
+      }
+    } else if (scheduledAt) {
+      // Запланированная рассылка
+      const moscowTimeStr = formatMoscowTime(scheduledAt);
+      console.log(`  Запланировано на (MSK): ${moscowTimeStr}`);
       console.log(`  Запланировано на (UTC): ${scheduledAt.toISOString()}`);
-    } else {
-      console.log(`  Отправка: немедленная`);
-    }
-
-    await ctx.reply(
-      `✅ Рассылка "${ctx.wizard.state.title}" создана!\n\n` +
-      `Сегмент: ${ctx.wizard.state.segment}\n` +
-      `${scheduledAt ? `Запланирована на: ${moscowTimeStr} (московское время)` : 'Будет отправлена сейчас'}\n\n` +
-      `${scheduledAt ? '⏰ Рассылка будет отправлена автоматически в запланированное время' : 'Для отправки используйте /broadcast_send ' + broadcast.id}`
-    );
-
-    if (!scheduledAt) {
-      // Обновляем статус для немедленной отправки
-      console.log(`  Установка статуса: draft (немедленная отправка)`);
-      await db.updateBroadcastStatus(broadcast.id, 'draft');
-    } else {
-      console.log(`  Установка статуса: scheduled (запланированная отправка)`);
-      await db.updateBroadcastStatus(broadcast.id, 'scheduled');
-      console.log(`✅ [BroadcastConstructor] Рассылка ${broadcast.id} запланирована, будет отправлена автоматически`);
+      
+      await ctx.reply(
+        `✅ Рассылка "${ctx.wizard.state.title}" запланирована!\n\n` +
+        `📅 Время отправки: ${moscowTimeStr} (МСК)\n` +
+        `👥 Сегмент: ${ctx.wizard.state.segment}\n\n` +
+        `⏰ Рассылка будет отправлена автоматически в указанное время.`
+      );
+      console.log(`✅ [BroadcastConstructor] Рассылка ${broadcast.id} запланирована`);
     }
 
     return ctx.scene.leave();
