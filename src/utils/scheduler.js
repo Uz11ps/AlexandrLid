@@ -5,9 +5,15 @@ import { sendBroadcast } from './broadcastSender.js';
 
 let botInstance = null;
 let schedulerInitialized = false;
+let schedulerInterval = null;
+let schedulerCron = null;
 
 // Инициализация планировщика
 export function initScheduler(bot) {
+  console.log('\n\n🔧 [Scheduler] ============================================');
+  console.log('🔧 [Scheduler] НАЧАЛО ИНИЦИАЛИЗАЦИИ ПЛАНИРОВЩИКА');
+  console.log('🔧 [Scheduler] ============================================');
+  
   if (!bot) {
     console.error('❌ [Scheduler] Bot instance не передан в initScheduler');
     throw new Error('Bot instance не передан в initScheduler');
@@ -19,6 +25,7 @@ export function initScheduler(bot) {
   }
   
   botInstance = bot;
+  console.log('✅ [Scheduler] Bot instance установлен');
   
   console.log('🕐 [Scheduler] ============================================');
   console.log('🕐 [Scheduler] Инициализация планировщика задач...');
@@ -78,30 +85,43 @@ export function initScheduler(bot) {
     }
   };
   
-  // Проверка запланированных рассылок каждую минуту
+  // Проверяем каждые 15 секунд для надежности и точности
+  // Используем setInterval как основной механизм, так как он более надежен в Docker
   try {
-    cron.schedule('* * * * *', () => {
-      console.log('⏰ [Scheduler] Cron задача выполнена (каждую минуту)');
+    console.log('⏱️  [Scheduler] Настройка interval задачи (каждые 15 сек)...');
+    schedulerInterval = setInterval(() => {
+      const now = new Date().toISOString();
+      console.log(`\n⏰ [Scheduler] === Interval проверка в ${now} ===`);
+      checkScheduledBroadcasts().catch(err => {
+        console.error('❌ [Scheduler] Необработанная ошибка в interval задаче:', err);
+        console.error('   Stack:', err.stack);
+      });
+    }, 15 * 1000); // Каждые 15 секунд
+    console.log('✅ [Scheduler] Interval задача для рассылок настроена (каждые 15 сек)');
+  } catch (error) {
+    console.error('❌ [Scheduler] КРИТИЧЕСКАЯ ОШИБКА настройки interval задачи:', error);
+    console.error('   Stack:', error.stack);
+  }
+  
+  // Дополнительно: проверка каждую минуту через cron (резервный механизм)
+  try {
+    console.log('⏱️  [Scheduler] Настройка cron задачи (каждую минуту)...');
+    schedulerCron = cron.schedule('* * * * *', () => {
+      const now = new Date().toISOString();
+      console.log(`\n⏰ [Scheduler] === Cron проверка в ${now} ===`);
       checkScheduledBroadcasts().catch(err => {
         console.error('❌ [Scheduler] Необработанная ошибка в cron задаче:', err);
+        console.error('   Stack:', err.stack);
       });
+    }, {
+      scheduled: true,
+      timezone: "UTC"
     });
     console.log('✅ [Scheduler] Cron задача для рассылок настроена (каждую минуту)');
   } catch (error) {
     console.error('❌ [Scheduler] Ошибка настройки cron задачи:', error);
-  }
-  
-  // Также проверяем каждые 30 секунд для более точного времени отправки
-  try {
-    setInterval(() => {
-      console.log('⏰ [Scheduler] Interval задача выполнена (каждые 30 сек)');
-      checkScheduledBroadcasts().catch(err => {
-        console.error('❌ [Scheduler] Необработанная ошибка в interval задаче:', err);
-      });
-    }, 30 * 1000);
-    console.log('✅ [Scheduler] Interval задача для рассылок настроена (каждые 30 сек)');
-  } catch (error) {
-    console.error('❌ [Scheduler] Ошибка настройки interval задачи:', error);
+    console.error('   Stack:', error.stack);
+    // Не критично, у нас есть setInterval
   }
 
   // Проверка окончания розыгрышей каждые 5 минут
@@ -134,20 +154,31 @@ export function initScheduler(bot) {
   });
 
   console.log('✅ [Scheduler] Планировщик задач запущен');
-  console.log('   - Рассылки: каждую минуту + каждые 30 сек');
+  console.log('   - Рассылки: каждые 15 сек (interval) + каждую минуту (cron)');
   console.log('   - Розыгрыши: каждые 5 минут');
   console.log('   - Напоминания: каждые 6 часов');
-  console.log('🕐 [Scheduler] ============================================\n');
+  console.log('🕐 [Scheduler] ============================================');
   
   schedulerInitialized = true;
+  console.log('✅ [Scheduler] Флаг инициализации установлен: schedulerInitialized = true');
   
-  // Первая проверка через 5 секунд после запуска
+  // Первая проверка через 3 секунды после запуска для немедленной диагностики
   setTimeout(() => {
-    console.log('🔄 [Scheduler] Первая проверка запланированных рассылок...');
-    checkScheduledBroadcasts().catch(err => {
-      console.error('❌ [Scheduler] Ошибка при первой проверке:', err);
-    });
-  }, 5000);
+    console.log('\n🔄 [Scheduler] ============================================');
+    console.log('🔄 [Scheduler] ПЕРВАЯ ПРОВЕРКА ЗАПЛАНИРОВАННЫХ РАССЫЛОК');
+    console.log('🔄 [Scheduler] ============================================');
+    checkScheduledBroadcasts()
+      .then(() => {
+        console.log('✅ [Scheduler] Первая проверка завершена успешно');
+      })
+      .catch(err => {
+        console.error('❌ [Scheduler] ОШИБКА при первой проверке:', err);
+        console.error('   Stack:', err.stack);
+      });
+  }, 3000);
+  
+  console.log('✅ [Scheduler] ИНИЦИАЛИЗАЦИЯ ЗАВЕРШЕНА УСПЕШНО');
+  console.log('🔧 [Scheduler] ============================================\n\n');
 }
 
 export default initScheduler;

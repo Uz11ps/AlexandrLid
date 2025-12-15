@@ -368,17 +368,18 @@ export const db = {
     
     console.log(`\n🔍 [DB] getScheduledBroadcasts:`);
     console.log(`  Текущее UTC время: ${nowUTCISO}`);
+    console.log(`  Текущее время (timestamp): ${nowUTC.getTime()}`);
     
     // Используем UTC для сравнения, так как scheduled_at хранится в UTC
-    // Добавляем небольшой буфер (2 минуты) для обработки рассылок, которые могли быть пропущены
+    // Ищем рассылки, которые должны были быть отправлены (включая те, что пропущены за последние 24 часа)
     const result = await pool.query(
       `SELECT * FROM broadcasts 
        WHERE status = 'scheduled' 
        AND scheduled_at IS NOT NULL
-       AND scheduled_at <= $1::timestamp
-       AND scheduled_at >= $1::timestamp - INTERVAL '24 hours'
+       AND scheduled_at <= NOW() AT TIME ZONE 'UTC'
+       AND scheduled_at >= (NOW() AT TIME ZONE 'UTC' - INTERVAL '24 hours')
        ORDER BY scheduled_at ASC`,
-      [nowUTCISO]
+      []
     );
     
     console.log(`  Найдено рассылок для отправки: ${result.rows.length}`);
