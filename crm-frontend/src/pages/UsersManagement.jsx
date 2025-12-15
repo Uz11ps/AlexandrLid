@@ -90,11 +90,14 @@ function UsersManagement() {
 
   const loadRoles = async () => {
     try {
-      // Получаем список ролей из базы (пока используем стандартные)
-      const standardRoles = ['admin', 'manager', 'marketer', 'accountant'];
-      setRoles(standardRoles.map(name => ({ name, description: getRoleDescription(name) })));
+      // Получаем список ролей из API
+      const response = await axios.get('/api/roles');
+      setRoles(response.data || []);
     } catch (error) {
       console.error('Error loading roles:', error);
+      // Fallback на стандартные роли при ошибке
+      const standardRoles = ['admin', 'manager', 'marketer', 'accountant'];
+      setRoles(standardRoles.map(name => ({ name, description: getRoleDescription(name) })));
     }
   };
 
@@ -206,21 +209,23 @@ function UsersManagement() {
 
   const handleUpdateRole = async () => {
     try {
-      if (!selectedRole) return;
+      if (!selectedRole || !selectedRole.id) return;
       
-      // В реальном приложении здесь был бы API вызов для обновления роли
-      // Пока просто обновляем роль в локальном списке
-      setRoles(roles.map(r => 
-        r.name === selectedRole.name 
-          ? { ...selectedRole }
-          : r
-      ));
+      console.log('Updating role with data:', selectedRole);
+      const response = await axios.put(`/api/roles/${selectedRole.id}`, {
+        name: selectedRole.name,
+        description: selectedRole.description
+      });
+      console.log('Role updated successfully:', response.data);
       setRoleDialogOpen(false);
       setSelectedRole(null);
+      await loadRoles(); // Перезагружаем список ролей
       alert('Роль успешно обновлена');
     } catch (error) {
       console.error('Error updating role:', error);
-      alert('Ошибка при обновлении роли: ' + (error.response?.data?.error || error.message));
+      console.error('Error response:', error.response?.data);
+      const errorMessage = error.response?.data?.error || error.message;
+      alert('Ошибка при обновлении роли: ' + errorMessage);
     }
   };
 

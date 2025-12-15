@@ -154,11 +154,20 @@ router.post('/register', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'User with this email already exists' });
     }
 
-    // Валидация роли
-    const validRoles = ['admin', 'manager', 'marketer', 'accountant'];
+    // Валидация роли - проверяем существование роли в базе данных
     const userRole = role || 'manager';
-    if (!validRoles.includes(userRole)) {
-      return res.status(400).json({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
+    const roleCheck = await pool.query(
+      'SELECT id FROM roles WHERE name = $1',
+      [userRole]
+    );
+
+    if (roleCheck.rows.length === 0) {
+      // Получаем список доступных ролей для сообщения об ошибке
+      const availableRoles = await pool.query('SELECT name FROM roles ORDER BY name');
+      const roleNames = availableRoles.rows.map(r => r.name);
+      return res.status(400).json({ 
+        error: `Invalid role. Must be one of: ${roleNames.join(', ')}` 
+      });
     }
 
     // Хеширование пароля
