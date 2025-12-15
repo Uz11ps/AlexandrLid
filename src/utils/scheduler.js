@@ -37,10 +37,26 @@ export function initScheduler(bot) {
         
         if (timeDiff >= 0 && timeDiff < maxDelay) {
           // Время наступило и не прошло более 24 часов
-          console.log(`⏰ [Scheduler] Отправка запланированной рассылки: ${broadcast.id}`);
+          const moscowTime = new Date(scheduledAtUTC.getTime() + (3 * 60 * 60 * 1000));
+          const moscowStr = moscowTime.toLocaleString('ru-RU', { 
+            timeZone: 'UTC',
+            year: 'numeric', 
+            month: '2-digit', 
+            day: '2-digit', 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          });
+          
+          console.log(`\n⏰ [Scheduler] ════════════════════════════════════════════════════`);
+          console.log(`⏰ [Scheduler] ВРЕМЯ РАССЫЛКИ НАСТУПИЛО!`);
+          console.log(`⏰ [Scheduler] ════════════════════════════════════════════════════`);
+          console.log(`  ID рассылки: ${broadcast.id}`);
+          console.log(`  Название: "${broadcast.title}"`);
           console.log(`  Запланировано на (UTC): ${scheduledAtUTC.toISOString()}`);
+          console.log(`  Запланировано на (MSK): ${moscowStr}`);
           console.log(`  Текущее время (UTC): ${nowUTC.toISOString()}`);
-          console.log(`  Прошло времени: ${Math.round(timeDiff / 60000)} минут`);
+          console.log(`  Прошло времени: ${Math.round(timeDiff / 60000)} минут (${(timeDiff / 1000).toFixed(0)} секунд)`);
+          console.log(`  Сегмент: ${broadcast.segment || 'all'}`);
           
           try {
             // Импортируем функцию отправки
@@ -51,21 +67,29 @@ export function initScheduler(bot) {
               telegram: botInstance.telegram
             };
             
-            await sendBroadcast(fakeCtx, broadcast.id);
+            console.log(`\n🚀 [Scheduler] Запуск функции отправки рассылки...`);
+            const result = await sendBroadcast(fakeCtx, broadcast.id);
             
-            // Обновляем статус рассылки на 'sent' после успешной отправки
-            await db.updateBroadcastStatus(broadcast.id, 'sent');
-            console.log(`✅ [Scheduler] Рассылка ${broadcast.id} успешно отправлена`);
+            if (result.success) {
+              console.log(`\n✅ [Scheduler] Рассылка ${broadcast.id} успешно отправлена через планировщик`);
+              console.log(`  Отправлено: ${result.sent}/${result.total}`);
+              console.log(`  Ошибок: ${result.errors}`);
+            } else {
+              console.error(`\n❌ [Scheduler] Рассылка ${broadcast.id} завершилась с ошибкой: ${result.error}`);
+            }
           } catch (error) {
-            console.error(`❌ [Scheduler] Ошибка при отправке рассылки ${broadcast.id}:`, error);
+            console.error(`\n❌ [Scheduler] КРИТИЧЕСКАЯ ОШИБКА при отправке рассылки ${broadcast.id}:`);
+            console.error(`  Ошибка:`, error.message);
             console.error(`  Stack:`, error.stack);
             // Обновляем статус на 'cancelled' при ошибке
             try {
               await db.updateBroadcastStatus(broadcast.id, 'cancelled');
+              console.error(`  Статус рассылки обновлен на 'cancelled'`);
             } catch (updateError) {
-              console.error(`Ошибка при обновлении статуса рассылки ${broadcast.id}:`, updateError);
+              console.error(`  Ошибка при обновлении статуса рассылки ${broadcast.id}:`, updateError);
             }
           }
+          console.log(`⏰ [Scheduler] ════════════════════════════════════════════════════\n`);
         } else if (timeDiff < 0) {
           console.log(`⏳ [Scheduler] Рассылка ${broadcast.id} еще не наступила (осталось ${Math.abs(timeDiff / 60000)} минут)`);
         } else {

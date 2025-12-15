@@ -268,13 +268,41 @@ export const db = {
   // Работа с рассылками
   async createBroadcast(broadcastData) {
     const { title, message_text, message_type, file_id, buttons, segment, scheduled_at, created_by } = broadcastData;
+    
+    console.log(`📝 [Broadcast] Создание новой рассылки:`);
+    console.log(`  Название: "${title}"`);
+    console.log(`  Сегмент: ${segment || 'all'}`);
+    console.log(`  Тип сообщения: ${message_type || 'text'}`);
+    console.log(`  Создано пользователем: ${created_by || 'система'}`);
+    
+    if (scheduled_at) {
+      const scheduledDate = new Date(scheduled_at);
+      const moscowTime = new Date(scheduledDate.getTime() + (3 * 60 * 60 * 1000));
+      const moscowStr = moscowTime.toLocaleString('ru-RU', { 
+        timeZone: 'UTC',
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+      console.log(`  ⏰ Запланировано на: ${scheduled_at} (UTC) = ${moscowStr} (MSK)`);
+      console.log(`  Статус: scheduled`);
+    } else {
+      console.log(`  📤 Отправка: немедленная (draft)`);
+    }
+    
     const result = await pool.query(
       `INSERT INTO broadcasts (title, message_text, message_type, file_id, buttons, segment, scheduled_at, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
       [title, message_text, message_type || 'text', file_id || null, buttons ? JSON.stringify(buttons) : null, segment || null, scheduled_at || null, created_by || null]
     );
-    return result.rows[0];
+    
+    const broadcast = result.rows[0];
+    console.log(`✅ [Broadcast] Рассылка создана с ID: ${broadcast.id}`);
+    
+    return broadcast;
   },
 
   async getBroadcast(id) {
