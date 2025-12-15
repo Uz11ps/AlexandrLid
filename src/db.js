@@ -275,29 +275,48 @@ export const db = {
     console.log(`  Тип сообщения: ${message_type || 'text'}`);
     console.log(`  Создано пользователем: ${created_by || 'система'}`);
     
+    // Конвертируем scheduled_at в ISO строку UTC для правильного сохранения в БД
+    let scheduledAtISO = null;
     if (scheduled_at) {
-      const scheduledDate = new Date(scheduled_at);
-      const moscowTime = new Date(scheduledDate.getTime() + (3 * 60 * 60 * 1000));
-      const moscowStr = moscowTime.toLocaleString('ru-RU', { 
-        timeZone: 'UTC',
-        year: 'numeric', 
-        month: '2-digit', 
-        day: '2-digit', 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
-      console.log(`  ⏰ Запланировано на: ${scheduled_at} (UTC) = ${moscowStr} (MSK)`);
-      console.log(`  Статус: scheduled`);
+      const scheduledDate = scheduled_at instanceof Date ? scheduled_at : new Date(scheduled_at);
+      if (!isNaN(scheduledDate.getTime())) {
+        scheduledAtISO = scheduledDate.toISOString(); // Всегда UTC формат
+        const moscowTime = new Date(scheduledDate.getTime() + (3 * 60 * 60 * 1000));
+        const moscowStr = moscowTime.toLocaleString('ru-RU', { 
+          timeZone: 'UTC',
+          year: 'numeric', 
+          month: '2-digit', 
+          day: '2-digit', 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        });
+        console.log(`  ⏰ Запланировано на: ${scheduledAtISO} (UTC) = ${moscowStr} (MSK)`);
+        console.log(`  Статус: scheduled`);
+      } else {
+        console.warn(`  ⚠️ Некорректное время scheduled_at: ${scheduled_at}`);
+      }
     } else {
       console.log(`  📤 Отправка: немедленная (draft)`);
     }
+    
+    console.log(`  💾 Сохранение в БД:`);
+    console.log(`    scheduled_at (ISO UTC): ${scheduledAtISO || 'null'}`);
     
     const result = await pool.query(
       `INSERT INTO broadcasts (title, message_text, message_type, file_id, buttons, segment, scheduled_at, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-      [title, message_text, message_type || 'text', file_id || null, buttons ? JSON.stringify(buttons) : null, segment || null, scheduled_at || null, created_by || null]
+      [title, message_text, message_type || 'text', file_id || null, buttons ? JSON.stringify(buttons) : null, segment || null, scheduledAtISO, created_by || null]
     );
+    
+    // Проверяем, что сохранилось правильно
+    if (result.rows[0]?.scheduled_at) {
+      const savedDate = new Date(result.rows[0].scheduled_at);
+      console.log(`  ✅ Сохранено в БД:`);
+      console.log(`    scheduled_at (из БД): ${result.rows[0].scheduled_at}`);
+      console.log(`    scheduled_at (UTC ISO): ${savedDate.toISOString()}`);
+      console.log(`    scheduled_at (UTC timestamp): ${savedDate.getTime()}`);
+    }
     
     const broadcast = result.rows[0];
     console.log(`✅ [Broadcast] Рассылка создана с ID: ${broadcast.id}`);
