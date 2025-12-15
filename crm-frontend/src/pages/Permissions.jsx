@@ -146,19 +146,41 @@ function Permissions() {
       const response = await permissionsAPI.getUserPermissions(userId);
       console.log('User permissions response:', response.data?.length || 0, 'items', response.data);
       const permissionsMap = {};
+      
+      // Сначала инициализируем все ресурсы и действия как false
+      RESOURCES.forEach(resource => {
+        permissionsMap[resource] = {};
+        ACTIONS.forEach(action => {
+          permissionsMap[resource][action] = false;
+        });
+      });
+      
+      // Затем обновляем те, которые есть в ответе
       if (response.data && response.data.length > 0) {
         response.data.forEach(p => {
-          if (!permissionsMap[p.resource]) {
-            permissionsMap[p.resource] = {};
+          if (RESOURCES.includes(p.resource) && ACTIONS.includes(p.action)) {
+            if (!permissionsMap[p.resource]) {
+              permissionsMap[p.resource] = {};
+            }
+            permissionsMap[p.resource][p.action] = p.granted === true;
           }
-          permissionsMap[p.resource][p.action] = p.granted === true;
         });
       }
+      
       console.log('Setting userPermissions:', Object.keys(permissionsMap).length, 'resources', permissionsMap);
       setUserPermissions(permissionsMap);
+      setLoading(false);
     } catch (error) {
       console.error('Error loading user permissions:', error);
-    } finally {
+      // При ошибке инициализируем пустую карту
+      const emptyMap = {};
+      RESOURCES.forEach(resource => {
+        emptyMap[resource] = {};
+        ACTIONS.forEach(action => {
+          emptyMap[resource][action] = false;
+        });
+      });
+      setUserPermissions(emptyMap);
       setLoading(false);
     }
   }, []);
