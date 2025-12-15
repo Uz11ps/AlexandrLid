@@ -134,6 +134,7 @@ function Permissions() {
 
   const loadUserPermissions = useCallback(async (userId) => {
     try {
+      console.log('loadUserPermissions called for userId:', userId, 'permissionsLoaded:', permissionsLoaded, 'permissions.length:', permissions.length);
       setLoading(true);
       
       // Если permissions еще не загружены, ждем их загрузки
@@ -144,6 +145,7 @@ function Permissions() {
       }
       
       const response = await permissionsAPI.getUserPermissions(userId);
+      console.log('User permissions response:', response.data?.length || 0, 'items', response.data);
       const permissionsMap = {};
       if (response.data && response.data.length > 0) {
         response.data.forEach(p => {
@@ -153,6 +155,7 @@ function Permissions() {
           permissionsMap[p.resource][p.action] = p.granted === true;
         });
       }
+      console.log('Setting userPermissions:', Object.keys(permissionsMap).length, 'resources', permissionsMap);
       setUserPermissions(permissionsMap);
     } catch (error) {
       console.error('Error loading user permissions:', error);
@@ -211,7 +214,7 @@ function Permissions() {
   // Загружаем права пользователя когда managers и permissions загружены
   useEffect(() => {
     if (tab === 1 && selectedUserId && managersLoaded && permissionsLoaded && permissions.length > 0) {
-      console.log('Loading user permissions for:', selectedUserId);
+      console.log('Loading user permissions for:', selectedUserId, 'permissionsLoaded:', permissionsLoaded, 'permissions.length:', permissions.length);
       loadUserPermissions(selectedUserId);
     }
   }, [tab, selectedUserId, managersLoaded, permissionsLoaded, permissions.length, loadUserPermissions]);
