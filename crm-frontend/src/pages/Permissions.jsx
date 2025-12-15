@@ -101,27 +101,50 @@ function Permissions() {
 
   const loadRolePermissions = async (role) => {
     try {
+      console.log('loadRolePermissions called for role:', role, 'permissionsLoaded:', permissionsLoaded, 'permissions.length:', permissions.length);
       setLoading(true);
+      
+      // Если permissions еще не загружены, ждем их загрузки
+      if (!permissionsLoaded || permissions.length === 0) {
+        console.log('Waiting for permissions to load...');
+        setLoading(false);
+        return;
+      }
+      
       const response = await permissionsAPI.getRolePermissions(role);
+      console.log('Role permissions response:', response.data?.length || 0, 'items');
       const permissionsMap = {};
       
       // Для роли admin все права должны быть выбранными по умолчанию
       const isAdmin = role === 'admin';
       
-      response.data.forEach(p => {
-        if (!permissionsMap[p.resource]) {
-          permissionsMap[p.resource] = {};
-        }
-        // Если роль admin, показываем все права как выбранные
-        // Иначе используем значение из базы данных
-        permissionsMap[p.resource][p.action] = isAdmin ? true : (p.granted === true);
-      });
+      if (response.data && response.data.length > 0) {
+        response.data.forEach(p => {
+          if (!permissionsMap[p.resource]) {
+            permissionsMap[p.resource] = {};
+          }
+          // Если роль admin, показываем все права как выбранные
+          // Иначе используем значение из базы данных
+          permissionsMap[p.resource][p.action] = isAdmin ? true : (p.granted === true);
+        });
+      } else if (isAdmin) {
+        // Если для admin нет данных в ответе, создаем все права как выбранные
+        console.log('Creating admin permissions map from scratch');
+        RESOURCES.forEach(resource => {
+          permissionsMap[resource] = {};
+          ACTIONS.forEach(action => {
+            permissionsMap[resource][action] = true;
+          });
+        });
+      }
       
+      console.log('Setting rolePermissions:', Object.keys(permissionsMap).length, 'resources');
       setRolePermissions(permissionsMap);
     } catch (error) {
       console.error('Error loading role permissions:', error);
       // При ошибке для admin показываем все права как выбранные
       if (role === 'admin') {
+        console.log('Setting admin permissions from error handler');
         const adminPermissionsMap = {};
         RESOURCES.forEach(resource => {
           adminPermissionsMap[resource] = {};
