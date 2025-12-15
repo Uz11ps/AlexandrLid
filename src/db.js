@@ -388,6 +388,9 @@ export const db = {
   },
 
   async updateBroadcastStatus(id, status, sentCount = null, errorCount = null) {
+    console.log(`\n💾 [DB] Обновление статуса рассылки ID: ${id}`);
+    console.log(`  Новый статус: ${status}`);
+    
     const updates = ['status = $1'];
     const values = [status];
     let paramIndex = 1;
@@ -398,12 +401,19 @@ export const db = {
         paramIndex++;
         updates.push(`sent_count = $${paramIndex}`);
         values.push(sentCount);
+        console.log(`  Отправлено: ${sentCount}`);
       }
       if (errorCount !== null) {
         paramIndex++;
         updates.push(`error_count = $${paramIndex}`);
         values.push(errorCount);
+        console.log(`  Ошибок: ${errorCount}`);
       }
+      console.log(`  Время отправки: ${new Date().toISOString()}`);
+    } else if (status === 'scheduled') {
+      console.log(`  Рассылка запланирована`);
+    } else if (status === 'cancelled') {
+      console.log(`  Рассылка отменена`);
     }
 
     // ID всегда последний параметр
@@ -412,6 +422,13 @@ export const db = {
       `UPDATE broadcasts SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
       [...values, id]
     );
+    
+    if (result.rows.length > 0) {
+      console.log(`✅ [DB] Статус рассылки ${id} обновлен на '${status}'`);
+    } else {
+      console.error(`❌ [DB] Рассылка ${id} не найдена при обновлении статуса`);
+    }
+    
     return result.rows[0];
   },
 
