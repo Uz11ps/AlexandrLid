@@ -281,6 +281,10 @@ function Permissions() {
 
   const isPermissionGranted = (resource, action, isRoleTab) => {
     if (isRoleTab) {
+      // Для роли admin всегда возвращаем true
+      if (selectedRole === 'admin') {
+        return true;
+      }
       return rolePermissions[resource] && rolePermissions[resource][action] === true;
     } else {
       return userPermissions[resource] && userPermissions[resource][action] === true;
