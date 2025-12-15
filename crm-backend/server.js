@@ -18,6 +18,7 @@ import botAdminRoutes from './routes/bot-admin.js';
 import ticketsRoutes from './routes/tickets.js';
 import permissionsRoutes from './routes/permissions.js';
 import managersRoutes from './routes/managers.js';
+import { createCourseTariffsTable } from './migrations/001_create_course_tariffs.js';
 
 dotenv.config();
 
@@ -169,8 +170,23 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 CRM Backend server running on port ${PORT}`);
-});
+// Run migrations on startup
+async function startServer() {
+  try {
+    console.log('🔄 Running database migrations...');
+    await createCourseTariffsTable();
+    console.log('✅ Migrations completed');
+  } catch (error) {
+    console.error('❌ Error running migrations:', error);
+    // Не останавливаем сервер, но логируем ошибку
+    console.warn('⚠️ Server will start anyway, but some features may not work');
+  }
+  
+  // Start server
+  app.listen(PORT, () => {
+    console.log(`🚀 CRM Backend server running on port ${PORT}`);
+  });
+}
+
+startServer();
 
