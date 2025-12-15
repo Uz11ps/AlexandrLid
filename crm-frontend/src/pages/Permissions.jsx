@@ -218,6 +218,19 @@ function Permissions() {
     }
   }, [tab, selectedUserId, managersLoaded, permissionsLoaded, permissions.length, loadUserPermissions]);
 
+  // Обработчик переключения вкладок
+  const handleTabChange = (event, newTab) => {
+    console.log('Tab changed from', tab, 'to', newTab);
+    setTab(newTab);
+    // При переключении на вкладку пользователей принудительно загружаем права
+    if (newTab === 1 && selectedUserId && managersLoaded && permissionsLoaded && permissions.length > 0) {
+      console.log('Forcing user permissions load on tab switch');
+      setTimeout(() => {
+        loadUserPermissions(selectedUserId);
+      }, 50);
+    }
+  };
+
   const handleRolePermissionChange = async (resource, action, granted) => {
     try {
       // Для роли admin нельзя изменять права
