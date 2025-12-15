@@ -59,6 +59,12 @@ function UsersManagement() {
     description: ''
   });
 
+  // Загружаем роли при монтировании компонента
+  useEffect(() => {
+    console.log('UsersManagement: Loading roles on mount');
+    loadRoles();
+  }, [loadRoles]);
+
   useEffect(() => {
     loadData();
   }, [tab]);
@@ -69,7 +75,6 @@ function UsersManagement() {
       if (tab === 0) {
         await loadManagers();
       } else if (tab === 1) {
-        await loadRoles();
         await loadPermissions();
       }
     } catch (error) {
@@ -88,18 +93,34 @@ function UsersManagement() {
     }
   };
 
-  const loadRoles = async () => {
+  const loadRoles = React.useCallback(async () => {
     try {
+      console.log('UsersManagement: Fetching roles from /api/roles');
       // Получаем список ролей из API
       const response = await axios.get('/api/roles');
-      setRoles(response.data || []);
+      const rolesData = response.data || [];
+      console.log('UsersManagement: Roles loaded:', rolesData.length, 'items', rolesData);
+      setRoles(rolesData);
+      
+      // Устанавливаем роль по умолчанию для нового пользователя
+      if (rolesData.length > 0 && (!newUser.role || newUser.role === 'manager')) {
+        const defaultRole = typeof rolesData[0] === 'string' ? rolesData[0] : (rolesData[0].name || rolesData[0]);
+        setNewUser(prev => ({ ...prev, role: defaultRole }));
+      }
     } catch (error) {
-      console.error('Error loading roles:', error);
+      console.error('UsersManagement: Error loading roles:', error);
       // Fallback на стандартные роли при ошибке
       const standardRoles = ['admin', 'manager', 'marketer', 'accountant'];
-      setRoles(standardRoles.map(name => ({ name, description: getRoleDescription(name) })));
+      const fallbackRoles = standardRoles.map(name => ({ name, description: getRoleDescription(name) }));
+      console.log('UsersManagement: Using fallback roles:', fallbackRoles);
+      setRoles(fallbackRoles);
+      
+      // Устанавливаем роль по умолчанию
+      if (!newUser.role || newUser.role === 'manager') {
+        setNewUser(prev => ({ ...prev, role: 'manager' }));
+      }
     }
-  };
+  }, []);
 
   const loadPermissions = async () => {
     try {
@@ -138,7 +159,8 @@ function UsersManagement() {
       });
       console.log('User created successfully:', response.data);
       setUserDialogOpen(false);
-      setNewUser({ email: '', password: '', name: '', role: roles.length > 0 ? roles[0].name : 'manager', is_active: true });
+      const defaultRole = roles.length > 0 ? (roles[0].name || roles[0]) : '';
+      setNewUser({ email: '', password: '', name: '', role: defaultRole, is_active: true });
       loadManagers();
       alert('Пользователь успешно создан');
     } catch (error) {
@@ -261,8 +283,30 @@ function UsersManagement() {
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={() => {
+              onClick={async () => {
                 setSelectedUser(null);
+                // Убеждаемся, что роли загружены перед открытием диалога
+                let currentRoles = roles;
+                if (currentRoles.length === 0) {
+                  try {
+                    const response = await axios.get('/api/roles');
+                    currentRoles = response.data || [];
+                    setRoles(currentRoles);
+                  } catch (error) {
+                    console.error('Error loading roles:', error);
+                    // Fallback на стандартные роли при ошибке
+                    const standardRoles = ['admin', 'manager', 'marketer', 'accountant'];
+                    currentRoles = standardRoles.map(name => ({ name, description: getRoleDescription(name) }));
+                    setRoles(currentRoles);
+                  }
+                }
+                // Устанавливаем первую роль по умолчанию, если роли загружены
+                if (currentRoles.length > 0) {
+                  const firstRole = typeof currentRoles[0] === 'string' ? currentRoles[0] : (currentRoles[0].name || currentRoles[0]);
+                  setNewUser({ email: '', password: '', name: '', role: firstRole, is_active: true });
+                } else {
+                  setNewUser({ email: '', password: '', name: '', role: '', is_active: true });
+                }
                 setUserDialogOpen(true);
               }}
             >
@@ -463,15 +507,19 @@ function UsersManagement() {
               disabled={!roles || roles.length === 0}
             >
               {roles && roles.length > 0 ? (
-                roles.map(role => (
-                  <MenuItem key={role.name} value={role.name}>
-                    {role.name === 'admin' ? 'Администратор' :
-                     role.name === 'manager' ? 'Менеджер' :
-                     role.name === 'marketer' ? 'Маркетолог' :
-                     role.name === 'accountant' ? 'Бухгалтер' :
-                     role.name} - {role.description}
-                  </MenuItem>
-                ))
+                roles.map(role => {
+                  const roleName = typeof role === 'string' ? role : (role.name || role);
+                  const roleDesc = typeof role === 'string' ? '' : (role.description || '');
+                  return (
+                    <MenuItem key={roleName} value={roleName}>
+                      {roleName === 'admin' ? 'Администратор' :
+                       roleName === 'manager' ? 'Менеджер' :
+                       roleName === 'marketer' ? 'Маркетолог' :
+                       roleName === 'accountant' ? 'Бухгалтер' :
+                       roleName}{roleDesc ? ` - ${roleDesc}` : ''}
+                    </MenuItem>
+                  );
+                })
               ) : (
                 <MenuItem disabled>Загрузка ролей...</MenuItem>
               )}

@@ -33,7 +33,7 @@ const RESOURCES = [
 
 const ACTIONS = ['read', 'create', 'update', 'delete'];
 
-const ROLES = ['admin', 'manager', 'marketer', 'accountant'];
+// Удален хардкод ROLES - теперь роли загружаются из API
 
 function Permissions() {
   const [tab, setTab] = useState(0);
@@ -43,9 +43,11 @@ function Permissions() {
   const [selectedRole, setSelectedRole] = useState('admin');
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [managers, setManagers] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [managersLoaded, setManagersLoaded] = useState(false);
+  const [rolesLoaded, setRolesLoaded] = useState(false);
 
   const loadPermissions = useCallback(async () => {
     try {
@@ -83,6 +85,47 @@ function Permissions() {
       setManagersLoaded(true);
     }
   }, []);
+
+  const loadRoles = useCallback(async () => {
+    try {
+      console.log('Loading roles...');
+      const response = await axios.get('/api/roles');
+      const rolesData = response.data || [];
+      console.log('Roles loaded:', rolesData.length, 'items');
+      
+      // Преобразуем роли в единый формат
+      const formattedRoles = rolesData.map(role => 
+        typeof role === 'string' ? { name: role, description: '' } : role
+      );
+      
+      setRoles(formattedRoles);
+      setRolesLoaded(true);
+      console.log('rolesLoaded set to true');
+      
+      // Если роли загружены и есть хотя бы одна роль, и selectedRole еще не установлен или не найден в списке
+      if (formattedRoles.length > 0) {
+        const roleNames = formattedRoles.map(r => r.name || r);
+        // Если текущая выбранная роль не найдена в загруженных ролях, выбираем первую
+        if (!selectedRole || !roleNames.includes(selectedRole)) {
+          const firstRole = roleNames[0];
+          console.log('Setting selectedRole to:', firstRole);
+          setSelectedRole(firstRole);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading roles:', error);
+      // Fallback на стандартные роли при ошибке
+      const standardRoles = ['admin', 'manager', 'marketer', 'accountant'];
+      const formattedRoles = standardRoles.map(name => ({ name, description: '' }));
+      setRoles(formattedRoles);
+      setRolesLoaded(true);
+      
+      // Устанавливаем admin как выбранную роль по умолчанию
+      if (!selectedRole) {
+        setSelectedRole('admin');
+      }
+    }
+  }, [selectedRole]);
 
   const loadRolePermissions = useCallback(async (role) => {
     try {
@@ -199,11 +242,12 @@ function Permissions() {
     const initializeData = async () => {
       await Promise.all([
         loadPermissions(),
-        loadManagers()
+        loadManagers(),
+        loadRoles()
       ]);
     };
     initializeData();
-  }, [loadPermissions, loadManagers]);
+  }, [loadPermissions, loadManagers, loadRoles]);
 
   // Инициализация прав для admin сразу при монтировании
   useEffect(() => {
@@ -222,7 +266,7 @@ function Permissions() {
 
   // Загружаем права роли когда permissions загружены и выбрана роль
   useEffect(() => {
-    if (tab === 0 && selectedRole) {
+    if (tab === 0 && selectedRole && rolesLoaded) {
       // Для admin загружаем сразу, для остальных ждем загрузки permissions
       if (selectedRole === 'admin') {
         // Для admin устанавливаем все права сразу
@@ -239,7 +283,7 @@ function Permissions() {
         loadRolePermissions(selectedRole);
       }
     }
-  }, [tab, selectedRole, permissionsLoaded, permissions.length, loadRolePermissions]);
+  }, [tab, selectedRole, permissionsLoaded, permissions.length, rolesLoaded, loadRolePermissions]);
 
   // Загружаем права пользователя когда managers и permissions загружены
   useEffect(() => {
@@ -367,15 +411,24 @@ function Permissions() {
               <Select
                 value={selectedRole}
                 onChange={(e) => setSelectedRole(e.target.value)}
+                disabled={!rolesLoaded || roles.length === 0}
               >
-                {ROLES.map(role => (
-                  <MenuItem key={role} value={role}>
-                    {role === 'admin' ? 'Администратор' :
-                     role === 'manager' ? 'Менеджер' :
-                     role === 'marketer' ? 'Маркетолог' :
-                     'Бухгалтер'}
-                  </MenuItem>
-                ))}
+                {rolesLoaded && roles.length > 0 ? (
+                  roles.map(role => {
+                    const roleName = typeof role === 'string' ? role : role.name;
+                    return (
+                      <MenuItem key={roleName} value={roleName}>
+                        {roleName === 'admin' ? 'Администратор' :
+                         roleName === 'manager' ? 'Менеджер' :
+                         roleName === 'marketer' ? 'Маркетолог' :
+                         roleName === 'accountant' ? 'Бухгалтер' :
+                         roleName}
+                      </MenuItem>
+                    );
+                  })
+                ) : (
+                  <MenuItem disabled>Загрузка ролей...</MenuItem>
+                )}
               </Select>
             </FormControl>
           </Box>
