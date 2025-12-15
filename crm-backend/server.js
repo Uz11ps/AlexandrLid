@@ -20,6 +20,22 @@ import permissionsRoutes from './routes/permissions.js';
 import managersRoutes from './routes/managers.js';
 import rolesRoutes from './routes/roles.js';
 import { createCourseTariffsTable } from './migrations/001_create_course_tariffs.js';
+import { up as createRolesTable } from './migrations/002_create_roles.js';
+
+// Обертка для миграции ролей с обработкой ошибок
+async function runRolesMigration() {
+  try {
+    await createRolesTable();
+    return true;
+  } catch (error) {
+    console.error('❌ Roles migration error:', error);
+    console.error('Error details:', error.message);
+    if (error.stack) {
+      console.error('Stack trace:', error.stack);
+    }
+    return false;
+  }
+}
 
 dotenv.config();
 
