@@ -92,7 +92,11 @@ function BotAdmin() {
   });
   const [settings, setSettings] = useState({
     channel_id: '',
-    channel_username: ''
+    channel_username: '',
+    user_rate_limit: 20,
+    user_rate_window: 3600000,
+    admin_rate_limit: 100,
+    admin_rate_window: 3600000
   });
   const [editBroadcast, setEditBroadcast] = useState(null);
   const [editAutofunnel, setEditAutofunnel] = useState(null);
@@ -131,7 +135,14 @@ function BotAdmin() {
           // Экспорт - ничего не загружаем
         } else if (tab === 7) {
           const response = await botAdminAPI.getSettings();
-          if (mounted) setSettings(response.data || { channel_id: '', channel_username: '' });
+          if (mounted) setSettings(response.data || { 
+            channel_id: '', 
+            channel_username: '',
+            user_rate_limit: 20,
+            user_rate_window: 3600000,
+            admin_rate_limit: 100,
+            admin_rate_window: 3600000
+          });
         }
       } catch (error) {
         console.error('Error loading data:', error);
@@ -176,7 +187,14 @@ function BotAdmin() {
         // Экспорт - ничего не загружаем
       } else if (tab === 7) {
         const response = await botAdminAPI.getSettings();
-        setSettings(response.data || { channel_id: '', channel_username: '' });
+        setSettings(response.data || { 
+          channel_id: '', 
+          channel_username: '',
+          user_rate_limit: 20,
+          user_rate_window: 3600000,
+          admin_rate_limit: 100,
+          admin_rate_window: 3600000
+        });
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -305,8 +323,11 @@ function BotAdmin() {
 
   const handleSaveSettings = async () => {
     try {
-      await botAdminAPI.updateChannelSettings(settings);
-      alert('Настройки сохранены');
+      await botAdminAPI.updateChannelSettings({
+        channel_id: settings.channel_id,
+        channel_username: settings.channel_username
+      });
+      alert('Настройки канала сохранены');
     } catch (error) {
       console.error('Error saving settings:', error);
       alert('Ошибка при сохранении настроек');
@@ -845,36 +866,124 @@ function BotAdmin() {
 
         {/* Настройки */}
         {tab === 7 && (
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Настройки бота
-            </Typography>
-            <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 600 }}>
-              <TextField
-                fullWidth
-                label="ID канала"
-                value={settings.channel_id || ''}
-                onChange={(e) => setSettings({ ...settings, channel_id: e.target.value })}
-                placeholder="-1001234567890"
-                helperText="Введите ID канала (например: -1001234567890)"
-              />
-              <TextField
-                fullWidth
-                label="Username канала"
-                value={settings.channel_username || ''}
-                onChange={(e) => setSettings({ ...settings, channel_username: e.target.value })}
-                placeholder="@channel_name"
-                helperText="Введите username канала (например: @channel_name)"
-              />
-              <Button
-                variant="contained"
-                onClick={handleSaveSettings}
-                sx={{ alignSelf: 'flex-start' }}
-              >
-                Сохранить настройки
-              </Button>
-            </Box>
-          </Paper>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Paper sx={{ p: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Настройки канала
+                </Typography>
+                <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <TextField
+                    fullWidth
+                    label="ID канала"
+                    value={settings.channel_id || ''}
+                    onChange={(e) => setSettings({ ...settings, channel_id: e.target.value })}
+                    placeholder="-1001234567890"
+                    helperText="Введите ID канала (например: -1001234567890)"
+                  />
+                  <TextField
+                    fullWidth
+                    label="Username канала"
+                    value={settings.channel_username || ''}
+                    onChange={(e) => setSettings({ ...settings, channel_username: e.target.value })}
+                    placeholder="@channel_name"
+                    helperText="Введите username канала (например: @channel_name)"
+                  />
+                  <Button
+                    variant="contained"
+                    onClick={handleSaveSettings}
+                    sx={{ alignSelf: 'flex-start' }}
+                  >
+                    Сохранить настройки канала
+                  </Button>
+                </Box>
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Paper sx={{ p: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Лимиты запросов
+                </Typography>
+                <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <Typography variant="subtitle1" sx={{ mt: 2, fontWeight: 'bold' }}>
+                    Для пользователей
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Максимум запросов"
+                    value={settings.user_rate_limit || 20}
+                    onChange={(e) => setSettings({ ...settings, user_rate_limit: parseInt(e.target.value) || 20 })}
+                    helperText="Количество запросов за период"
+                    inputProps={{ min: 1 }}
+                  />
+                  <FormControl fullWidth>
+                    <InputLabel>Период (окно времени)</InputLabel>
+                    <Select
+                      value={settings.user_rate_window || 3600000}
+                      onChange={(e) => setSettings({ ...settings, user_rate_window: parseInt(e.target.value) })}
+                      label="Период (окно времени)"
+                    >
+                      <MenuItem value={3600000}>1 час</MenuItem>
+                      <MenuItem value={1800000}>30 минут</MenuItem>
+                      <MenuItem value={900000}>15 минут</MenuItem>
+                      <MenuItem value={600000}>10 минут</MenuItem>
+                      <MenuItem value={300000}>5 минут</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  <Typography variant="subtitle1" sx={{ mt: 3, fontWeight: 'bold' }}>
+                    Для администраторов
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Максимум запросов"
+                    value={settings.admin_rate_limit || 100}
+                    onChange={(e) => setSettings({ ...settings, admin_rate_limit: parseInt(e.target.value) || 100 })}
+                    helperText="Количество запросов за период"
+                    inputProps={{ min: 1 }}
+                  />
+                  <FormControl fullWidth>
+                    <InputLabel>Период (окно времени)</InputLabel>
+                    <Select
+                      value={settings.admin_rate_window || 3600000}
+                      onChange={(e) => setSettings({ ...settings, admin_rate_window: parseInt(e.target.value) })}
+                      label="Период (окно времени)"
+                    >
+                      <MenuItem value={3600000}>1 час</MenuItem>
+                      <MenuItem value={1800000}>30 минут</MenuItem>
+                      <MenuItem value={900000}>15 минут</MenuItem>
+                      <MenuItem value={600000}>10 минут</MenuItem>
+                      <MenuItem value={300000}>5 минут</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  <Button
+                    variant="contained"
+                    onClick={async () => {
+                      try {
+                        await botAdminAPI.updateRateLimits({
+                          user_rate_limit: settings.user_rate_limit,
+                          user_rate_window: settings.user_rate_window,
+                          admin_rate_limit: settings.admin_rate_limit,
+                          admin_rate_window: settings.admin_rate_window
+                        });
+                        alert('Лимиты запросов сохранены');
+                      } catch (error) {
+                        console.error('Error saving rate limits:', error);
+                        alert('Ошибка при сохранении лимитов');
+                      }
+                    }}
+                    sx={{ alignSelf: 'flex-start', mt: 2 }}
+                  >
+                    Сохранить лимиты
+                  </Button>
+                </Box>
+              </Paper>
+            </Grid>
+          </Grid>
         )}
 
         {/* Диалог редактирования рассылки */}

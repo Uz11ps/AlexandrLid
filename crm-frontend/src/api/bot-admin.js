@@ -112,7 +112,11 @@ export const botAdminAPI = {
   },
   
   updateChannelSettings: (data) => {
-    return axios.post('/api/bot-admin/settings', data);
+    return axios.put('/api/bot-admin/settings/channel', data);
+  },
+
+  updateRateLimits: (data) => {
+    return axios.put('/api/bot-admin/settings/rate-limits', data);
   },
   
   // Giveaway winners

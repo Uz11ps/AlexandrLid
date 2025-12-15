@@ -818,12 +818,20 @@ router.get('/export/:type/:format', async (req, res) => {
 // Settings
 router.get('/settings', async (req, res) => {
   try {
-    const channelIdResult = await pool.query("SELECT value FROM bot_settings WHERE key = 'channel_id'");
-    const channelUsernameResult = await pool.query("SELECT value FROM bot_settings WHERE key = 'channel_username'");
+    const settingsResult = await pool.query("SELECT key, value FROM bot_settings WHERE key IN ('channel_id', 'channel_username', 'user_rate_limit', 'user_rate_window', 'admin_rate_limit', 'admin_rate_window')");
+    
+    const settings = {};
+    settingsResult.rows.forEach(row => {
+      settings[row.key] = row.value;
+    });
     
     res.json({
-      channel_id: channelIdResult.rows[0]?.value || null,
-      channel_username: channelUsernameResult.rows[0]?.value || null
+      channel_id: settings.channel_id || null,
+      channel_username: settings.channel_username || null,
+      user_rate_limit: parseInt(settings.user_rate_limit) || 20,
+      user_rate_window: parseInt(settings.user_rate_window) || 3600000, // 1 час в миллисекундах
+      admin_rate_limit: parseInt(settings.admin_rate_limit) || 100,
+      admin_rate_window: parseInt(settings.admin_rate_window) || 3600000
     });
   } catch (error) {
     console.error('Error fetching settings:', error);
@@ -831,11 +839,11 @@ router.get('/settings', async (req, res) => {
   }
 });
 
-router.post('/settings', async (req, res) => {
+router.put('/settings/channel', async (req, res) => {
   try {
     const { channel_id, channel_username } = req.body;
 
-    if (channel_id) {
+    if (channel_id !== undefined) {
       await pool.query(
         `INSERT INTO bot_settings (key, value) VALUES ('channel_id', $1)
          ON CONFLICT (key) DO UPDATE SET value = $1`,
@@ -843,7 +851,7 @@ router.post('/settings', async (req, res) => {
       );
     }
 
-    if (channel_username) {
+    if (channel_username !== undefined) {
       await pool.query(
         `INSERT INTO bot_settings (key, value) VALUES ('channel_username', $1)
          ON CONFLICT (key) DO UPDATE SET value = $1`,
@@ -854,6 +862,49 @@ router.post('/settings', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Error updating channel settings:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+router.put('/settings/rate-limits', async (req, res) => {
+  try {
+    const { user_rate_limit, user_rate_window, admin_rate_limit, admin_rate_window } = req.body;
+
+    if (user_rate_limit !== undefined) {
+      await pool.query(
+        `INSERT INTO bot_settings (key, value) VALUES ('user_rate_limit', $1)
+         ON CONFLICT (key) DO UPDATE SET value = $1`,
+        [user_rate_limit.toString()]
+      );
+    }
+
+    if (user_rate_window !== undefined) {
+      await pool.query(
+        `INSERT INTO bot_settings (key, value) VALUES ('user_rate_window', $1)
+         ON CONFLICT (key) DO UPDATE SET value = $1`,
+        [user_rate_window.toString()]
+      );
+    }
+
+    if (admin_rate_limit !== undefined) {
+      await pool.query(
+        `INSERT INTO bot_settings (key, value) VALUES ('admin_rate_limit', $1)
+         ON CONFLICT (key) DO UPDATE SET value = $1`,
+        [admin_rate_limit.toString()]
+      );
+    }
+
+    if (admin_rate_window !== undefined) {
+      await pool.query(
+        `INSERT INTO bot_settings (key, value) VALUES ('admin_rate_window', $1)
+         ON CONFLICT (key) DO UPDATE SET value = $1`,
+        [admin_rate_window.toString()]
+      );
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating rate limit settings:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });

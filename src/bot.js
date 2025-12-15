@@ -29,8 +29,8 @@ const stage = new Scenes.Stage([broadcastConstructor]);
 bot.use(session());
 bot.use(stage.middleware());
 
-// Глобальный rate limiting (20 запросов в час)
-bot.use(rateLimit(20, 3600000));
+// Глобальный rate limiting (настройки загружаются из БД)
+bot.use(rateLimit());
 
 // Проверка черного списка
 bot.use(checkBlacklist);
