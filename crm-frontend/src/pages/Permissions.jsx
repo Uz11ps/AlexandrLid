@@ -335,7 +335,16 @@ function Permissions() {
       }
       return rolePermissions[resource] && rolePermissions[resource][action] === true;
     } else {
-      return userPermissions[resource] && userPermissions[resource][action] === true;
+      // Для пользователей проверяем права
+      if (!userPermissions || !userPermissions[resource]) {
+        return false;
+      }
+      const granted = userPermissions[resource][action] === true;
+      // Отладочное логирование для первых нескольких вызовов
+      if (resource === 'leads' && action === 'create') {
+        console.log(`isPermissionGranted(${resource}, ${action}):`, granted, 'userPermissions:', userPermissions[resource]);
+      }
+      return granted;
     }
   };
 
