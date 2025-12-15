@@ -155,6 +155,20 @@ router.post('/broadcasts', async (req, res) => {
       return res.status(400).json({ error: 'Title and message_text are required' });
     }
 
+    // Конвертация времени из локального времени браузера в UTC
+    let scheduledAtUTC = null;
+    if (scheduled_at) {
+      // datetime-local возвращает время в формате "YYYY-MM-DDTHH:mm" без часового пояса
+      // Интерпретируем его как локальное время и конвертируем в UTC
+      const localDate = new Date(scheduled_at);
+      // Проверяем, что дата валидна
+      if (isNaN(localDate.getTime())) {
+        return res.status(400).json({ error: 'Invalid scheduled_at format' });
+      }
+      // Конвертируем в UTC для сохранения в БД
+      scheduledAtUTC = localDate.toISOString();
+    }
+
     const result = await pool.query(
       `INSERT INTO broadcasts (title, message_text, buttons, scheduled_at, segment, status)
        VALUES ($1, $2, $3, $4, $5, $6)
@@ -163,9 +177,9 @@ router.post('/broadcasts', async (req, res) => {
         title,
         message_text,
         buttons ? JSON.stringify(buttons) : null,
-        scheduled_at || null,
+        scheduledAtUTC || null,
         target_audience || 'all',
-        scheduled_at ? 'scheduled' : 'draft'
+        scheduledAtUTC ? 'scheduled' : 'draft'
       ]
     );
 
@@ -198,8 +212,16 @@ router.put('/broadcasts/:id', async (req, res) => {
       values.push(buttons ? JSON.stringify(buttons) : null);
     }
     if (scheduled_at !== undefined) {
+      // Конвертация времени из локального времени браузера в UTC
+      let scheduledAtUTC = null;
+      if (scheduled_at) {
+        const localDate = new Date(scheduled_at);
+        if (!isNaN(localDate.getTime())) {
+          scheduledAtUTC = localDate.toISOString();
+        }
+      }
       updates.push(`scheduled_at = $${paramIndex++}`);
-      values.push(scheduled_at || null);
+      values.push(scheduledAtUTC || null);
     }
     if (target_audience !== undefined) {
       updates.push(`segment = $${paramIndex++}`);
@@ -818,12 +840,16 @@ router.get('/export/:type/:format', async (req, res) => {
 // Settings
 router.get('/settings', async (req, res) => {
   try {
-    const settingsResult = await pool.query("SELECT key, value FROM bot_settings WHERE key IN ('channel_id', 'channel_username', 'user_rate_limit', 'user_rate_window', 'admin_rate_limit', 'admin_rate_window')");
+    const settingsResult = await pool.query("SELECT key, value FROM bot_settings WHERE key IN ('channel_id', 'channel_username', 'user_rate_limit', 'user_rate_window', 'admin_rate_limit', 'admin_rate_window', 'timezone')");
     
     const settings = {};
     settingsResult.rows.forEach(row => {
       settings[row.key] = row.value;
     });
+    
+    // Определяем часовой пояс сервера
+    const serverTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const serverOffset = -new Date().getTimezoneOffset() / 60; // Смещение в часах
     
     res.json({
       channel_id: settings.channel_id || null,
@@ -831,7 +857,12 @@ router.get('/settings', async (req, res) => {
       user_rate_limit: parseInt(settings.user_rate_limit) || 20,
       user_rate_window: parseInt(settings.user_rate_window) || 3600000, // 1 час в миллисекундах
       admin_rate_limit: parseInt(settings.admin_rate_limit) || 100,
-      admin_rate_window: parseInt(settings.admin_rate_window) || 3600000
+      admin_rate_window: parseInt(settings.admin_rate_window) || 3600000,
+      timezone: settings.timezone || serverTimezone,
+      server_timezone: serverTimezone,
+      server_utc_offset: serverOffset,
+      current_server_time: new Date().toISOString(),
+      current_server_time_local: new Date().toLocaleString('ru-RU', { timeZone: serverTimezone })
     });
   } catch (error) {
     console.error('Error fetching settings:', error);

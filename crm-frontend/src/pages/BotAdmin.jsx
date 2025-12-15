@@ -889,6 +889,23 @@ function BotAdmin() {
                     placeholder="@channel_name"
                     helperText="Введите username канала (например: @channel_name)"
                   />
+                  <Box sx={{ p: 2, bgcolor: 'info.light', borderRadius: 1 }}>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      <strong>Информация о времени сервера:</strong>
+                    </Typography>
+                    <Typography variant="caption" display="block">
+                      Часовой пояс сервера: {settings.server_timezone || 'UTC'}
+                    </Typography>
+                    <Typography variant="caption" display="block">
+                      Смещение UTC: {settings.server_utc_offset >= 0 ? '+' : ''}{settings.server_utc_offset || 0} часов
+                    </Typography>
+                    <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                      Текущее время сервера: {settings.current_server_time_local || 'загрузка...'}
+                    </Typography>
+                    <Typography variant="caption" display="block" sx={{ mt: 1, color: 'warning.main' }}>
+                      ⚠️ Время рассылок указывается в вашем локальном времени и автоматически конвертируется в UTC
+                    </Typography>
+                  </Box>
                   <Button
                     variant="contained"
                     onClick={handleSaveSettings}
@@ -1383,6 +1400,7 @@ function BotAdmin() {
             value={newBroadcast.scheduled_at}
             onChange={(e) => setNewBroadcast({ ...newBroadcast, scheduled_at: e.target.value })}
             InputLabelProps={{ shrink: true }}
+            helperText={`Время указывается в вашем локальном времени (${Intl.DateTimeFormat().resolvedOptions().timeZone}). Сервер: ${settings.server_timezone || 'UTC'}`}
             sx={{ mt: 2 }}
           />
           <FormControl fullWidth sx={{ mt: 2 }}>

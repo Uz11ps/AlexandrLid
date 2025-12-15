@@ -13,13 +13,23 @@ export function initScheduler(bot) {
     try {
       const scheduledBroadcasts = await db.getScheduledBroadcasts();
       const now = new Date();
+      const nowUTC = new Date(now.toISOString()); // Убеждаемся, что используем UTC
 
       for (const broadcast of scheduledBroadcasts) {
+        // scheduled_at хранится в БД как TIMESTAMP (без timezone), PostgreSQL интерпретирует его как UTC
+        // или локальное время сервера в зависимости от настроек БД
+        // Конвертируем в UTC для корректного сравнения
         const scheduledAt = new Date(broadcast.scheduled_at);
+        const scheduledAtUTC = new Date(scheduledAt.toISOString());
+        
+        // Логируем для отладки
+        if (broadcast.id) {
+          console.log(`Проверка рассылки ${broadcast.id}: scheduled_at=${scheduledAtUTC.toISOString()}, now=${nowUTC.toISOString()}`);
+        }
         
         // Если время наступило (с запасом в 1 минуту)
-        if (scheduledAt <= now) {
-          console.log(`Отправка запланированной рассылки: ${broadcast.id}`);
+        if (scheduledAtUTC <= nowUTC) {
+          console.log(`⏰ Отправка запланированной рассылки: ${broadcast.id} (запланировано на ${scheduledAtUTC.toISOString()}, текущее время ${nowUTC.toISOString()})`);
           
           try {
             // Импортируем функцию отправки
