@@ -136,7 +136,9 @@ router.post('/register', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    const { email, password, name, role } = req.body;
+    const { email, password, name, role, is_active } = req.body;
+
+    console.log('Registration request:', { email, name, role, is_active: is_active !== undefined ? is_active : 'not provided' });
 
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Email, password, and name are required' });
@@ -152,21 +154,38 @@ router.post('/register', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'User with this email already exists' });
     }
 
+    // Валидация роли
+    const validRoles = ['admin', 'manager', 'marketer', 'accountant'];
+    const userRole = role || 'manager';
+    if (!validRoles.includes(userRole)) {
+      return res.status(400).json({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
+    }
+
     // Хеширование пароля
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Создание пользователя
     const result = await pool.query(
       `INSERT INTO managers (email, password_hash, name, role, is_active)
-       VALUES ($1, $2, $3, $4, TRUE)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING id, email, name, role, is_active, created_at`,
-      [email, hashedPassword, name, role || 'manager']
+      [email, hashedPassword, name, userRole, is_active !== undefined ? is_active : true]
     );
 
+    console.log('User created successfully:', result.rows[0]);
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      constraint: error.constraint
+    });
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
