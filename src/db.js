@@ -311,9 +311,12 @@ export const db = {
   },
 
   async getScheduledBroadcasts() {
+    // Выбираем рассылки со статусом 'scheduled', которые должны быть отправлены (scheduled_at <= NOW())
+    // или в ближайшие 5 минут (для обработки задержек)
     const result = await pool.query(
       `SELECT * FROM broadcasts 
-       WHERE status = 'scheduled' AND scheduled_at > NOW()
+       WHERE status = 'scheduled' 
+       AND scheduled_at <= (NOW() + INTERVAL '5 minutes')
        ORDER BY scheduled_at ASC`
     );
     return result.rows.map(row => {

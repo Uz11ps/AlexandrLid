@@ -16,20 +16,26 @@ export function initScheduler(bot) {
       const nowUTC = new Date(now.toISOString()); // Убеждаемся, что используем UTC
 
       for (const broadcast of scheduledBroadcasts) {
-        // scheduled_at хранится в БД как TIMESTAMP (без timezone), PostgreSQL интерпретирует его как UTC
-        // или локальное время сервера в зависимости от настроек БД
-        // Конвертируем в UTC для корректного сравнения
+        // scheduled_at хранится в БД как TIMESTAMP (без timezone)
+        // PostgreSQL возвращает его в формате ISO, но без указания timezone
+        // Интерпретируем как UTC для корректного сравнения
         const scheduledAt = new Date(broadcast.scheduled_at);
-        const scheduledAtUTC = new Date(scheduledAt.toISOString());
+        const now = new Date();
         
-        // Логируем для отладки
-        if (broadcast.id) {
-          console.log(`Проверка рассылки ${broadcast.id}: scheduled_at=${scheduledAtUTC.toISOString()}, now=${nowUTC.toISOString()}`);
+        // Логируем для отладки (только для первых 3 рассылок, чтобы не засорять логи)
+        if (broadcast.id && scheduledBroadcasts.indexOf(broadcast) < 3) {
+          console.log(`[Scheduler] Проверка рассылки ${broadcast.id}:`);
+          console.log(`  scheduled_at (из БД): ${broadcast.scheduled_at}`);
+          console.log(`  scheduled_at (Date): ${scheduledAt.toISOString()}`);
+          console.log(`  now (Date): ${now.toISOString()}`);
+          console.log(`  Разница (мс): ${now.getTime() - scheduledAt.getTime()}`);
         }
         
-        // Если время наступило (с запасом в 1 минуту)
-        if (scheduledAtUTC <= nowUTC) {
-          console.log(`⏰ Отправка запланированной рассылки: ${broadcast.id} (запланировано на ${scheduledAtUTC.toISOString()}, текущее время ${nowUTC.toISOString()})`);
+        // Если время наступило (рассылка должна быть отправлена)
+        if (scheduledAt <= now) {
+          console.log(`⏰ [Scheduler] Отправка запланированной рассылки: ${broadcast.id}`);
+          console.log(`  Запланировано на: ${scheduledAt.toISOString()}`);
+          console.log(`  Текущее время: ${now.toISOString()}`);
           
           try {
             // Импортируем функцию отправки
@@ -41,8 +47,17 @@ export function initScheduler(bot) {
             };
             
             await sendBroadcast(fakeCtx, broadcast.id);
+            
+            // Обновляем статус рассылки на 'sent' после успешной отправки
+            await db.updateBroadcastStatus(broadcast.id, 'sent');
           } catch (error) {
-            console.error(`Ошибка при отправке рассылки ${broadcast.id}:`, error);
+            console.error(`❌ [Scheduler] Ошибка при отправке рассылки ${broadcast.id}:`, error);
+            // Обновляем статус на 'cancelled' при ошибке
+            try {
+              await db.updateBroadcastStatus(broadcast.id, 'cancelled');
+            } catch (updateError) {
+              console.error(`Ошибка при обновлении статуса рассылки ${broadcast.id}:`, updateError);
+            }
           }
         }
       }

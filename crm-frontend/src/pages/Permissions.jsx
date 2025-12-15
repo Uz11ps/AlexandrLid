@@ -58,6 +58,19 @@ function Permissions() {
     }
   }, [tab, selectedRole, selectedUserId]);
 
+  // Загружаем права при первом открытии вкладки
+  useEffect(() => {
+    if (tab === 0 && selectedRole && permissions.length > 0) {
+      loadRolePermissions(selectedRole);
+    }
+  }, [permissions.length]);
+
+  useEffect(() => {
+    if (tab === 1 && selectedUserId && managers.length > 0 && permissions.length > 0) {
+      loadUserPermissions(selectedUserId);
+    }
+  }, [managers.length, permissions.length]);
+
   const loadPermissions = async () => {
     try {
       const response = await permissionsAPI.getAll();

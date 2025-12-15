@@ -369,12 +369,21 @@ function UsersManagement() {
                   setNewUser({ ...newUser, role: e.target.value });
                 }
               }}
+              disabled={!roles || roles.length === 0}
             >
-              {roles.map(role => (
-                <MenuItem key={role.name} value={role.name}>
-                  {role.name} - {role.description}
-                </MenuItem>
-              ))}
+              {roles && roles.length > 0 ? (
+                roles.map(role => (
+                  <MenuItem key={role.name} value={role.name}>
+                    {role.name === 'admin' ? 'Администратор' :
+                     role.name === 'manager' ? 'Менеджер' :
+                     role.name === 'marketer' ? 'Маркетолог' :
+                     role.name === 'accountant' ? 'Бухгалтер' :
+                     role.name} - {role.description}
+                  </MenuItem>
+                ))
+              ) : (
+                <MenuItem disabled>Загрузка ролей...</MenuItem>
+              )}
             </Select>
           </FormControl>
           {selectedUser && (

@@ -54,10 +54,17 @@ function CourseDetail() {
     try {
       setLoading(true);
       const response = await productsAPI.getCourse(id);
-      setCourse(response.data);
-      setTariffs(response.data.tariffs || []);
+      if (response.data) {
+        setCourse(response.data);
+        setTariffs(response.data.tariffs || []);
+      } else {
+        console.error('Course data is empty');
+      }
     } catch (error) {
       console.error('Error loading course:', error);
+      if (error.response?.status === 404) {
+        // Курс не найден - это нормально, показываем сообщение
+      }
     } finally {
       setLoading(false);
     }

@@ -181,6 +181,16 @@ function Products() {
 
         {tab === 1 && (
           <TableContainer component={Paper}>
+            <Box sx={{ p: 3 }}>
+              <Typography variant="body1" color="text.secondary">
+                Тарифы отображаются внутри каждого курса. Перейдите на страницу курса для управления тарифами.
+              </Typography>
+            </Box>
+          </TableContainer>
+        )}
+
+        {tab === 1 && false && (
+          <TableContainer component={Paper}>
             <Table>
               <TableHead>
                 <TableRow>
