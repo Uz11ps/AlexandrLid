@@ -67,8 +67,11 @@ export function initScheduler(bot) {
         // Проверяем, что:
         // 1. Время наступило (timeDiff >= 0)
         // 2. Не прошло более 24 часов (timeDiff < maxDelay)
-        // 3. Рассылка была создана хотя бы 10 секунд назад (чтобы не отправлять только что созданные)
-        if (timeDiff >= 0 && timeDiff < maxDelay && timeSinceCreation >= minCreationDelay) {
+        // 3. Рассылка была создана хотя бы 30 секунд назад (чтобы не отправлять только что созданные)
+        // Увеличиваем задержку до 30 секунд для надежности
+        const minCreationDelaySafe = 30 * 1000; // 30 секунд
+        
+        if (timeDiff >= 0 && timeDiff < maxDelay && timeSinceCreation >= minCreationDelaySafe) {
           // Время наступило и не прошло более 24 часов
           const moscowTime = new Date(scheduledAtUTC.getTime() + (3 * 60 * 60 * 1000));
           const moscowStr = moscowTime.toLocaleString('ru-RU', { 
@@ -123,8 +126,8 @@ export function initScheduler(bot) {
             }
           }
           console.log(`⏰ [Scheduler] ════════════════════════════════════════════════════\n`);
-        } else if (timeSinceCreation < minCreationDelay) {
-          console.log(`⏸️ [Scheduler] Рассылка ${broadcast.id} только что создана (${(timeSinceCreation / 1000).toFixed(1)} сек назад), пропускаем до следующей проверки`);
+        } else if (timeSinceCreation < minCreationDelaySafe) {
+          console.log(`⏸️ [Scheduler] Рассылка ${broadcast.id} только что создана (${(timeSinceCreation / 1000).toFixed(1)} сек назад, нужно минимум 30 сек), пропускаем до следующей проверки`);
         } else if (timeDiff < 0) {
           console.log(`⏳ [Scheduler] Рассылка ${broadcast.id} еще не наступила (осталось ${Math.abs(timeDiff / 60000).toFixed(1)} минут)`);
         } else {
