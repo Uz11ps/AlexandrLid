@@ -14,12 +14,12 @@ export function initScheduler(bot) {
   console.log('  - Проверка розыгрышей: каждые 5 минут (*/5 * * * *)');
   console.log('  - Напоминания о подписке: каждые 6 часов (0 */6 * * *)');
 
-  // Проверка запланированных рассылок каждую минуту
-  cron.schedule('* * * * *', async () => {
+  // Функция проверки рассылок
+  const checkScheduledBroadcasts = async () => {
     try {
-      console.log(`\n[Scheduler] Проверка запланированных рассылок в ${new Date().toISOString()}`);
+      console.log(`\n⏰ [Scheduler] Проверка запланированных рассылок в ${new Date().toISOString()}`);
       const scheduledBroadcasts = await db.getScheduledBroadcasts();
-      console.log(`[Scheduler] Найдено рассылок для проверки: ${scheduledBroadcasts.length}`);
+      console.log(`⏰ [Scheduler] Найдено рассылок для проверки: ${scheduledBroadcasts.length}`);
       
       if (scheduledBroadcasts.length === 0) {
         console.log(`[Scheduler] Нет рассылок для обработки`);
