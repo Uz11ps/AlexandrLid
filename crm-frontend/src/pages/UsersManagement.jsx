@@ -312,8 +312,11 @@ function UsersManagement() {
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => {
+                console.log('Create role button clicked');
                 setSelectedRole(null);
+                setNewRole({ name: '', description: '' });
                 setRoleDialogOpen(true);
+                console.log('roleDialogOpen set to true');
               }}
             >
               Создать роль
