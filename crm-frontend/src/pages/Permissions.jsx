@@ -183,14 +183,6 @@ function Permissions() {
     }
   }, [selectedRole, rolePermissions]);
 
-  // Инициализация прав пользователя при переключении на вкладку пользователей
-  useEffect(() => {
-    if (tab === 1 && selectedUserId && managersLoaded && permissionsLoaded && permissions.length > 0 && Object.keys(userPermissions).length === 0) {
-      console.log('Initializing user permissions for userId:', selectedUserId, 'managersLoaded:', managersLoaded, 'permissionsLoaded:', permissionsLoaded);
-      loadUserPermissions(selectedUserId);
-    }
-  }, [tab, selectedUserId, managersLoaded, permissionsLoaded, permissions.length, userPermissions, loadUserPermissions]);
-
   // Загружаем права роли когда permissions загружены и выбрана роль
   useEffect(() => {
     if (tab === 0 && selectedRole) {
@@ -215,12 +207,22 @@ function Permissions() {
   // Загружаем права пользователя когда managers и permissions загружены
   useEffect(() => {
     if (tab === 1 && selectedUserId && managersLoaded && permissionsLoaded && permissions.length > 0) {
-      console.log('useEffect: Loading user permissions for:', selectedUserId, 'permissionsLoaded:', permissionsLoaded, 'permissions.length:', permissions.length, 'userPermissions keys:', Object.keys(userPermissions).length);
-      // Загружаем права только если они еще не загружены для этого пользователя
-      // или если выбран другой пользователь
+      console.log('useEffect: Loading user permissions for:', selectedUserId, 'permissionsLoaded:', permissionsLoaded, 'permissions.length:', permissions.length);
       loadUserPermissions(selectedUserId);
     }
   }, [tab, selectedUserId, managersLoaded, permissionsLoaded, permissions.length, loadUserPermissions]);
+
+  // Принудительная загрузка прав при переключении на вкладку пользователей
+  useEffect(() => {
+    if (tab === 1 && selectedUserId && managersLoaded && permissionsLoaded && permissions.length > 0) {
+      console.log('Tab switched to users, loading permissions for:', selectedUserId);
+      // Небольшая задержка для гарантии, что предыдущий эффект не мешает
+      const timer = setTimeout(() => {
+        loadUserPermissions(selectedUserId);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [tab]);
 
   const handleRolePermissionChange = async (resource, action, granted) => {
     try {
