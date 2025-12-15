@@ -19,13 +19,24 @@ import {
   Chip,
   List,
   ListItem,
-  ListItemText
+  ListItemText,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel
 } from '@mui/material';
 import {
   People as PeopleIcon,
   AttachMoney as MoneyIcon,
   Assignment as TaskIcon,
-  TrendingUp as TrendingUpIcon
+  TrendingUp as TrendingUpIcon,
+  Add as AddIcon
 } from '@mui/icons-material';
 import {
   LineChart,
@@ -40,9 +51,11 @@ import {
 import { analyticsAPI } from '../api/analytics';
 import { tasksAPI } from '../api/tasks';
 import { leadsAPI } from '../api/leads';
+import { useAuth } from '../contexts/AuthContext';
 
 function Dashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [stats, setStats] = useState({
     leads: 0,
     students: 0,
@@ -55,6 +68,16 @@ function Dashboard() {
   const [reminders, setReminders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [createReminderDialogOpen, setCreateReminderDialogOpen] = useState(false);
+  const [leads, setLeads] = useState([]);
+  const [newReminder, setNewReminder] = useState({
+    title: '',
+    description: '',
+    lead_id: '',
+    due_date: '',
+    due_time: '',
+    priority: 'normal'
+  });
 
   useEffect(() => {
     loadDashboard();
@@ -72,8 +95,11 @@ function Dashboard() {
 
       setStats(dashboardRes.data);
       
+      // Сохраняем лидов для диалога создания напоминания
+      setLeads(leadsRes.data.leads || []);
+      
       // Подготовка данных для графика лидов (за последние 7 дней)
-      const leads = leadsRes.data.leads || [];
+      const leadsData = leadsRes.data.leads || [];
       const chartDataMap = {};
       const today = new Date();
       for (let i = 6; i >= 0; i--) {
@@ -83,7 +109,7 @@ function Dashboard() {
         chartDataMap[dateStr] = 0;
       }
       
-      leads.forEach(lead => {
+      leadsData.forEach(lead => {
         const leadDate = new Date(lead.created_at).toISOString().split('T')[0];
         if (chartDataMap.hasOwnProperty(leadDate)) {
           chartDataMap[leadDate]++;
@@ -104,6 +130,35 @@ function Dashboard() {
       setError('Ошибка загрузки данных');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateReminder = async () => {
+    if (!newReminder.title || !newReminder.due_date) {
+      alert('Пожалуйста, заполните название и дату выполнения');
+      return;
+    }
+
+    try {
+      await tasksAPI.create({
+        ...newReminder,
+        task_type: 'reminder',
+        manager_id: user?.id,
+        lead_id: newReminder.lead_id || null
+      });
+      setCreateReminderDialogOpen(false);
+      setNewReminder({
+        title: '',
+        description: '',
+        lead_id: '',
+        due_date: '',
+        due_time: '',
+        priority: 'normal'
+      });
+      loadDashboard();
+    } catch (error) {
+      console.error('Error creating reminder:', error);
+      alert('Ошибка при создании напоминания');
     }
   };
 
@@ -300,9 +355,19 @@ function Dashboard() {
 
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Напоминания
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">
+                Напоминания
+              </Typography>
+              <Button
+                size="small"
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setCreateReminderDialogOpen(true)}
+              >
+                Создать
+              </Button>
+            </Box>
             {reminders.length === 0 ? (
               <Typography color="textSecondary" variant="body2">
                 Нет напоминаний
@@ -341,6 +406,82 @@ function Dashboard() {
           </Paper>
         </Grid>
       </Grid>
+
+      {/* Диалог создания напоминания */}
+      <Dialog open={createReminderDialogOpen} onClose={() => setCreateReminderDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Создать напоминание</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Название"
+            value={newReminder.title}
+            onChange={(e) => setNewReminder({ ...newReminder, title: e.target.value })}
+            sx={{ mt: 2 }}
+            required
+          />
+          <TextField
+            fullWidth
+            label="Описание"
+            multiline
+            rows={3}
+            value={newReminder.description}
+            onChange={(e) => setNewReminder({ ...newReminder, description: e.target.value })}
+            sx={{ mt: 2 }}
+          />
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>Лид (необязательно)</InputLabel>
+            <Select
+              value={newReminder.lead_id}
+              onChange={(e) => setNewReminder({ ...newReminder, lead_id: e.target.value })}
+              label="Лид (необязательно)"
+            >
+              <MenuItem value="">Без лида</MenuItem>
+              {leads.map((lead) => (
+                <MenuItem key={lead.id} value={lead.id}>
+                  {lead.fio || lead.telegram_username || `ID: ${lead.id}`}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField
+            fullWidth
+            label="Дата выполнения"
+            type="date"
+            value={newReminder.due_date}
+            onChange={(e) => setNewReminder({ ...newReminder, due_date: e.target.value })}
+            InputLabelProps={{ shrink: true }}
+            sx={{ mt: 2 }}
+            required
+          />
+          <TextField
+            fullWidth
+            label="Время"
+            type="time"
+            value={newReminder.due_time}
+            onChange={(e) => setNewReminder({ ...newReminder, due_time: e.target.value })}
+            InputLabelProps={{ shrink: true }}
+            sx={{ mt: 2 }}
+          />
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>Приоритет</InputLabel>
+            <Select
+              value={newReminder.priority}
+              onChange={(e) => setNewReminder({ ...newReminder, priority: e.target.value })}
+            >
+              <MenuItem value="low">Низкий</MenuItem>
+              <MenuItem value="normal">Средний</MenuItem>
+              <MenuItem value="high">Высокий</MenuItem>
+              <MenuItem value="urgent">Срочный</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateReminderDialogOpen(false)}>Отмена</Button>
+          <Button onClick={handleCreateReminder} variant="contained">
+            Создать
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }

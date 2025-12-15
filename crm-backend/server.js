@@ -46,6 +46,72 @@ const swaggerOptions = {
           scheme: 'bearer',
           bearerFormat: 'JWT'
         }
+      },
+      schemas: {
+        Lead: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer' },
+            fio: { type: 'string' },
+            phone: { type: 'string' },
+            email: { type: 'string' },
+            telegram_username: { type: 'string' },
+            source: { type: 'string' },
+            status: { type: 'string' },
+            funnel_stage: { type: 'string' },
+            priority: { type: 'string' },
+            manager_id: { type: 'integer' },
+            notes: { type: 'string' },
+            created_at: { type: 'string', format: 'date-time' },
+            updated_at: { type: 'string', format: 'date-time' }
+          }
+        },
+        Task: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer' },
+            lead_id: { type: 'integer' },
+            manager_id: { type: 'integer' },
+            title: { type: 'string' },
+            description: { type: 'string' },
+            task_type: { type: 'string' },
+            due_date: { type: 'string', format: 'date' },
+            due_time: { type: 'string' },
+            priority: { type: 'string' },
+            status: { type: 'string' },
+            created_at: { type: 'string', format: 'date-time' }
+          }
+        },
+        Ticket: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer' },
+            user_id: { type: 'integer' },
+            manager_id: { type: 'integer' },
+            subject: { type: 'string' },
+            status: { type: 'string' },
+            priority: { type: 'string' },
+            created_at: { type: 'string', format: 'date-time' }
+          }
+        },
+        Student: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer' },
+            lead_id: { type: 'integer' },
+            course_id: { type: 'integer' },
+            payment_amount: { type: 'number' },
+            payment_status: { type: 'string' },
+            created_at: { type: 'string', format: 'date-time' }
+          }
+        },
+        Error: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            details: { type: 'string' }
+          }
+        }
       }
     },
     security: [

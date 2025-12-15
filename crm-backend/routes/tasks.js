@@ -7,7 +7,35 @@ const router = express.Router();
 // Apply authentication middleware
 router.use(authenticateToken);
 
-// Get tasks with filtering
+/**
+ * @swagger
+ * /tasks:
+ *   get:
+ *     summary: Получить список задач
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: manager_id
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: lead_id
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: task_type
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Список задач
+ */
 router.get('/', async (req, res) => {
   try {
     const {
@@ -84,7 +112,24 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get single task
+/**
+ * @swagger
+ * /tasks/{id}:
+ *   get:
+ *     summary: Получить задачу по ID
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Данные задачи
+ */
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -111,7 +156,41 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create new task
+/**
+ * @swagger
+ * /tasks:
+ *   post:
+ *     summary: Создать новую задачу
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - due_date
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               task_type:
+ *                 type: string
+ *               due_date:
+ *                 type: string
+ *                 format: date
+ *               priority:
+ *                 type: string
+ *               lead_id:
+ *                 type: integer
+ *     responses:
+ *       201:
+ *         description: Задача создана
+ */
 router.post('/', async (req, res) => {
   try {
     const {
@@ -166,7 +245,35 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update task
+/**
+ * @swagger
+ * /tasks/{id}:
+ *   put:
+ *     summary: Обновить задачу
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *               title:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Задача обновлена
+ */
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -218,7 +325,24 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete task
+/**
+ * @swagger
+ * /tasks/{id}:
+ *   delete:
+ *     summary: Удалить задачу
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Задача удалена
+ */
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;

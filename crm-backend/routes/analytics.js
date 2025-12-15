@@ -5,7 +5,23 @@ import { authenticateToken } from './auth.js';
 const router = express.Router();
 router.use(authenticateToken);
 
-// Get sales funnel analytics
+/**
+ * @swagger
+ * /analytics/funnel:
+ *   get:
+ *     summary: Получить аналитику по воронке продаж
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Данные воронки
+ */
 router.get('/funnel', async (req, res) => {
   try {
     const { start_date, end_date, period } = req.query;
@@ -65,7 +81,24 @@ router.get('/funnel', async (req, res) => {
   }
 });
 
-// Get financial analytics
+/**
+ * @swagger
+ * /analytics/financial:
+ *   get:
+ *     summary: Получить финансовую аналитику
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           default: month
+ *     responses:
+ *       200:
+ *         description: Финансовая аналитика
+ */
 router.get('/financial', async (req, res) => {
   try {
     const { period = 'month' } = req.query; // day, week, month, year
@@ -299,7 +332,18 @@ router.get('/user-activity', async (req, res) => {
   }
 });
 
-// Dashboard summary
+/**
+ * @swagger
+ * /analytics/dashboard:
+ *   get:
+ *     summary: Получить данные для дашборда
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Данные дашборда
+ */
 router.get('/dashboard', async (req, res) => {
   try {
     // Total leads

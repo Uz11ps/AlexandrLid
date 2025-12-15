@@ -17,7 +17,71 @@ if (process.env.BOT_TOKEN) {
 // Apply authentication middleware to all routes
 router.use(authenticateToken);
 
-// Get all leads with filtering and pagination
+/**
+ * @swagger
+ * /leads:
+ *   get:
+ *     summary: Получить список лидов
+ *     tags: [Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Номер страницы
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *         description: Количество на странице
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *         description: Фильтр по статусу
+ *       - in: query
+ *         name: funnel_stage
+ *         schema:
+ *           type: string
+ *         description: Фильтр по этапу воронки
+ *       - in: query
+ *         name: manager_id
+ *         schema:
+ *           type: integer
+ *         description: Фильтр по менеджеру
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Поиск по ФИО, телефону, email, telegram
+ *     responses:
+ *       200:
+ *         description: Список лидов
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 leads:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Lead'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                     limit:
+ *                       type: integer
+ *                     total:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ */
 router.get('/', async (req, res) => {
   try {
     const {
@@ -94,7 +158,31 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get single lead by ID
+/**
+ * @swagger
+ * /leads/{id}:
+ *   get:
+ *     summary: Получить лида по ID
+ *     tags: [Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID лида
+ *     responses:
+ *       200:
+ *         description: Данные лида
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Lead'
+ *       404:
+ *         description: Лид не найден
+ */
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -148,7 +236,41 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create new lead
+/**
+ * @swagger
+ * /leads:
+ *   post:
+ *     summary: Создать нового лида
+ *     tags: [Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               fio:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               telegram_username:
+ *                 type: string
+ *               source:
+ *                 type: string
+ *               notes:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Лид создан
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Lead'
+ */
 router.post('/', async (req, res) => {
   try {
     const {
@@ -198,7 +320,39 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update lead
+/**
+ * @swagger
+ * /leads/{id}:
+ *   put:
+ *     summary: Обновить лида
+ *     tags: [Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               fio:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *               funnel_stage:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Лид обновлен
+ */
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -261,7 +415,24 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete lead
+/**
+ * @swagger
+ * /leads/{id}:
+ *   delete:
+ *     summary: Удалить лида
+ *     tags: [Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Лид удален
+ */
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -282,7 +453,23 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// Export leads to Excel
+/**
+ * @swagger
+ * /leads/export/excel:
+ *   get:
+ *     summary: Экспортировать лиды в Excel
+ *     tags: [Leads]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Excel файл
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+ *             schema:
+ *               type: string
+ *               format: binary
+ */
 router.get('/export/excel', async (req, res) => {
   try {
     const { start_date, end_date, status, funnel_stage } = req.query;

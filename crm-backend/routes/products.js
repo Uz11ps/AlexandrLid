@@ -5,7 +5,18 @@ import { authenticateToken } from './auth.js';
 const router = express.Router();
 router.use(authenticateToken);
 
-// Get all courses (without tariffs for list view)
+/**
+ * @swagger
+ * /products/courses:
+ *   get:
+ *     summary: Получить список курсов
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Список курсов
+ */
 router.get('/courses', async (req, res) => {
   try {
     const result = await pool.query(
@@ -18,7 +29,24 @@ router.get('/courses', async (req, res) => {
   }
 });
 
-// Get single course with tariffs
+/**
+ * @swagger
+ * /products/courses/{id}:
+ *   get:
+ *     summary: Получить курс с тарифами
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Данные курса
+ */
 router.get('/courses/:id', async (req, res) => {
   try {
     const { id } = req.params;

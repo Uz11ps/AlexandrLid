@@ -5,7 +5,27 @@ import { authenticateToken } from './auth.js';
 const router = express.Router();
 router.use(authenticateToken);
 
-// Get all students
+/**
+ * @swagger
+ * /students:
+ *   get:
+ *     summary: Получить список студентов
+ *     tags: [Students]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: course_id
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: payment_status
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Список студентов
+ */
 router.get('/', async (req, res) => {
   try {
     const { course_id, group_id, payment_status } = req.query;
@@ -52,7 +72,18 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Export students to Excel
+/**
+ * @swagger
+ * /students/export/excel:
+ *   get:
+ *     summary: Экспортировать студентов в Excel
+ *     tags: [Students]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Excel файл
+ */
 router.get('/export/excel', async (req, res) => {
   try {
     const { course_id, group_id, payment_status } = req.query;

@@ -5,7 +5,27 @@ import { authenticateToken } from './auth.js';
 const router = express.Router();
 router.use(authenticateToken);
 
-// Получить список тикетов
+/**
+ * @swagger
+ * /tickets:
+ *   get:
+ *     summary: Получить список тикетов
+ *     tags: [Tickets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: manager_id
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Список тикетов
+ */
 router.get('/', async (req, res) => {
   try {
     const { status, manager_id, user_id } = req.query;
@@ -56,7 +76,24 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Получить тикет по ID
+/**
+ * @swagger
+ * /tickets/{id}:
+ *   get:
+ *     summary: Получить тикет по ID
+ *     tags: [Tickets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Данные тикета с сообщениями
+ */
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -108,7 +145,33 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Создать тикет
+/**
+ * @swagger
+ * /tickets:
+ *   post:
+ *     summary: Создать новый тикет
+ *     tags: [Tickets]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - user_id
+ *             properties:
+ *               user_id:
+ *                 type: integer
+ *               subject:
+ *                 type: string
+ *               priority:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Тикет создан
+ */
 router.post('/', async (req, res) => {
   try {
     const { user_id, subject, priority } = req.body;
@@ -136,7 +199,35 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Отправить сообщение в тикет
+/**
+ * @swagger
+ * /tickets/{id}/messages:
+ *   post:
+ *     summary: Отправить сообщение в тикет
+ *     tags: [Tickets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - message_text
+ *             properties:
+ *               message_text:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Сообщение отправлено
+ */
 router.post('/:id/messages', async (req, res) => {
   try {
     const { id } = req.params;
@@ -207,7 +298,34 @@ router.post('/:id/messages', async (req, res) => {
   }
 });
 
-// Обновить тикет
+/**
+ * @swagger
+ * /tickets/{id}:
+ *   put:
+ *     summary: Обновить тикет
+ *     tags: [Tickets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *               priority:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Тикет обновлен
+ */
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
