@@ -168,6 +168,51 @@ function UsersManagement() {
     }
   };
 
+  const handleCreateRole = async () => {
+    try {
+      // Проверяем, что роль с таким именем не существует
+      if (roles.some(r => r.name === newRole.name)) {
+        alert('Роль с таким именем уже существует');
+        return;
+      }
+      
+      // В реальном приложении здесь был бы API вызов для создания роли
+      // Пока просто добавляем роль в локальный список
+      const role = {
+        name: newRole.name,
+        description: newRole.description
+      };
+      
+      setRoles([...roles, role]);
+      setRoleDialogOpen(false);
+      setNewRole({ name: '', description: '' });
+      alert('Роль успешно создана');
+    } catch (error) {
+      console.error('Error creating role:', error);
+      alert('Ошибка при создании роли: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  const handleUpdateRole = async () => {
+    try {
+      if (!selectedRole) return;
+      
+      // В реальном приложении здесь был бы API вызов для обновления роли
+      // Пока просто обновляем роль в локальном списке
+      setRoles(roles.map(r => 
+        r.name === selectedRole.name 
+          ? { ...selectedRole }
+          : r
+      ));
+      setRoleDialogOpen(false);
+      setSelectedRole(null);
+      alert('Роль успешно обновлена');
+    } catch (error) {
+      console.error('Error updating role:', error);
+      alert('Ошибка при обновлении роли: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
   return (
     <Container maxWidth="xl">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
@@ -302,9 +347,21 @@ function UsersManagement() {
                           setSelectedRole(role);
                           setPermissionsDialogOpen(true);
                         }}
+                        sx={{ mr: 1 }}
                       >
                         Управление правами
                       </Button>
+                      {role.name !== 'admin' && (
+                        <Button
+                          size="small"
+                          onClick={() => {
+                            setSelectedRole(role);
+                            setRoleDialogOpen(true);
+                          }}
+                        >
+                          Редактировать
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
