@@ -23,6 +23,22 @@ import { createCourseTariffsTable } from './migrations/001_create_course_tariffs
 import { up as createRolesTable } from './migrations/002_create_roles.js';
 import { up as removeRoleCheckConstraint } from './migrations/003_remove_role_check_constraint.js';
 
+// Обертка для удаления CHECK constraint с обработкой ошибок
+async function runRemoveRoleCheckConstraint() {
+  try {
+    await removeRoleCheckConstraint();
+    return true;
+  } catch (error) {
+    console.error('❌ Remove role check constraint migration error:', error);
+    console.error('Error details:', error.message);
+    if (error.stack) {
+      console.error('Stack trace:', error.stack);
+    }
+    return false;
+  }
+}
+import { up as removeRoleCheckConstraint } from './migrations/003_remove_role_check_constraint.js';
+
 // Обертка для миграции ролей с обработкой ошибок
 async function runRolesMigration() {
   try {
