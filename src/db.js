@@ -397,11 +397,33 @@ export const db = {
     );
     
     console.log(`  Найдено рассылок для отправки: ${result.rows.length}`);
+    
+    // Дополнительная диагностика: проверяем все scheduled рассылки
+    const allScheduledResult = await pool.query(
+      `SELECT id, title, status, scheduled_at, 
+              scheduled_at::text as scheduled_at_raw,
+              (scheduled_at AT TIME ZONE 'UTC')::timestamptz as scheduled_at_utc
+       FROM broadcasts 
+       WHERE status = 'scheduled' AND scheduled_at IS NOT NULL
+       ORDER BY scheduled_at DESC
+       LIMIT 10`,
+      []
+    );
+    
+    console.log(`  Всего scheduled рассылок в БД: ${allScheduledResult.rows.length}`);
+    allScheduledResult.rows.forEach(row => {
+      const scheduledTime = row.scheduled_at ? new Date(row.scheduled_at).toISOString() : 'N/A';
+      const scheduledUTC = row.scheduled_at_utc ? new Date(row.scheduled_at_utc).toISOString() : 'N/A';
+      const timeDiff = row.scheduled_at ? Math.round((nowUTC.getTime() - new Date(row.scheduled_at).getTime()) / 1000 / 60) : 0;
+      const shouldSend = row.scheduled_at ? new Date(row.scheduled_at).getTime() <= nowUTC.getTime() : false;
+      console.log(`    - ID: ${row.id}, scheduled_at (raw): ${row.scheduled_at_raw}, scheduled_at (parsed): ${scheduledTime}, scheduled_at (UTC): ${scheduledUTC}, title: "${row.title}", прошло минут: ${timeDiff}, должна отправиться: ${shouldSend}`);
+    });
+    
     if (result.rows.length > 0) {
       result.rows.forEach(row => {
         const scheduledTime = row.scheduled_at ? new Date(row.scheduled_at).toISOString() : 'N/A';
         const timeDiff = row.scheduled_at ? Math.round((nowUTC.getTime() - new Date(row.scheduled_at).getTime()) / 1000 / 60) : 0;
-        console.log(`    - ID: ${row.id}, scheduled_at: ${scheduledTime}, title: "${row.title}", прошло минут: ${timeDiff}`);
+        console.log(`    ✅ ВЫБРАНО ДЛЯ ОТПРАВКИ - ID: ${row.id}, scheduled_at: ${scheduledTime}, title: "${row.title}", прошло минут: ${timeDiff}`);
       });
     }
     
