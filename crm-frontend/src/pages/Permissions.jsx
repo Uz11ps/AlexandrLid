@@ -40,7 +40,7 @@ function Permissions() {
   const [permissions, setPermissions] = useState([]);
   const [rolePermissions, setRolePermissions] = useState({});
   const [userPermissions, setUserPermissions] = useState({});
-  const [selectedRole, setSelectedRole] = useState('manager');
+  const [selectedRole, setSelectedRole] = useState('admin');
   const [selectedUserId, setSelectedUserId] = useState('');
   const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -97,15 +97,33 @@ function Permissions() {
       setLoading(true);
       const response = await permissionsAPI.getRolePermissions(role);
       const permissionsMap = {};
+      
+      // Для роли admin все права должны быть выбранными по умолчанию
+      const isAdmin = role === 'admin';
+      
       response.data.forEach(p => {
         if (!permissionsMap[p.resource]) {
           permissionsMap[p.resource] = {};
         }
-        permissionsMap[p.resource][p.action] = p.granted;
+        // Если роль admin, показываем все права как выбранные
+        // Иначе используем значение из базы данных
+        permissionsMap[p.resource][p.action] = isAdmin ? true : (p.granted === true);
       });
+      
       setRolePermissions(permissionsMap);
     } catch (error) {
       console.error('Error loading role permissions:', error);
+      // При ошибке для admin показываем все права как выбранные
+      if (role === 'admin') {
+        const adminPermissionsMap = {};
+        RESOURCES.forEach(resource => {
+          adminPermissionsMap[resource] = {};
+          ACTIONS.forEach(action => {
+            adminPermissionsMap[resource][action] = true;
+          });
+        });
+        setRolePermissions(adminPermissionsMap);
+      }
     } finally {
       setLoading(false);
     }
@@ -132,6 +150,12 @@ function Permissions() {
 
   const handleRolePermissionChange = async (resource, action, granted) => {
     try {
+      // Для роли admin нельзя изменять права
+      if (selectedRole === 'admin') {
+        alert('Роль администратора всегда имеет все права доступа. Изменение прав для этой роли невозможно.');
+        return;
+      }
+
       const currentPermissions = rolePermissions[resource] || {};
       const newPermissions = { ...currentPermissions, [action]: granted };
       const newRolePermissions = { ...rolePermissions, [resource]: newPermissions };
@@ -149,7 +173,10 @@ function Permissions() {
       await loadRolePermissions(selectedRole);
     } catch (error) {
       console.error('Error updating role permission:', error);
-      alert('Ошибка при обновлении прав');
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Ошибка при обновлении прав';
+      alert(errorMessage);
+      // Перезагружаем права в случае ошибки
+      await loadRolePermissions(selectedRole);
     }
   };
 
@@ -259,12 +286,13 @@ function Permissions() {
                           <Checkbox
                             checked={isPermissionGranted(resource, action, true)}
                             onChange={(e) => handleRolePermissionChange(resource, action, e.target.checked)}
+                            disabled={selectedRole === 'admin'}
                           />
                         ) : (
                           <Checkbox
                             checked={isPermissionGranted(resource, action, true)}
                             onChange={(e) => handleRolePermissionChange(resource, action, e.target.checked)}
-                            disabled={!isPermissionGranted(resource, 'read', true)}
+                            disabled={selectedRole === 'admin' || !isPermissionGranted(resource, 'read', true)}
                           />
                         )}
                       </TableCell>

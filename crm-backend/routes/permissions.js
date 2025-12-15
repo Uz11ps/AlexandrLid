@@ -29,6 +29,21 @@ router.get('/roles/:role', async (req, res) => {
   try {
     const { role } = req.params;
 
+    // Для роли admin всегда возвращаем все права как выбранные
+    if (role === 'admin') {
+      const allPermissionsResult = await pool.query(
+        'SELECT * FROM permissions ORDER BY resource, action'
+      );
+      
+      const permissions = allPermissionsResult.rows.map(p => ({
+        ...p,
+        granted: true // Админ всегда имеет все права
+      }));
+      
+      return res.json(permissions);
+    }
+
+    // Для остальных ролей получаем права из базы данных
     const result = await pool.query(
       `SELECT p.*, rp.role
        FROM permissions p
@@ -54,6 +69,14 @@ router.put('/roles/:role', requireAdmin, async (req, res) => {
   try {
     const { role } = req.params;
     const { permission_ids } = req.body; // массив ID разрешенных прав
+
+    // Для роли admin нельзя изменять права через API (админ всегда имеет все права)
+    if (role === 'admin') {
+      return res.status(400).json({ 
+        error: 'Cannot modify admin permissions',
+        message: 'Роль администратора всегда имеет все права доступа'
+      });
+    }
 
     // Удалить все существующие права роли
     await pool.query('DELETE FROM role_permissions WHERE role = $1', [role]);
