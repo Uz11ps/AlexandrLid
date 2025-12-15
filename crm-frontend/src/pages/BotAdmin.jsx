@@ -545,7 +545,14 @@ function BotAdmin() {
                         />
                       </TableCell>
                       <TableCell>
-                        {formatMoscowTime(broadcast.scheduled_at)}
+                        {broadcast.scheduled_at ? (() => {
+                          try {
+                            return formatMoscowTime(broadcast.scheduled_at);
+                          } catch (error) {
+                            console.error('Error formatting time:', error, broadcast.scheduled_at);
+                            return broadcast.scheduled_at;
+                          }
+                        })() : '-'}
                       </TableCell>
                       <TableCell>{broadcast.sent_count || 0}</TableCell>
                       <TableCell>
