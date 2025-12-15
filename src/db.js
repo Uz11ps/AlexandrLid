@@ -345,15 +345,12 @@ export const db = {
     console.log(`  💾 Сохранение в БД:`);
     console.log(`    scheduled_at (ISO UTC): ${scheduledAtISO || 'null'}`);
     
-    // Используем AT TIME ZONE 'UTC' для явного указания, что сохраняем UTC время
-    // Это предотвращает конвертацию PostgreSQL в локальное время
+    // Сохраняем scheduled_at как ISO строку UTC
+    // PostgreSQL автоматически конвертирует её в локальное время при сохранении в TIMESTAMP колонку
+    // При чтении мы будем нормализовать его обратно в UTC
     const result = await pool.query(
       `INSERT INTO broadcasts (title, message_text, message_type, file_id, buttons, segment, scheduled_at, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, 
-         CASE WHEN $7 IS NULL THEN NULL 
-              ELSE ($7::timestamptz AT TIME ZONE 'UTC')::timestamp 
-         END, 
-         $8)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::timestamp, $8)
        RETURNING *`,
       [title, message_text, message_type || 'text', file_id || null, buttons ? JSON.stringify(buttons) : null, segment || null, scheduledAtISO, created_by || null]
     );
