@@ -50,27 +50,52 @@ router.get('/courses', async (req, res) => {
 router.get('/courses/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const courseResult = await pool.query(
-      'SELECT * FROM courses WHERE id = $1',
-      [id]
-    );
-    if (courseResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Course not found' });
+    
+    // Валидация ID
+    const courseId = parseInt(id);
+    if (isNaN(courseId) || courseId <= 0) {
+      return res.status(400).json({ error: 'Invalid course ID' });
     }
     
-    // Get tariffs for this course
+    const courseResult = await pool.query(
+      'SELECT * FROM courses WHERE id = $1',
+      [courseId]
+    );
+    
+    if (courseResult.rows.length === 0) {
+      return res.status(404).json({ 
+        error: 'Course not found',
+        message: `Курс с ID ${id} не найден в базе данных`
+      });
+    }
+    
+    // Get tariffs for this course (включая неактивные для админов)
     const tariffsResult = await pool.query(
-      'SELECT * FROM course_tariffs WHERE course_id = $1 AND is_active = TRUE ORDER BY order_index, id',
-      [id]
+      'SELECT * FROM course_tariffs WHERE course_id = $1 ORDER BY order_index, id',
+      [courseId]
     );
     
     const course = courseResult.rows[0];
-    course.tariffs = tariffsResult.rows;
+    
+    // Парсим JSON поля если они есть
+    if (course.program_structure && typeof course.program_structure === 'string') {
+      try {
+        course.program_structure = JSON.parse(course.program_structure);
+      } catch (e) {
+        console.error('Error parsing program_structure:', e);
+      }
+    }
+    
+    course.tariffs = tariffsResult.rows || [];
     
     res.json(course);
   } catch (error) {
     console.error('Error fetching course:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: 'Произошла ошибка при загрузке курса',
+      details: error.message 
+    });
   }
 });
 

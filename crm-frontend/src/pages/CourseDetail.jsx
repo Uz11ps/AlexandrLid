@@ -34,6 +34,7 @@ function CourseDetail() {
   const [course, setCourse] = useState(null);
   const [tariffs, setTariffs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [tariffDialogOpen, setTariffDialogOpen] = useState(false);
   const [editingTariff, setEditingTariff] = useState(null);
   const [tariffFormData, setTariffFormData] = useState({
@@ -53,17 +54,25 @@ function CourseDetail() {
   const loadCourse = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await productsAPI.getCourse(id);
       if (response.data) {
         setCourse(response.data);
         setTariffs(response.data.tariffs || []);
       } else {
+        setError('Данные курса пусты');
         console.error('Course data is empty');
       }
     } catch (error) {
       console.error('Error loading course:', error);
       if (error.response?.status === 404) {
-        // Курс не найден - это нормально, показываем сообщение
+        setError('Курс с ID ' + id + ' не найден в базе данных');
+      } else if (error.response?.status === 500) {
+        setError('Ошибка сервера при загрузке курса');
+      } else if (error.response?.data?.error) {
+        setError(error.response.data.error);
+      } else {
+        setError('Не удалось загрузить курс. Проверьте подключение к интернету.');
       }
     } finally {
       setLoading(false);
@@ -125,13 +134,56 @@ function CourseDetail() {
   };
 
   if (loading) {
-    return <LinearProgress />;
+    return (
+      <Container maxWidth="lg">
+        <Box sx={{ mt: 4 }}>
+          <LinearProgress />
+          <Typography variant="body1" sx={{ mt: 2, textAlign: 'center' }}>
+            Загрузка курса...
+          </Typography>
+        </Box>
+      </Container>
+    );
   }
 
-  if (!course) {
+  if (!course || error) {
     return (
-      <Container>
-        <Alert severity="error">Курс не найден</Alert>
+      <Container maxWidth="lg">
+        <Box sx={{ mt: 4 }}>
+          <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <IconButton onClick={() => navigate('/products')}>
+              <ArrowBackIcon />
+            </IconButton>
+            <Typography variant="h5">Детали курса</Typography>
+          </Box>
+          
+          <Paper sx={{ p: 4 }}>
+            <Alert severity="error" sx={{ mb: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Курс не найден
+              </Typography>
+              <Typography variant="body2">
+                {error || `Курс с ID ${id} не найден в системе.`}
+              </Typography>
+            </Alert>
+            
+            <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
+              <Button
+                variant="outlined"
+                startIcon={<ArrowBackIcon />}
+                onClick={() => navigate('/products')}
+              >
+                Вернуться к списку курсов
+              </Button>
+              <Button
+                variant="contained"
+                onClick={() => navigate('/products')}
+              >
+                Создать новый курс
+              </Button>
+            </Box>
+          </Paper>
+        </Box>
       </Container>
     );
   }
@@ -148,33 +200,77 @@ function CourseDetail() {
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
           <Paper sx={{ p: 3, mb: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Описание курса
-            </Typography>
-            <Typography variant="body1" sx={{ mb: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Описание курса
+              </Typography>
+              <Chip
+                label={course.status === 'active' ? 'Активен' : course.status === 'draft' ? 'Черновик' : course.status}
+                color={course.status === 'active' ? 'success' : 'default'}
+                size="small"
+              />
+            </Box>
+            
+            <Typography variant="body1" sx={{ mb: 3, whiteSpace: 'pre-wrap' }}>
               {course.description || 'Описание не указано'}
             </Typography>
             
             <Grid container spacing={2} sx={{ mt: 2 }}>
-              <Grid item xs={6}>
-                <Typography variant="body2" color="textSecondary">Формат:</Typography>
-                <Typography variant="body1">{course.format || '-'}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="body2" color="textSecondary">Длительность:</Typography>
-                <Typography variant="body1">{course.duration_weeks ? `${course.duration_weeks} недель` : '-'}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="body2" color="textSecondary">Статус:</Typography>
-                <Chip
-                  label={course.status}
-                  color={course.status === 'active' ? 'success' : 'default'}
-                  size="small"
-                />
-              </Grid>
+              {course.format && (
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="textSecondary" gutterBottom>Формат:</Typography>
+                  <Typography variant="body1">{course.format}</Typography>
+                </Grid>
+              )}
+              {course.duration_weeks && (
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="textSecondary" gutterBottom>Длительность:</Typography>
+                  <Typography variant="body1">{course.duration_weeks} {course.duration_weeks === 1 ? 'неделя' : course.duration_weeks < 5 ? 'недели' : 'недель'}</Typography>
+                </Grid>
+              )}
+              {course.author && (
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="textSecondary" gutterBottom>Автор:</Typography>
+                  <Typography variant="body1">{course.author}</Typography>
+                </Grid>
+              )}
+              {course.created_at && (
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="textSecondary" gutterBottom>Создан:</Typography>
+                  <Typography variant="body1">
+                    {new Date(course.created_at).toLocaleDateString('ru-RU', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </Typography>
+                </Grid>
+              )}
             </Grid>
           </Paper>
         </Grid>
+
+        {course.cover_image && (
+          <Grid item xs={12} md={4}>
+            <Paper sx={{ p: 2 }}>
+              <Typography variant="body2" color="textSecondary" gutterBottom>
+                Обложка курса
+              </Typography>
+              <Box
+                component="img"
+                src={course.cover_image}
+                alt={course.name}
+                sx={{
+                  width: '100%',
+                  height: 'auto',
+                  borderRadius: 1,
+                  maxHeight: 300,
+                  objectFit: 'cover'
+                }}
+              />
+            </Paper>
+          </Grid>
+        )}
 
         <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
