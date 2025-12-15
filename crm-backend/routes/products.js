@@ -179,17 +179,38 @@ router.put('/courses/:id', async (req, res) => {
   }
 });
 
+// Вспомогательная функция для безопасной работы с course_tariffs
+async function safeQuery(query, params, errorMessage) {
+  try {
+    return await pool.query(query, params);
+  } catch (error) {
+    if (error.message.includes('does not exist')) {
+      console.error(`Table course_tariffs does not exist. Please run create_course_tariffs_table.sql`);
+      throw new Error('TABLE_NOT_EXISTS');
+    }
+    throw error;
+  }
+}
+
 // CRUD for Course Tariffs
 // Get tariffs for a course
 router.get('/courses/:courseId/tariffs', async (req, res) => {
   try {
     const { courseId } = req.params;
-    const result = await pool.query(
+    const result = await safeQuery(
       'SELECT * FROM course_tariffs WHERE course_id = $1 AND is_active = TRUE ORDER BY order_index, id',
-      [courseId]
+      [courseId],
+      'Error fetching tariffs'
     );
     res.json(result.rows);
   } catch (error) {
+    if (error.message === 'TABLE_NOT_EXISTS') {
+      return res.status(503).json({ 
+        error: 'Service temporarily unavailable',
+        message: 'Таблица course_tariffs не существует. Пожалуйста, выполните SQL скрипт create_course_tariffs_table.sql',
+        details: 'Table course_tariffs does not exist'
+      });
+    }
     console.error('Error fetching tariffs:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -201,18 +222,26 @@ router.post('/courses/:courseId/tariffs', async (req, res) => {
     const { courseId } = req.params;
     const { name, description, price, currency, features, installment_available, order_index } = req.body;
     
-    const result = await pool.query(
+    const result = await safeQuery(
       `INSERT INTO course_tariffs (course_id, name, description, price, currency, features, installment_available, order_index)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
       [
         courseId, name, description, price, currency || 'RUB',
         JSON.stringify(features || []), installment_available || false, order_index || 0
-      ]
+      ],
+      'Error creating tariff'
     );
     
     res.status(201).json(result.rows[0]);
   } catch (error) {
+    if (error.message === 'TABLE_NOT_EXISTS') {
+      return res.status(503).json({ 
+        error: 'Service temporarily unavailable',
+        message: 'Таблица course_tariffs не существует. Пожалуйста, выполните SQL скрипт create_course_tariffs_table.sql',
+        details: 'Table course_tariffs does not exist'
+      });
+    }
     console.error('Error creating tariff:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -244,9 +273,10 @@ router.put('/tariffs/:id', async (req, res) => {
     updates.push('updated_at = CURRENT_TIMESTAMP');
     values.push(parseInt(id));
     
-    const result = await pool.query(
+    const result = await safeQuery(
       `UPDATE course_tariffs SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
-      values
+      values,
+      'Error updating tariff'
     );
     
     if (result.rows.length === 0) {
@@ -255,6 +285,13 @@ router.put('/tariffs/:id', async (req, res) => {
     
     res.json(result.rows[0]);
   } catch (error) {
+    if (error.message === 'TABLE_NOT_EXISTS') {
+      return res.status(503).json({ 
+        error: 'Service temporarily unavailable',
+        message: 'Таблица course_tariffs не существует. Пожалуйста, выполните SQL скрипт create_course_tariffs_table.sql',
+        details: 'Table course_tariffs does not exist'
+      });
+    }
     console.error('Error updating tariff:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -264,9 +301,10 @@ router.put('/tariffs/:id', async (req, res) => {
 router.delete('/tariffs/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query(
+    const result = await safeQuery(
       'UPDATE course_tariffs SET is_active = FALSE WHERE id = $1 RETURNING *',
-      [id]
+      [id],
+      'Error deleting tariff'
     );
     
     if (result.rows.length === 0) {
