@@ -17,9 +17,14 @@ export function initScheduler(bot) {
   // Проверка запланированных рассылок каждую минуту
   cron.schedule('* * * * *', async () => {
     try {
-      console.log(`[Scheduler] Проверка запланированных рассылок в ${new Date().toISOString()}`);
+      console.log(`\n[Scheduler] Проверка запланированных рассылок в ${new Date().toISOString()}`);
       const scheduledBroadcasts = await db.getScheduledBroadcasts();
       console.log(`[Scheduler] Найдено рассылок для проверки: ${scheduledBroadcasts.length}`);
+      
+      if (scheduledBroadcasts.length === 0) {
+        console.log(`[Scheduler] Нет рассылок для обработки`);
+        return;
+      }
       
       // Получаем текущее UTC время для сравнения
       const nowUTC = new Date();

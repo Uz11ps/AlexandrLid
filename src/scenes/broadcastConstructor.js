@@ -12,6 +12,9 @@ const broadcastConstructor = new Scenes.WizardScene(
     return ctx.wizard.next();
   },
   async (ctx) => {
+    if (!ctx.message || !ctx.message.text) {
+      return ctx.reply('❌ Пожалуйста, отправьте текстовое сообщение с названием рассылки.');
+    }
     ctx.wizard.state.title = ctx.message.text;
     await ctx.reply(
       'Шаг 2/6: Введите текст сообщения (поддерживается HTML):'
@@ -19,6 +22,9 @@ const broadcastConstructor = new Scenes.WizardScene(
     return ctx.wizard.next();
   },
   async (ctx) => {
+    if (!ctx.message || !ctx.message.text) {
+      return ctx.reply('❌ Пожалуйста, отправьте текстовое сообщение с текстом рассылки.');
+    }
     ctx.wizard.state.messageText = ctx.message.text;
     await ctx.reply(
       'Шаг 3/6: Хотите добавить медиа (фото/видео/документ)?\n\n' +

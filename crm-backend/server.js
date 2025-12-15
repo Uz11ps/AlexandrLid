@@ -25,6 +25,7 @@ import rolesRoutes from './routes/roles.js';
 import { createCourseTariffsTable } from './migrations/001_create_course_tariffs.js';
 import { up as createRolesTable } from './migrations/002_create_roles.js';
 import { up as removeRoleCheckConstraint } from './migrations/003_remove_role_check_constraint.js';
+import { up as createChannelInvitesAndActivity } from './migrations/004_create_channel_invites_and_activity.js';
 
 // Обертка для миграции ролей с обработкой ошибок
 async function runRolesMigration() {
@@ -231,6 +232,15 @@ async function startServer() {
       console.warn('⚠️ Remove role check constraint migration failed, but server will continue');
       console.warn('⚠️ Creating users with custom roles may not work');
       console.warn('⚠️ Please check the logs above for details');
+    }
+    
+    // Создание таблиц для пригласительных ссылок и активности
+    try {
+      await createChannelInvitesAndActivity();
+      console.log('✅ Migration 004 (channel invites and activity) completed');
+    } catch (error) {
+      console.error('❌ Migration 004 failed:', error);
+      console.warn('⚠️ Channel invites and activity features may not work');
     }
     
     console.log('✅ All migrations completed');
