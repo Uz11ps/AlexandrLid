@@ -545,9 +545,10 @@ function BotAdmin() {
                       </TableCell>
                       <TableCell>
                         {broadcast.scheduled_at ? (() => {
-                          // Время хранится в московском часовом поясе, просто форматируем для отображения
-                          const moscowDate = new Date(broadcast.scheduled_at);
-                          return moscowDate.toLocaleString('ru-RU', {
+                          // scheduled_at хранится в UTC в БД, конвертируем в московское время для отображения
+                          const utcDate = new Date(broadcast.scheduled_at);
+                          // Форматируем в московском часовом поясе
+                          return utcDate.toLocaleString('ru-RU', {
                             year: 'numeric',
                             month: '2-digit',
                             day: '2-digit',
@@ -1055,7 +1056,7 @@ function BotAdmin() {
               })() : ''}
               onChange={(e) => setEditBroadcast({ ...editBroadcast, scheduled_at: e.target.value })}
               InputLabelProps={{ shrink: true }}
-              helperText={`Время указывается в вашем локальном времени (${Intl.DateTimeFormat().resolvedOptions().timeZone}). Сервер: ${settings.server_timezone || 'UTC'}`}
+              helperText={`Время указывается в московском времени (Europe/Moscow)`}
               sx={{ mt: 2 }}
             />
             <FormControl fullWidth sx={{ mt: 2 }}>
