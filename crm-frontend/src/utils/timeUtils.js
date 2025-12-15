@@ -27,50 +27,74 @@ export function utcToMoscow(utcDate) {
 export function formatMoscowTime(utcDate, options = {}) {
   if (!utcDate) return '-';
   
-  // Если это строка, создаем Date объект
-  const date = utcDate instanceof Date ? utcDate : new Date(utcDate);
-  if (isNaN(date.getTime())) return '-';
-  
-  // Добавляем 3 часа для конвертации из UTC в московское время
-  const moscowTimestamp = date.getTime() + (3 * 60 * 60 * 1000);
-  const moscowDate = new Date(moscowTimestamp);
-  
-  const {
-    includeDate = true,
-    includeTime = true,
-    format = 'ru-RU'
-  } = options;
-  
-  if (format === 'datetime-local') {
-    // Формат для input[type="datetime-local"]: YYYY-MM-DDTHH:mm
-    // Используем UTC методы, так как timestamp уже скорректирован
-    const year = moscowDate.getUTCFullYear();
-    const month = String(moscowDate.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(moscowDate.getUTCDate()).padStart(2, '0');
-    const hours = String(moscowDate.getUTCHours()).padStart(2, '0');
-    const minutes = String(moscowDate.getUTCMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  }
-  
-  if (format === 'ru-RU') {
-    // Формат для отображения: ДД.ММ.ГГГГ, ЧЧ:ММ
-    // Используем UTC методы, так как timestamp уже скорректирован
+  try {
+    // Если это строка, создаем Date объект
+    let date;
+    if (utcDate instanceof Date) {
+      date = utcDate;
+    } else if (typeof utcDate === 'string') {
+      // Если строка уже содержит Z (UTC), используем как есть
+      // Иначе добавляем Z для явного указания UTC
+      const dateStr = utcDate.endsWith('Z') ? utcDate : utcDate + 'Z';
+      date = new Date(dateStr);
+    } else {
+      date = new Date(utcDate);
+    }
+    
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date:', utcDate);
+      return '-';
+    }
+    
+    // Получаем UTC компоненты исходного времени
+    const utcYear = date.getUTCFullYear();
+    const utcMonth = date.getUTCMonth();
+    const utcDay = date.getUTCDate();
+    const utcHours = date.getUTCHours();
+    const utcMinutes = date.getUTCMinutes();
+    const utcSeconds = date.getUTCSeconds();
+    
+    // Добавляем 3 часа для московского времени
+    const moscowHours = utcHours + 3;
+    
+    // Создаем новую дату с московским временем
+    // Используем Date.UTC для создания правильного timestamp
+    const moscowTimestamp = Date.UTC(utcYear, utcMonth, utcDay, moscowHours, utcMinutes, utcSeconds);
+    const moscowDate = new Date(moscowTimestamp);
+    
+    const {
+      includeDate = true,
+      includeTime = true,
+      format = 'ru-RU'
+    } = options;
+    
+    // Извлекаем компоненты московского времени
     const year = moscowDate.getUTCFullYear();
     const month = String(moscowDate.getUTCMonth() + 1).padStart(2, '0');
     const day = String(moscowDate.getUTCDate()).padStart(2, '0');
     const hours = String(moscowDate.getUTCHours()).padStart(2, '0');
     const minutes = String(moscowDate.getUTCMinutes()).padStart(2, '0');
     
-    if (includeDate && includeTime) {
-      return `${day}.${month}.${year}, ${hours}:${minutes}`;
-    } else if (includeDate) {
-      return `${day}.${month}.${year}`;
-    } else if (includeTime) {
-      return `${hours}:${minutes}`;
+    if (format === 'datetime-local') {
+      // Формат для input[type="datetime-local"]: YYYY-MM-DDTHH:mm
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
     }
+    
+    if (format === 'ru-RU') {
+      if (includeDate && includeTime) {
+        return `${day}.${month}.${year}, ${hours}:${minutes}`;
+      } else if (includeDate) {
+        return `${day}.${month}.${year}`;
+      } else if (includeTime) {
+        return `${hours}:${minutes}`;
+      }
+    }
+    
+    return '-';
+  } catch (error) {
+    console.error('Error in formatMoscowTime:', error, utcDate);
+    return '-';
   }
-  
-  return '-';
 }
 
 export default {
