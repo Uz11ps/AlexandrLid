@@ -189,39 +189,13 @@ router.post('/register', authenticateToken, async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Создание пользователя
-    // Проверяем, есть ли внешний ключ на roles
-    const hasForeignKey = await pool.query(`
-      SELECT constraint_name 
-      FROM information_schema.table_constraints 
-      WHERE table_name = 'managers' 
-      AND constraint_type = 'FOREIGN KEY' 
-      AND constraint_name LIKE '%role%'
-    `);
-
-    let result;
-    if (hasForeignKey.rows.length > 0) {
-      // Если есть внешний ключ, используем обычный INSERT
-      result = await pool.query(
-        `INSERT INTO managers (email, password_hash, name, role, is_active)
-         VALUES ($1, $2, $3, $4, $5)
-         RETURNING id, email, name, role, is_active, created_at`,
-        [email, hashedPassword, name, userRole, is_active !== undefined ? is_active : true]
-      );
-    } else {
-      // Если внешнего ключа нет, все равно пытаемся вставить
-      // (на случай, если миграция еще не выполнилась)
-      try {
-        result = await pool.query(
-          `INSERT INTO managers (email, password_hash, name, role, is_active)
-           VALUES ($1, $2, $3, $4, $5)
-           RETURNING id, email, name, role, is_active, created_at`,
-          [email, hashedPassword, name, userRole, is_active !== undefined ? is_active : true]
-        );
-      } catch (insertError) {
-        // Если ошибка связана с внешним ключом, но его нет, значит проблема в другом
-        throw insertError;
-      }
-    }
+    console.log('Attempting to create user with role:', userRole);
+    const result = await pool.query(
+      `INSERT INTO managers (email, password_hash, name, role, is_active)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, email, name, role, is_active, created_at`,
+      [email, hashedPassword, name, userRole, is_active !== undefined ? is_active : true]
+    );
 
     console.log('User created successfully:', result.rows[0]);
     res.status(201).json(result.rows[0]);
