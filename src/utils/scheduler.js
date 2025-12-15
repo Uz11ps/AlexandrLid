@@ -35,27 +35,48 @@ export function initScheduler(bot) {
       const nowMoscowDate = new Date(`${year}-${month}-${day}T${hours}:${minutes}:${seconds}+03:00`);
 
       for (const broadcast of scheduledBroadcasts) {
-        // scheduled_at хранится в БД с московским часовым поясом (+03:00)
-        // PostgreSQL уже вернул его в правильном формате благодаря timezone = 'Europe/Moscow'
-        const scheduledAt = new Date(broadcast.scheduled_at);
-        const now = new Date();
+        // scheduled_at хранится в БД в UTC
+        // Конвертируем его в московское время для сравнения
+        const scheduledAtUTC = new Date(broadcast.scheduled_at);
+        
+        // Получаем текущее время в московском часовом поясе
+        const nowMoscow = new Date();
+        const moscowTimeString = nowMoscow.toLocaleString('en-US', { 
+          timeZone: 'Europe/Moscow',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        });
+        
+        // Преобразуем строку времени в Date объект для сравнения
+        const [datePart, timePart] = moscowTimeString.split(', ');
+        const [month, day, year] = datePart.split('/');
+        const [hours, minutes, seconds] = timePart.split(':');
+        const nowMoscowDate = new Date(`${year}-${month}-${day}T${hours}:${minutes}:${seconds}+03:00`);
+        
+        // Конвертируем scheduled_at из UTC в московское время для сравнения
+        const scheduledAtMoscow = new Date(scheduledAtUTC.getTime() + (3 * 60 * 60 * 1000)); // UTC+3
         
         // Логируем для отладки (только для первых 3 рассылок, чтобы не засорять логи)
         if (broadcast.id && scheduledBroadcasts.indexOf(broadcast) < 3) {
           console.log(`[Scheduler] Проверка рассылки ${broadcast.id}:`);
-          console.log(`  scheduled_at (из БД): ${broadcast.scheduled_at}`);
-          console.log(`  scheduled_at (Date): ${scheduledAt.toISOString()}`);
-          console.log(`  now (Date): ${now.toISOString()}`);
-          console.log(`  Разница (мс): ${now.getTime() - scheduledAt.getTime()}`);
+          console.log(`  scheduled_at (из БД UTC): ${broadcast.scheduled_at}`);
+          console.log(`  scheduled_at (Moscow): ${scheduledAtMoscow.toISOString()}`);
+          console.log(`  now (Moscow): ${nowMoscowDate.toISOString()}`);
+          console.log(`  Разница (мс): ${nowMoscowDate.getTime() - scheduledAtMoscow.getTime()}`);
         }
         
         // Если время наступило (рассылка должна быть отправлена)
         // Сравниваем с запасом в 2 минуты, чтобы учесть задержки выполнения cron
-        const timeDiff = now.getTime() - scheduledAt.getTime();
+        const timeDiff = nowMoscowDate.getTime() - scheduledAtMoscow.getTime();
         if (timeDiff >= 0 && timeDiff < 120000) { // В пределах 2 минут
           console.log(`⏰ [Scheduler] Отправка запланированной рассылки: ${broadcast.id}`);
-          console.log(`  Запланировано на: ${scheduledAt.toISOString()}`);
-          console.log(`  Текущее время: ${now.toISOString()}`);
+          console.log(`  Запланировано на (Moscow): ${scheduledAtMoscow.toISOString()}`);
+          console.log(`  Текущее время (Moscow): ${nowMoscowDate.toISOString()}`);
           
           try {
             // Импортируем функцию отправки

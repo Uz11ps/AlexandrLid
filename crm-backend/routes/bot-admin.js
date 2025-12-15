@@ -155,14 +155,16 @@ router.post('/broadcasts', async (req, res) => {
       return res.status(400).json({ error: 'Title and message_text are required' });
     }
 
-    // Сохраняем время как московское время без конвертации
+    // Сохраняем время как московское время
     // datetime-local возвращает время в формате "YYYY-MM-DDTHH:mm"
-    // Добавляем московский часовой пояс и сохраняем как есть
-    let scheduledAtMoscow = null;
+    // Конвертируем московское время в UTC для сохранения в БД (TIMESTAMP хранит UTC)
+    let scheduledAtUTC = null;
     if (scheduled_at) {
-      // Добавляем московский часовой пояс к времени
-      scheduledAtMoscow = `${scheduled_at}:00+03:00`;
-      console.log(`Broadcast creation: Moscow time "${scheduled_at}" saved as "${scheduledAtMoscow}"`);
+      // Создаем Date объект из московского времени
+      const moscowDate = new Date(`${scheduled_at}:00+03:00`);
+      // Конвертируем в UTC для сохранения в БД
+      scheduledAtUTC = moscowDate.toISOString();
+      console.log(`Broadcast creation: Moscow time "${scheduled_at}" converted to UTC "${scheduledAtUTC}"`);
     }
 
     const result = await pool.query(
@@ -173,9 +175,9 @@ router.post('/broadcasts', async (req, res) => {
         title,
         message_text,
         buttons ? JSON.stringify(buttons) : null,
-        scheduledAtMoscow || null,
+        scheduledAtUTC || null,
         target_audience || 'all',
-        scheduledAtMoscow ? 'scheduled' : 'draft'
+        scheduledAtUTC ? 'scheduled' : 'draft'
       ]
     );
 
@@ -208,15 +210,17 @@ router.put('/broadcasts/:id', async (req, res) => {
       values.push(buttons ? JSON.stringify(buttons) : null);
     }
     if (scheduled_at !== undefined) {
-      // Сохраняем время как московское время без конвертации
-      let scheduledAtMoscow = null;
+      // Сохраняем время как московское время, конвертируя в UTC для БД
+      let scheduledAtUTC = null;
       if (scheduled_at) {
-        // Добавляем московский часовой пояс к времени
-        scheduledAtMoscow = `${scheduled_at}:00+03:00`;
-        console.log(`Broadcast update: Moscow time "${scheduled_at}" saved as "${scheduledAtMoscow}"`);
+        // Создаем Date объект из московского времени
+        const moscowDate = new Date(`${scheduled_at}:00+03:00`);
+        // Конвертируем в UTC для сохранения в БД
+        scheduledAtUTC = moscowDate.toISOString();
+        console.log(`Broadcast update: Moscow time "${scheduled_at}" converted to UTC "${scheduledAtUTC}"`);
       }
       updates.push(`scheduled_at = $${paramIndex++}`);
-      values.push(scheduledAtMoscow || null);
+      values.push(scheduledAtUTC || null);
     }
     if (target_audience !== undefined) {
       updates.push(`segment = $${paramIndex++}`);
