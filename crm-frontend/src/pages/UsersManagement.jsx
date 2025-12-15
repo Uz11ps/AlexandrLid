@@ -203,20 +203,21 @@ function UsersManagement() {
         return;
       }
       
-      // В реальном приложении здесь был бы API вызов для создания роли
-      // Пока просто добавляем роль в локальный список
-      const role = {
+      console.log('Creating role with data:', newRole);
+      const response = await axios.post('/api/roles', {
         name: newRole.name,
         description: newRole.description
-      };
-      
-      setRoles([...roles, role]);
+      });
+      console.log('Role created successfully:', response.data);
       setRoleDialogOpen(false);
       setNewRole({ name: '', description: '' });
+      await loadRoles(); // Перезагружаем список ролей из базы данных
       alert('Роль успешно создана');
     } catch (error) {
       console.error('Error creating role:', error);
-      alert('Ошибка при создании роли: ' + (error.response?.data?.error || error.message));
+      console.error('Error response:', error.response?.data);
+      const errorMessage = error.response?.data?.error || error.message;
+      alert('Ошибка при создании роли: ' + errorMessage);
     }
   };
 
