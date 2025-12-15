@@ -313,6 +313,13 @@ router.delete('/tariffs/:id', async (req, res) => {
     
     res.json({ message: 'Tariff deleted', tariff: result.rows[0] });
   } catch (error) {
+    if (error.message === 'TABLE_NOT_EXISTS') {
+      return res.status(503).json({ 
+        error: 'Service temporarily unavailable',
+        message: 'Таблица course_tariffs не существует. Пожалуйста, выполните SQL скрипт create_course_tariffs_table.sql',
+        details: 'Table course_tariffs does not exist'
+      });
+    }
     console.error('Error deleting tariff:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
