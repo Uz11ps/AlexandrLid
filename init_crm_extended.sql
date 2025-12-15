@@ -40,7 +40,23 @@ CREATE TABLE IF NOT EXISTS courses (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Таблица тарифных планов (создается после courses)
+-- Таблица тарифов курсов (создается после courses)
+CREATE TABLE IF NOT EXISTS course_tariffs (
+    id SERIAL PRIMARY KEY,
+    course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    price DECIMAL(10, 2) NOT NULL,
+    currency VARCHAR(10) DEFAULT 'RUB',
+    features JSONB, -- Что входит (чек-лист)
+    installment_available BOOLEAN DEFAULT FALSE,
+    order_index INTEGER DEFAULT 0, -- Порядок отображения
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Таблица тарифных планов (создается после courses) - DEPRECATED, используйте course_tariffs
 CREATE TABLE IF NOT EXISTS packages (
     id SERIAL PRIMARY KEY,
     course_id INTEGER REFERENCES courses(id) ON DELETE CASCADE,
@@ -247,6 +263,8 @@ ALTER TABLE leads ADD COLUMN IF NOT EXISTS converted_to_student_at TIMESTAMP;
 
 -- Индексы для новых таблиц
 CREATE INDEX IF NOT EXISTS idx_funnel_stages_order ON funnel_stages(order_index);
+CREATE INDEX IF NOT EXISTS idx_course_tariffs_course_id ON course_tariffs(course_id);
+CREATE INDEX IF NOT EXISTS idx_course_tariffs_order ON course_tariffs(order_index);
 CREATE INDEX IF NOT EXISTS idx_students_lead_id ON students(lead_id);
 CREATE INDEX IF NOT EXISTS idx_students_course_id ON students(course_id);
 CREATE INDEX IF NOT EXISTS idx_students_group_id ON students(group_id);

@@ -14,6 +14,7 @@ router.get('/', async (req, res) => {
       manager_id,
       lead_id,
       status,
+      task_type,
       due_date_from,
       due_date_to,
       date_filter // 'today', 'tomorrow', 'upcoming'
@@ -46,6 +47,11 @@ router.get('/', async (req, res) => {
     if (status) {
       query += ` AND t.status = $${paramIndex++}`;
       params.push(status);
+    }
+
+    if (task_type) {
+      query += ` AND t.task_type = $${paramIndex++}`;
+      params.push(task_type);
     }
 
     // Date filtering

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import {
   Container,
   Paper,
@@ -21,8 +22,14 @@ import {
   Chip,
   Grid,
   Card,
-  CardContent
+  CardContent,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton
 } from '@mui/material';
+import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { leadsAPI } from '../api/leads';
 import { funnelAPI } from '../api/funnel';
 
@@ -49,6 +56,15 @@ function LeadsList() {
   const [funnelFilter, setFunnelFilter] = useState('');
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState('table'); // 'table' or 'funnel'
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newLead, setNewLead] = useState({
+    fio: '',
+    phone: '',
+    email: '',
+    telegram_username: '',
+    source: 'Manual',
+    notes: ''
+  });
 
   useEffect(() => {
     loadFunnelStages();
@@ -109,11 +125,61 @@ function LeadsList() {
     }
   };
 
+  const handleCreateLead = async () => {
+    try {
+      await leadsAPI.create(newLead);
+      setCreateDialogOpen(false);
+      setNewLead({
+        fio: '',
+        phone: '',
+        email: '',
+        telegram_username: '',
+        source: 'Manual',
+        notes: ''
+      });
+      loadLeads();
+    } catch (error) {
+      console.error('Error creating lead:', error);
+      alert('Ошибка при создании лида');
+    }
+  };
+
+  const handleDeleteLead = async (leadId, e) => {
+    e.stopPropagation();
+    if (!window.confirm('Вы уверены, что хотите удалить этого лида?')) return;
+    try {
+      await leadsAPI.delete(leadId);
+      loadLeads();
+    } catch (error) {
+      console.error('Error deleting lead:', error);
+      alert('Ошибка при удалении лида');
+    }
+  };
+
+  const onDragEnd = async (result) => {
+    if (!result.destination) return;
+    
+    const { draggableId, destination } = result;
+    const leadId = parseInt(draggableId);
+    const newStage = destination.droppableId;
+    
+    if (newStage) {
+      await handleStageChange(leadId, newStage);
+    }
+  };
+
   return (
     <Container maxWidth="xl">
         <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h4">Лиды</Typography>
           <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateDialogOpen(true)}
+            >
+              Создать лид
+            </Button>
             <Button
               variant={viewMode === 'table' ? 'contained' : 'outlined'}
               onClick={() => setViewMode('table')}
@@ -153,44 +219,87 @@ function LeadsList() {
         </Box>
 
         {viewMode === 'funnel' ? (
-          <Grid container spacing={2}>
-            {funnelStages.map(stage => (
-              <Grid item xs={12} md={6} lg={4} key={stage.id}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      {stage.name} ({leadsByStage[stage.name]?.length || 0})
-                    </Typography>
-                    <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
-                      {(leadsByStage[stage.name] || []).map(lead => (
-                        <Card
-                          key={lead.id}
-                          sx={{ mb: 1, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
-                          onClick={() => navigate(`/leads/${lead.id}`)}
-                        >
-                          <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                            <Typography variant="body2" fontWeight="bold">
-                              {lead.fio || lead.telegram_username || `ID: ${lead.id}`}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {lead.phone || lead.email || '-'}
-                            </Typography>
-                            <Box sx={{ mt: 1 }}>
-                              <Chip
-                                label={lead.priority}
-                                color={getPriorityColor(lead.priority)}
-                                size="small"
-                              />
-                            </Box>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
+          <DragDropContext onDragEnd={onDragEnd}>
+            <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto', pb: 2 }}>
+              {funnelStages.map(stage => (
+                <Droppable key={stage.id} droppableId={stage.name}>
+                  {(provided, snapshot) => (
+                    <Paper
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      sx={{
+                        minWidth: 300,
+                        maxWidth: 300,
+                        p: 2,
+                        bgcolor: snapshot.isDraggingOver ? 'action.selected' : 'grey.50',
+                        borderRadius: 2,
+                        transition: 'background-color 0.2s'
+                      }}
+                    >
+                      <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                        {stage.name} ({leadsByStage[stage.name]?.length || 0})
+                      </Typography>
+                      <Box sx={{ maxHeight: 600, overflowY: 'auto' }}>
+                        {(leadsByStage[stage.name] || []).map((lead, index) => (
+                          <Draggable key={lead.id} draggableId={lead.id.toString()} index={index}>
+                            {(provided, snapshot) => (
+                              <Card
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                sx={{
+                                  mb: 1,
+                                  cursor: 'grab',
+                                  bgcolor: snapshot.isDragging ? 'action.selected' : 'background.paper',
+                                  boxShadow: snapshot.isDragging ? 4 : 1,
+                                  '&:hover': { bgcolor: 'action.hover', boxShadow: 2 },
+                                  '&:active': { cursor: 'grabbing' }
+                                }}
+                                onClick={() => navigate(`/leads/${lead.id}`)}
+                              >
+                                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 }, position: 'relative' }}>
+                                  <Typography variant="body2" fontWeight="bold">
+                                    {lead.fio || lead.telegram_username || `ID: ${lead.id}`}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary" display="block">
+                                    {lead.phone || lead.email || '-'}
+                                  </Typography>
+                                  <Box sx={{ mt: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                                    <Chip
+                                      label={lead.priority}
+                                      color={getPriorityColor(lead.priority)}
+                                      size="small"
+                                    />
+                                    <IconButton
+                                      size="small"
+                                      color="error"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteLead(lead.id, e);
+                                      }}
+                                      sx={{ ml: 'auto' }}
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  </Box>
+                                </CardContent>
+                              </Card>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
+                        {(!leadsByStage[stage.name] || leadsByStage[stage.name].length === 0) && (
+                          <Box sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
+                            Перетащите лида сюда
+                          </Box>
+                        )}
+                      </Box>
+                    </Paper>
+                  )}
+                </Droppable>
+              ))}
+            </Box>
+          </DragDropContext>
         ) : (
           <>
             <TableContainer component={Paper}>
@@ -206,6 +315,7 @@ function LeadsList() {
                     <TableCell>Статус</TableCell>
                     <TableCell>Приоритет</TableCell>
                     <TableCell>Дата создания</TableCell>
+                    <TableCell>Действия</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -233,6 +343,15 @@ function LeadsList() {
                       <TableCell>
                         {new Date(lead.created_at).toLocaleDateString('ru-RU')}
                       </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={(e) => handleDeleteLead(lead.id, e)}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -253,6 +372,65 @@ function LeadsList() {
             />
           </>
         )}
+
+        {/* Create Lead Dialog */}
+        <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Создать новый лид</DialogTitle>
+          <DialogContent>
+            <TextField
+              fullWidth
+              label="ФИО"
+              value={newLead.fio}
+              onChange={(e) => setNewLead({ ...newLead, fio: e.target.value })}
+              sx={{ mt: 2 }}
+            />
+            <TextField
+              fullWidth
+              label="Телефон"
+              value={newLead.phone}
+              onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })}
+              sx={{ mt: 2 }}
+            />
+            <TextField
+              fullWidth
+              label="Email"
+              type="email"
+              value={newLead.email}
+              onChange={(e) => setNewLead({ ...newLead, email: e.target.value })}
+              sx={{ mt: 2 }}
+            />
+            <TextField
+              fullWidth
+              label="Telegram Username"
+              value={newLead.telegram_username}
+              onChange={(e) => setNewLead({ ...newLead, telegram_username: e.target.value })}
+              sx={{ mt: 2 }}
+              placeholder="без @"
+            />
+            <TextField
+              fullWidth
+              label="Источник"
+              value={newLead.source}
+              onChange={(e) => setNewLead({ ...newLead, source: e.target.value })}
+              sx={{ mt: 2 }}
+            />
+            <TextField
+              fullWidth
+              label="Заметки"
+              multiline
+              rows={3}
+              value={newLead.notes}
+              onChange={(e) => setNewLead({ ...newLead, notes: e.target.value })}
+              sx={{ mt: 2 }}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setCreateDialogOpen(false)}>Отмена</Button>
+            <Button onClick={handleCreateLead} variant="contained">
+              Создать
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Container>
   );
 }

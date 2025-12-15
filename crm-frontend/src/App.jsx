@@ -12,6 +12,7 @@ import StudentDetail from './pages/StudentDetail';
 import Deals from './pages/Deals';
 import DealDetail from './pages/DealDetail';
 import Products from './pages/Products';
+import CourseDetail from './pages/CourseDetail';
 import Analytics from './pages/Analytics';
 import Templates from './pages/Templates';
 import Documents from './pages/Documents';
@@ -120,6 +121,14 @@ function App() {
             element={
               <PrivateRoute>
                 <Layout><Products /></Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/products/courses/:id"
+            element={
+              <PrivateRoute>
+                <Layout><CourseDetail /></Layout>
               </PrivateRoute>
             }
           />

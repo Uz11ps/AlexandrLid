@@ -23,8 +23,10 @@ import {
   DialogActions,
   Alert,
   LinearProgress,
-  Avatar
+  Avatar,
+  IconButton
 } from '@mui/material';
+import { Edit as EditIcon, Delete as DeleteIcon, CheckCircle as CheckCircleIcon } from '@mui/icons-material';
 import { leadsAPI } from '../api/leads';
 import { tasksAPI } from '../api/tasks';
 import { funnelAPI } from '../api/funnel';
@@ -51,6 +53,8 @@ function LeadDetail() {
   const [messageText, setMessageText] = useState('');
   const [messageDialogOpen, setMessageDialogOpen] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [reminders, setReminders] = useState([]);
+  const [editingReminder, setEditingReminder] = useState(null);
   const [taskData, setTaskData] = useState({
     title: '',
     description: '',
@@ -63,7 +67,17 @@ function LeadDetail() {
   useEffect(() => {
     loadFunnelStages();
     loadLead();
+    loadReminders();
   }, [id]);
+
+  const loadReminders = async () => {
+    try {
+      const response = await tasksAPI.getAll({ lead_id: id, task_type: 'reminder' });
+      setReminders(response.data.tasks || []);
+    } catch (error) {
+      console.error('Error loading reminders:', error);
+    }
+  };
 
   const loadFunnelStages = async () => {
     try {
@@ -130,10 +144,15 @@ function LeadDetail() {
     if (!taskData.title || !taskData.due_date) return;
 
     try {
+      const dueDateTime = taskData.due_time 
+        ? `${taskData.due_date}T${taskData.due_time}:00`
+        : `${taskData.due_date}T12:00:00`;
+      
       await tasksAPI.create({
         ...taskData,
         lead_id: parseInt(id),
-        task_type: 'reminder'
+        task_type: 'reminder',
+        due_date: dueDateTime
       });
       setTaskData({
         title: '',
@@ -143,10 +162,81 @@ function LeadDetail() {
         priority: 'normal'
       });
       setTaskDialogOpen(false);
-      setSuccess('Задача создана');
+      setEditingReminder(null);
+      setSuccess('Напоминание создано');
       setTimeout(() => setSuccess(''), 3000);
+      loadReminders();
     } catch (error) {
       console.error('Error creating task:', error);
+      alert('Ошибка при создании напоминания');
+    }
+  };
+
+  const handleEditReminder = (reminder) => {
+    setEditingReminder(reminder);
+    const dueDate = new Date(reminder.due_date);
+    setTaskData({
+      title: reminder.title || '',
+      description: reminder.description || '',
+      due_date: dueDate.toISOString().split('T')[0],
+      due_time: reminder.due_time || '',
+      priority: reminder.priority || 'normal'
+    });
+    setTaskDialogOpen(true);
+  };
+
+  const handleUpdateReminder = async () => {
+    if (!taskData.title || !taskData.due_date) return;
+
+    try {
+      const dueDateTime = taskData.due_time 
+        ? `${taskData.due_date}T${taskData.due_time}:00`
+        : `${taskData.due_date}T12:00:00`;
+      
+      await tasksAPI.update(editingReminder.id, {
+        ...taskData,
+        due_date: dueDateTime
+      });
+      setTaskData({
+        title: '',
+        description: '',
+        due_date: '',
+        due_time: '',
+        priority: 'normal'
+      });
+      setTaskDialogOpen(false);
+      setEditingReminder(null);
+      setSuccess('Напоминание обновлено');
+      setTimeout(() => setSuccess(''), 3000);
+      loadReminders();
+    } catch (error) {
+      console.error('Error updating reminder:', error);
+      alert('Ошибка при обновлении напоминания');
+    }
+  };
+
+  const handleDeleteReminder = async (reminderId) => {
+    if (!window.confirm('Вы уверены, что хотите удалить это напоминание?')) return;
+    try {
+      await tasksAPI.delete(reminderId);
+      setSuccess('Напоминание удалено');
+      setTimeout(() => setSuccess(''), 3000);
+      loadReminders();
+    } catch (error) {
+      console.error('Error deleting reminder:', error);
+      alert('Ошибка при удалении напоминания');
+    }
+  };
+
+  const handleCompleteReminder = async (reminderId) => {
+    try {
+      await tasksAPI.update(reminderId, { status: 'completed' });
+      setSuccess('Напоминание выполнено');
+      setTimeout(() => setSuccess(''), 3000);
+      loadReminders();
+    } catch (error) {
+      console.error('Error completing reminder:', error);
+      alert('Ошибка при обновлении статуса');
     }
   };
 
@@ -368,6 +458,106 @@ function LeadDetail() {
               </Box>
             </Paper>
 
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6" gutterBottom sx={{ mb: 0 }}>
+                  Напоминания
+                </Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    setEditingReminder(null);
+                    setTaskData({
+                      title: '',
+                      description: '',
+                      due_date: '',
+                      due_time: '',
+                      priority: 'normal'
+                    });
+                    setTaskDialogOpen(true);
+                  }}
+                >
+                  Добавить
+                </Button>
+              </Box>
+              {reminders.length === 0 ? (
+                <Typography variant="body2" color="textSecondary" sx={{ p: 2, textAlign: 'center' }}>
+                  Напоминания не добавлены
+                </Typography>
+              ) : (
+                <List>
+                  {reminders.map((reminder) => (
+                    <ListItem
+                      key={reminder.id}
+                      sx={{
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        mb: 1,
+                        bgcolor: reminder.status === 'completed' ? 'action.disabledBackground' : 'background.paper'
+                      }}
+                    >
+                      <ListItemText
+                        primary={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="body1" fontWeight="bold">
+                              {reminder.title}
+                            </Typography>
+                            <Chip
+                              label={reminder.status === 'completed' ? 'Выполнено' : reminder.status}
+                              color={reminder.status === 'completed' ? 'success' : 'default'}
+                              size="small"
+                            />
+                            <Chip
+                              label={reminder.priority}
+                              color={reminder.priority === 'urgent' ? 'error' : reminder.priority === 'high' ? 'warning' : 'default'}
+                              size="small"
+                            />
+                          </Box>
+                        }
+                        secondary={
+                          <Box>
+                            <Typography variant="body2" color="textSecondary">
+                              {reminder.description}
+                            </Typography>
+                            <Typography variant="caption" color="textSecondary">
+                              {new Date(reminder.due_date).toLocaleString('ru-RU')}
+                              {reminder.due_time && ` ${reminder.due_time}`}
+                            </Typography>
+                          </Box>
+                        }
+                      />
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        {reminder.status !== 'completed' && (
+                          <IconButton
+                            size="small"
+                            color="success"
+                            onClick={() => handleCompleteReminder(reminder.id)}
+                          >
+                            <CheckCircleIcon />
+                          </IconButton>
+                        )}
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditReminder(reminder)}
+                        >
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteReminder(reminder.id)}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Box>
+                    </ListItem>
+                  ))}
+                </List>
+              )}
+            </Paper>
+
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>
                 Комментарии менеджеров
@@ -415,12 +605,6 @@ function LeadDetail() {
                 >
                   Написать в Telegram
                 </Button>
-                <Button
-                  variant="outlined"
-                  onClick={() => setTaskDialogOpen(true)}
-                >
-                  Создать напоминание
-                </Button>
               </Box>
             </Paper>
 
@@ -466,8 +650,18 @@ function LeadDetail() {
       </Dialog>
 
       {/* Task Dialog */}
-      <Dialog open={taskDialogOpen} onClose={() => setTaskDialogOpen(false)}>
-        <DialogTitle>Создать напоминание</DialogTitle>
+      <Dialog open={taskDialogOpen} onClose={() => {
+        setTaskDialogOpen(false);
+        setEditingReminder(null);
+        setTaskData({
+          title: '',
+          description: '',
+          due_date: '',
+          due_time: '',
+          priority: 'normal'
+        });
+      }} maxWidth="sm" fullWidth>
+        <DialogTitle>{editingReminder ? 'Редактировать напоминание' : 'Создать напоминание'}</DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
@@ -518,9 +712,22 @@ function LeadDetail() {
           </FormControl>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setTaskDialogOpen(false)}>Отмена</Button>
-          <Button onClick={handleCreateTask} variant="contained">
-            Создать
+          <Button onClick={() => {
+            setTaskDialogOpen(false);
+            setEditingReminder(null);
+            setTaskData({
+              title: '',
+              description: '',
+              due_date: '',
+              due_time: '',
+              priority: 'normal'
+            });
+          }}>Отмена</Button>
+          <Button 
+            onClick={editingReminder ? handleUpdateReminder : handleCreateTask} 
+            variant="contained"
+          >
+            {editingReminder ? 'Сохранить' : 'Создать'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -34,6 +34,23 @@ export const productsAPI = {
   
   createService: (data) => {
     return axios.post('/api/products/services', data);
+  },
+  
+  // Tariffs
+  getTariffs: (courseId) => {
+    return axios.get(`/api/products/courses/${courseId}/tariffs`);
+  },
+  
+  createTariff: (courseId, data) => {
+    return axios.post(`/api/products/courses/${courseId}/tariffs`, data);
+  },
+  
+  updateTariff: (id, data) => {
+    return axios.put(`/api/products/tariffs/${id}`, data);
+  },
+  
+  deleteTariff: (id) => {
+    return axios.delete(`/api/products/tariffs/${id}`);
   }
 };
 

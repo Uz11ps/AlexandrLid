@@ -23,6 +23,10 @@ export const leadsAPI = {
   
   sendMessage: (id, message_text) => {
     return axios.post(`/api/leads/${id}/message`, { message_text });
+  },
+  
+  delete: (id) => {
+    return axios.delete(`/api/leads/${id}`);
   }
 };
 

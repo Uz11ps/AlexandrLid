@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Container,
   Paper,
@@ -25,6 +26,7 @@ import { Add as AddIcon, Edit as EditIcon } from '@mui/icons-material';
 import { productsAPI } from '../api/products';
 
 function Products() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState(0);
   const [courses, setCourses] = useState([]);
   const [packages, setPackages] = useState([]);
@@ -144,18 +146,20 @@ function Products() {
                   <TableCell>ID</TableCell>
                   <TableCell>Название</TableCell>
                   <TableCell>Описание</TableCell>
-                  <TableCell>Цена</TableCell>
                   <TableCell>Статус</TableCell>
                   <TableCell>Действия</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {courses.map((course) => (
-                  <TableRow key={course.id}>
+                  <TableRow 
+                    key={course.id}
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => navigate(`/products/courses/${course.id}`)}
+                  >
                     <TableCell>{course.id}</TableCell>
                     <TableCell>{course.name}</TableCell>
                     <TableCell>{course.description?.substring(0, 50) || '-'}...</TableCell>
-                    <TableCell>{course.base_price} {course.currency}</TableCell>
                     <TableCell>
                       <Chip
                         label={course.status}
@@ -163,7 +167,7 @@ function Products() {
                         size="small"
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <IconButton size="small" onClick={() => handleEdit(course)}>
                         <EditIcon />
                       </IconButton>
