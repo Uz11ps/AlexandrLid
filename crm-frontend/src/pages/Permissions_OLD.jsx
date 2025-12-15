@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Paper,
@@ -47,22 +47,44 @@ function Permissions() {
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [managersLoaded, setManagersLoaded] = useState(false);
 
-  const loadPermissions = useCallback(async () => {
+  useEffect(() => {
+    const initializeData = async () => {
+      await Promise.all([
+        loadPermissions(),
+        loadManagers()
+      ]);
+    };
+    initializeData();
+  }, []);
+
+  // Загружаем права роли когда permissions загружены и выбрана роль
+  useEffect(() => {
+    if (tab === 0 && selectedRole && permissionsLoaded && permissions.length > 0) {
+      console.log('useEffect: Loading role permissions for:', selectedRole);
+      loadRolePermissions(selectedRole);
+    }
+  }, [tab, selectedRole, permissionsLoaded, permissions.length]);
+
+  // Загружаем права пользователя когда managers и permissions загружены
+  useEffect(() => {
+    if (tab === 1 && selectedUserId && managersLoaded && permissionsLoaded && permissions.length > 0) {
+      loadUserPermissions(selectedUserId);
+    }
+  }, [tab, selectedUserId, managersLoaded, permissionsLoaded]);
+
+  const loadPermissions = async () => {
     try {
-      console.log('Loading permissions...');
       const response = await permissionsAPI.getAll();
       const perms = response.data || [];
-      console.log('Permissions loaded:', perms.length, 'items');
       setPermissions(perms);
       setPermissionsLoaded(true);
-      console.log('permissionsLoaded set to true');
     } catch (error) {
       console.error('Error loading permissions:', error);
       setPermissionsLoaded(true);
     }
-  }, []);
+  };
 
-  const loadManagers = useCallback(async () => {
+  const loadManagers = async () => {
     try {
       const response = await axios.get('/api/managers');
       const mgrs = response.data || [];
@@ -76,9 +98,9 @@ function Permissions() {
       console.error('Error loading managers:', error);
       setManagersLoaded(true);
     }
-  }, [selectedUserId]);
+  };
 
-  const loadRolePermissions = useCallback(async (role) => {
+  const loadRolePermissions = async (role) => {
     try {
       console.log('loadRolePermissions called for role:', role, 'permissionsLoaded:', permissionsLoaded, 'permissions.length:', permissions.length);
       setLoading(true);
@@ -136,9 +158,9 @@ function Permissions() {
     } finally {
       setLoading(false);
     }
-  }, [permissionsLoaded, permissions.length]);
+  };
 
-  const loadUserPermissions = useCallback(async (userId) => {
+  const loadUserPermissions = async (userId) => {
     try {
       setLoading(true);
       
@@ -165,34 +187,7 @@ function Permissions() {
     } finally {
       setLoading(false);
     }
-  }, [permissionsLoaded, permissions.length]);
-
-  // Инициализация данных при монтировании
-  useEffect(() => {
-    const initializeData = async () => {
-      await Promise.all([
-        loadPermissions(),
-        loadManagers()
-      ]);
-    };
-    initializeData();
-  }, [loadPermissions, loadManagers]);
-
-  // Загружаем права роли когда permissions загружены и выбрана роль
-  useEffect(() => {
-    if (tab === 0 && selectedRole && permissionsLoaded && permissions.length > 0) {
-      console.log('useEffect: Loading role permissions for:', selectedRole, 'permissionsLoaded:', permissionsLoaded, 'permissions.length:', permissions.length);
-      loadRolePermissions(selectedRole);
-    }
-  }, [tab, selectedRole, permissionsLoaded, permissions.length, loadRolePermissions]);
-
-  // Загружаем права пользователя когда managers и permissions загружены
-  useEffect(() => {
-    if (tab === 1 && selectedUserId && managersLoaded && permissionsLoaded && permissions.length > 0) {
-      console.log('Loading user permissions for:', selectedUserId);
-      loadUserPermissions(selectedUserId);
-    }
-  }, [tab, selectedUserId, managersLoaded, permissionsLoaded, permissions.length, loadUserPermissions]);
+  };
 
   const handleRolePermissionChange = async (resource, action, granted) => {
     try {
@@ -297,62 +292,62 @@ function Permissions() {
             </FormControl>
           </Box>
 
-          {loading && !permissionsLoaded ? (
+          {loading && permissions.length === 0 ? (
             <Box sx={{ p: 4, textAlign: 'center' }}>
               <Typography variant="body1">Загрузка прав доступа...</Typography>
             </Box>
           ) : (
             <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Раздел</TableCell>
-                    <TableCell align="center">Просмотр</TableCell>
-                    <TableCell align="center">Создание</TableCell>
-                    <TableCell align="center">Редактирование</TableCell>
-                    <TableCell align="center">Удаление</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {RESOURCES.map(resource => (
-                    <TableRow key={resource}>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="bold">
-                          {resource === 'leads' ? 'Лиды' :
-                           resource === 'students' ? 'Студенты' :
-                           resource === 'deals' ? 'Сделки' :
-                           resource === 'products' ? 'Продукты' :
-                           resource === 'tasks' ? 'Задачи' :
-                           resource === 'analytics' ? 'Аналитика' :
-                           resource === 'templates' ? 'Шаблоны' :
-                           resource === 'documents' ? 'Документы' :
-                           resource === 'bot_admin' ? 'Админка бота' :
-                           resource === 'chat' ? 'Чат' :
-                           'Права доступа'}
-                        </Typography>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Раздел</TableCell>
+                  <TableCell align="center">Просмотр</TableCell>
+                  <TableCell align="center">Создание</TableCell>
+                  <TableCell align="center">Редактирование</TableCell>
+                  <TableCell align="center">Удаление</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {RESOURCES.map(resource => (
+                  <TableRow key={resource}>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="bold">
+                        {resource === 'leads' ? 'Лиды' :
+                         resource === 'students' ? 'Студенты' :
+                         resource === 'deals' ? 'Сделки' :
+                         resource === 'products' ? 'Продукты' :
+                         resource === 'tasks' ? 'Задачи' :
+                         resource === 'analytics' ? 'Аналитика' :
+                         resource === 'templates' ? 'Шаблоны' :
+                         resource === 'documents' ? 'Документы' :
+                         resource === 'bot_admin' ? 'Админка бота' :
+                         resource === 'chat' ? 'Чат' :
+                         'Права доступа'}
+                      </Typography>
+                    </TableCell>
+                    {ACTIONS.map(action => (
+                      <TableCell key={action} align="center">
+                        {action === 'read' ? (
+                          <Checkbox
+                            checked={isPermissionGranted(resource, action, true)}
+                            onChange={(e) => handleRolePermissionChange(resource, action, e.target.checked)}
+                            disabled={selectedRole === 'admin'}
+                          />
+                        ) : (
+                          <Checkbox
+                            checked={isPermissionGranted(resource, action, true)}
+                            onChange={(e) => handleRolePermissionChange(resource, action, e.target.checked)}
+                            disabled={selectedRole === 'admin' || !isPermissionGranted(resource, 'read', true)}
+                          />
+                        )}
                       </TableCell>
-                      {ACTIONS.map(action => (
-                        <TableCell key={action} align="center">
-                          {action === 'read' ? (
-                            <Checkbox
-                              checked={isPermissionGranted(resource, action, true)}
-                              onChange={(e) => handleRolePermissionChange(resource, action, e.target.checked)}
-                              disabled={selectedRole === 'admin'}
-                            />
-                          ) : (
-                            <Checkbox
-                              checked={isPermissionGranted(resource, action, true)}
-                              onChange={(e) => handleRolePermissionChange(resource, action, e.target.checked)}
-                              disabled={selectedRole === 'admin' || !isPermissionGranted(resource, 'read', true)}
-                            />
-                          )}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
           )}
         </Paper>
       )}
@@ -376,7 +371,7 @@ function Permissions() {
             </FormControl>
           </Box>
 
-          {loading && !permissionsLoaded ? (
+          {loading && permissions.length === 0 ? (
             <Box sx={{ p: 4, textAlign: 'center' }}>
               <Typography variant="body1">Загрузка прав доступа...</Typography>
             </Box>
