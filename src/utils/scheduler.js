@@ -29,10 +29,19 @@ export function initScheduler(bot) {
       // Получаем текущее UTC время для сравнения
       const nowUTC = new Date();
 
+      console.log(`[Scheduler] Начинаем обработку ${scheduledBroadcasts.length} рассылок...`);
+      
       for (const broadcast of scheduledBroadcasts) {
-        // scheduled_at хранится в БД в UTC
-        const scheduledAtUTC = new Date(broadcast.scheduled_at);
-        const createdAtUTC = new Date(broadcast.created_at);
+        try {
+          // scheduled_at хранится в БД в UTC (нормализовано в getScheduledBroadcasts)
+          // broadcast.scheduled_at уже должна быть ISO строка UTC после нормализации
+          const scheduledAtUTC = new Date(broadcast.scheduled_at);
+          const createdAtUTC = new Date(broadcast.created_at);
+          
+          if (isNaN(scheduledAtUTC.getTime())) {
+            console.error(`[Scheduler] Ошибка: некорректное время scheduled_at для рассылки ${broadcast.id}: ${broadcast.scheduled_at}`);
+            continue;
+          }
         
         // Проверяем, что рассылка была создана хотя бы 10 секунд назад
         // Это предотвращает отправку рассылок, которые только что созданы
@@ -121,7 +130,13 @@ export function initScheduler(bot) {
         } else {
           console.log(`⚠️ [Scheduler] Рассылка ${broadcast.id} пропущена (прошло ${Math.round(timeDiff / 60000)} минут, более 24 часов)`);
         }
+        } catch (error) {
+          console.error(`[Scheduler] Ошибка при обработке рассылки ${broadcast.id}:`, error);
+          console.error(`  Stack:`, error.stack);
+        }
       }
+      
+      console.log(`[Scheduler] Завершена обработка рассылок\n`);
     } catch (error) {
       console.error('❌ Ошибка в планировщике рассылок:', error);
       console.error('  Stack:', error.stack);
