@@ -31,12 +31,16 @@ export function initScheduler(bot) {
         console.log(`  Разница (минуты): ${(nowUTC.getTime() - scheduledAtUTC.getTime()) / 60000}`);
         
         // Если время наступило (рассылка должна быть отправлена)
-        // Сравниваем с запасом в 2 минуты, чтобы учесть задержки выполнения cron
+        // Расширяем окно проверки до 24 часов, чтобы рассылки, созданные позже запланированного времени, тоже отправлялись
         const timeDiff = nowUTC.getTime() - scheduledAtUTC.getTime();
-        if (timeDiff >= 0 && timeDiff < 120000) { // В пределах 2 минут после запланированного времени
+        const maxDelay = 24 * 60 * 60 * 1000; // 24 часа в миллисекундах
+        
+        if (timeDiff >= 0 && timeDiff < maxDelay) {
+          // Время наступило и не прошло более 24 часов
           console.log(`⏰ [Scheduler] Отправка запланированной рассылки: ${broadcast.id}`);
           console.log(`  Запланировано на (UTC): ${scheduledAtUTC.toISOString()}`);
           console.log(`  Текущее время (UTC): ${nowUTC.toISOString()}`);
+          console.log(`  Прошло времени: ${Math.round(timeDiff / 60000)} минут`);
           
           try {
             // Импортируем функцию отправки
@@ -65,7 +69,7 @@ export function initScheduler(bot) {
         } else if (timeDiff < 0) {
           console.log(`⏳ [Scheduler] Рассылка ${broadcast.id} еще не наступила (осталось ${Math.abs(timeDiff / 60000)} минут)`);
         } else {
-          console.log(`⚠️ [Scheduler] Рассылка ${broadcast.id} пропущена (прошло ${timeDiff / 60000} минут)`);
+          console.log(`⚠️ [Scheduler] Рассылка ${broadcast.id} пропущена (прошло ${Math.round(timeDiff / 60000)} минут, более 24 часов)`);
         }
       }
     } catch (error) {

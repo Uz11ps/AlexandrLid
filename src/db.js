@@ -328,12 +328,13 @@ export const db = {
   async getScheduledBroadcasts() {
     // Выбираем рассылки со статусом 'scheduled', которые должны быть отправлены
     // scheduled_at хранится в UTC в БД
-    // Сравниваем с текущим UTC временем (NOW() возвращает UTC при правильной настройке timezone)
+    // Расширяем окно проверки до 24 часов, чтобы рассылки, созданные позже запланированного времени, тоже отправлялись
     const result = await pool.query(
       `SELECT * FROM broadcasts 
        WHERE status = 'scheduled' 
        AND scheduled_at IS NOT NULL
        AND scheduled_at <= (NOW() AT TIME ZONE 'UTC' + INTERVAL '2 minutes')
+       AND scheduled_at >= (NOW() AT TIME ZONE 'UTC' - INTERVAL '24 hours')
        ORDER BY scheduled_at ASC`
     );
     return result.rows.map(row => {
@@ -403,6 +404,10 @@ export const db = {
       case 'all':
         // Все пользователи
         break;
+      case 'active':
+        // Активные пользователи (за последние 30 дней)
+        query += " AND created_at >= NOW() - INTERVAL '30 days'";
+        break;
       case 'active_7':
         query += " AND created_at >= NOW() - INTERVAL '7 days'";
         break;
@@ -431,6 +436,9 @@ export const db = {
         query += " AND created_at < NOW() - INTERVAL '30 days'";
         break;
     }
+
+    // Исключаем заблокированных пользователей
+    query += ' AND user_id NOT IN (SELECT user_id FROM blacklist)';
 
     const result = await pool.query(query, params);
     return result.rows.map(row => row.user_id);
