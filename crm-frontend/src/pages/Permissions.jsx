@@ -140,11 +140,14 @@ function Permissions() {
 
   const loadUserPermissions = useCallback(async (userId) => {
     try {
-      console.log('loadUserPermissions called for userId:', userId);
+      console.log('loadUserPermissions called for userId:', userId, 'type:', typeof userId);
       setLoading(true);
       
-      const response = await permissionsAPI.getUserPermissions(userId);
+      // Убеждаемся, что userId - это строка или число
+      const userIdStr = userId.toString();
+      const response = await permissionsAPI.getUserPermissions(userIdStr);
       console.log('User permissions response:', response.data?.length || 0, 'items', response.data);
+      
       const permissionsMap = {};
       
       // Сначала инициализируем все ресурсы и действия как false
@@ -156,18 +159,24 @@ function Permissions() {
       });
       
       // Затем обновляем те, которые есть в ответе
-      if (response.data && response.data.length > 0) {
+      if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+        console.log('Processing', response.data.length, 'permissions from API');
         response.data.forEach(p => {
-          if (RESOURCES.includes(p.resource) && ACTIONS.includes(p.action)) {
+          if (p.resource && p.action !== undefined) {
             if (!permissionsMap[p.resource]) {
               permissionsMap[p.resource] = {};
             }
-            permissionsMap[p.resource][p.action] = p.granted === true;
+            // Убеждаемся, что granted - это boolean true
+            permissionsMap[p.resource][p.action] = p.granted === true || p.granted === 'true';
+            console.log(`Set ${p.resource}.${p.action} = ${permissionsMap[p.resource][p.action]}`);
           }
         });
+      } else {
+        console.log('No permissions data in response or empty array');
       }
       
-      console.log('Setting userPermissions:', Object.keys(permissionsMap).length, 'resources', permissionsMap);
+      console.log('Final permissionsMap:', permissionsMap);
+      console.log('Setting userPermissions with', Object.keys(permissionsMap).length, 'resources');
       setUserPermissions(permissionsMap);
       setLoading(false);
     } catch (error) {
