@@ -41,7 +41,7 @@ function Permissions() {
   const [rolePermissions, setRolePermissions] = useState({});
   const [userPermissions, setUserPermissions] = useState({});
   const [selectedRole, setSelectedRole] = useState('admin');
-  const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState(null);
   const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
