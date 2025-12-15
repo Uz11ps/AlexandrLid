@@ -1436,7 +1436,7 @@ function BotAdmin() {
             value={newBroadcast.scheduled_at}
             onChange={(e) => setNewBroadcast({ ...newBroadcast, scheduled_at: e.target.value })}
             InputLabelProps={{ shrink: true }}
-            helperText={`Время указывается в вашем локальном времени (${Intl.DateTimeFormat().resolvedOptions().timeZone}). Сервер: ${settings.server_timezone || 'UTC'}`}
+            helperText="Время указывается в московском времени (Europe/Moscow, UTC+3)"
             sx={{ mt: 2 }}
           />
           <FormControl fullWidth sx={{ mt: 2 }}>
