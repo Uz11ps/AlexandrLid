@@ -218,21 +218,6 @@ function Permissions() {
     }
   }, [tab, selectedUserId, managersLoaded, permissionsLoaded, permissions.length, loadUserPermissions]);
 
-  // Принудительная загрузка прав при переключении на вкладку пользователей
-  useEffect(() => {
-    if (tab === 1) {
-      console.log('Tab switched to users tab, selectedUserId:', selectedUserId, 'managersLoaded:', managersLoaded, 'permissionsLoaded:', permissionsLoaded);
-      // Если все данные загружены, загружаем права
-      if (selectedUserId && managersLoaded && permissionsLoaded && permissions.length > 0) {
-        console.log('Loading user permissions immediately for:', selectedUserId);
-        loadUserPermissions(selectedUserId);
-      } else {
-        // Если данные еще не загружены, ждем их загрузки
-        console.log('Waiting for data to load before loading user permissions');
-      }
-    }
-  }, [tab, selectedUserId, managersLoaded, permissionsLoaded, permissions.length, loadUserPermissions]);
-
   const handleRolePermissionChange = async (resource, action, granted) => {
     try {
       // Для роли admin нельзя изменять права
