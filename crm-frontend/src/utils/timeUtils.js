@@ -54,13 +54,35 @@ export function formatMoscowTime(utcDate, options = {}) {
     const utcMinutes = date.getUTCMinutes();
     const utcSeconds = date.getUTCSeconds();
     
-    // Добавляем 3 часа для московского времени
-    const moscowHours = utcHours + 3;
+    // Отладочный вывод (можно удалить после исправления)
+    console.log('formatMoscowTime:', {
+      input: utcDate,
+      utcISO: date.toISOString(),
+      utcComponents: { utcYear, utcMonth: utcMonth + 1, utcDay, utcHours, utcMinutes }
+    });
     
-    // Создаем новую дату с московским временем
-    // Используем Date.UTC для создания правильного timestamp
-    const moscowTimestamp = Date.UTC(utcYear, utcMonth, utcDay, moscowHours, utcMinutes, utcSeconds);
-    const moscowDate = new Date(moscowTimestamp);
+    // Добавляем 3 часа для московского времени
+    let moscowHours = utcHours + 3;
+    let moscowDay = utcDay;
+    let moscowMonth = utcMonth;
+    let moscowYear = utcYear;
+    
+    // Обработка перехода через полночь (если часы >= 24)
+    if (moscowHours >= 24) {
+      moscowHours -= 24;
+      moscowDay += 1;
+      // Проверка перехода через месяц
+      const daysInMonth = new Date(moscowYear, moscowMonth + 1, 0).getDate();
+      if (moscowDay > daysInMonth) {
+        moscowDay = 1;
+        moscowMonth += 1;
+        // Проверка перехода через год
+        if (moscowMonth >= 12) {
+          moscowMonth = 0;
+          moscowYear += 1;
+        }
+      }
+    }
     
     const {
       includeDate = true,
@@ -68,29 +90,25 @@ export function formatMoscowTime(utcDate, options = {}) {
       format = 'ru-RU'
     } = options;
     
-    // Извлекаем компоненты московского времени
-    const year = moscowDate.getUTCFullYear();
-    const month = String(moscowDate.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(moscowDate.getUTCDate()).padStart(2, '0');
-    const hours = String(moscowDate.getUTCHours()).padStart(2, '0');
-    const minutes = String(moscowDate.getUTCMinutes()).padStart(2, '0');
+    // Форматируем результат
+    const year = moscowYear;
+    const month = String(moscowMonth + 1).padStart(2, '0');
+    const day = String(moscowDay).padStart(2, '0');
+    const hours = String(moscowHours).padStart(2, '0');
+    const minutes = String(utcMinutes).padStart(2, '0');
     
-    if (format === 'datetime-local') {
-      // Формат для input[type="datetime-local"]: YYYY-MM-DDTHH:mm
-      return `${year}-${month}-${day}T${hours}:${minutes}`;
-    }
+    const result = format === 'datetime-local' 
+      ? `${year}-${month}-${day}T${hours}:${minutes}`
+      : (includeDate && includeTime 
+          ? `${day}.${month}.${year}, ${hours}:${minutes}`
+          : includeDate 
+            ? `${day}.${month}.${year}`
+            : includeTime 
+              ? `${hours}:${minutes}`
+              : '-');
     
-    if (format === 'ru-RU') {
-      if (includeDate && includeTime) {
-        return `${day}.${month}.${year}, ${hours}:${minutes}`;
-      } else if (includeDate) {
-        return `${day}.${month}.${year}`;
-      } else if (includeTime) {
-        return `${hours}:${minutes}`;
-      }
-    }
-    
-    return '-';
+    console.log('formatMoscowTime result:', result);
+    return result;
   } catch (error) {
     console.error('Error in formatMoscowTime:', error, utcDate);
     return '-';
