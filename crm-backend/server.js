@@ -162,6 +162,7 @@ app.use('/bot-admin', botAdminRoutes);
 app.use('/tickets', ticketsRoutes);
 app.use('/permissions', permissionsRoutes);
 app.use('/managers', managersRoutes);
+app.use('/roles', rolesRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
