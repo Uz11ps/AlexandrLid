@@ -143,12 +143,20 @@ export function initScheduler(bot) {
         }
       }
       
-      console.log(`[Scheduler] Завершена обработка рассылок\n`);
+      console.log(`⏰ [Scheduler] Завершена обработка рассылок\n`);
     } catch (error) {
       console.error('❌ Ошибка в планировщике рассылок:', error);
       console.error('  Stack:', error.stack);
     }
-  });
+  };
+  
+  // Проверка запланированных рассылок каждую минуту через cron
+  cron.schedule('* * * * *', checkScheduledBroadcasts);
+  
+  // Дополнительно: проверка каждые 30 секунд через setInterval (для надежности)
+  // Это гарантирует, что рассылки не пропустятся даже если cron не сработает
+  setInterval(checkScheduledBroadcasts, 30 * 1000); // Каждые 30 секунд
+  console.log('⏰ [Scheduler] Дополнительная проверка каждые 30 секунд через setInterval запущена');
 
   // Проверка окончания розыгрышей каждые 5 минут
   cron.schedule('*/5 * * * *', async () => {
