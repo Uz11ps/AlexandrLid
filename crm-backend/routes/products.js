@@ -301,9 +301,33 @@ router.put('/tariffs/:id', async (req, res) => {
 router.delete('/tariffs/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // Валидация ID
+    const tariffId = parseInt(id);
+    if (isNaN(tariffId) || tariffId <= 0) {
+      return res.status(400).json({ error: 'Invalid tariff ID' });
+    }
+    
+    // Проверяем, существует ли тариф и не удален ли уже
+    const checkResult = await safeQuery(
+      'SELECT id, name, course_id, is_active FROM course_tariffs WHERE id = $1',
+      [tariffId],
+      'Error checking tariff'
+    );
+    
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Tariff not found' });
+    }
+    
+    const tariff = checkResult.rows[0];
+    if (!tariff.is_active) {
+      return res.status(400).json({ error: 'Tariff already deleted' });
+    }
+    
+    // Выполняем soft delete
     const result = await safeQuery(
-      'UPDATE course_tariffs SET is_active = FALSE WHERE id = $1 RETURNING *',
-      [id],
+      'UPDATE course_tariffs SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *',
+      [tariffId],
       'Error deleting tariff'
     );
     
@@ -311,7 +335,11 @@ router.delete('/tariffs/:id', async (req, res) => {
       return res.status(404).json({ error: 'Tariff not found' });
     }
     
-    res.json({ message: 'Tariff deleted', tariff: result.rows[0] });
+    res.json({ 
+      success: true,
+      message: 'Тариф успешно удален', 
+      tariff: result.rows[0] 
+    });
   } catch (error) {
     if (error.message === 'TABLE_NOT_EXISTS') {
       return res.status(503).json({ 
@@ -321,7 +349,7 @@ router.delete('/tariffs/:id', async (req, res) => {
       });
     }
     console.error('Error deleting tariff:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
