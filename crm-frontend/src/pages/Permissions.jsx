@@ -60,9 +60,10 @@ function Permissions() {
   // Загружаем права роли когда permissions загружены и выбрана роль
   useEffect(() => {
     if (tab === 0 && selectedRole && permissionsLoaded && permissions.length > 0) {
+      console.log('useEffect: Loading role permissions for:', selectedRole);
       loadRolePermissions(selectedRole);
     }
-  }, [tab, selectedRole, permissionsLoaded]);
+  }, [tab, selectedRole, permissionsLoaded, permissions.length]);
 
   // Загружаем права пользователя когда managers и permissions загружены
   useEffect(() => {
