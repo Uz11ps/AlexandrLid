@@ -206,36 +206,43 @@ const broadcastConstructor = new Scenes.WizardScene(
       created_by: ctx.from.id,
     });
 
-    // Предпросмотр
-    const previewOptions = {
-      parse_mode: 'HTML',
-    };
-
-    if (ctx.wizard.state.buttons) {
-      previewOptions.reply_markup = {
-        inline_keyboard: ctx.wizard.state.buttons
+    // Предпросмотр отправляем ТОЛЬКО если рассылка не запланирована (немедленная отправка)
+    // Для запланированных рассылок предпросмотр не нужен, чтобы не путать пользователя
+    if (!scheduledAt) {
+      const previewOptions = {
+        parse_mode: 'HTML',
       };
-    }
 
-    if (ctx.wizard.state.fileId) {
-      if (ctx.wizard.state.messageType === 'photo') {
-        await ctx.replyWithPhoto(ctx.wizard.state.fileId, {
-          caption: ctx.wizard.state.messageText,
-          ...previewOptions
-        });
-      } else if (ctx.wizard.state.messageType === 'video') {
-        await ctx.replyWithVideo(ctx.wizard.state.fileId, {
-          caption: ctx.wizard.state.messageText,
-          ...previewOptions
-        });
+      if (ctx.wizard.state.buttons) {
+        previewOptions.reply_markup = {
+          inline_keyboard: ctx.wizard.state.buttons
+        };
+      }
+
+      console.log(`📋 [BroadcastConstructor] Отправка предпросмотра (рассылка будет отправлена немедленно)`);
+      
+      if (ctx.wizard.state.fileId) {
+        if (ctx.wizard.state.messageType === 'photo') {
+          await ctx.replyWithPhoto(ctx.wizard.state.fileId, {
+            caption: ctx.wizard.state.messageText,
+            ...previewOptions
+          });
+        } else if (ctx.wizard.state.messageType === 'video') {
+          await ctx.replyWithVideo(ctx.wizard.state.fileId, {
+            caption: ctx.wizard.state.messageText,
+            ...previewOptions
+          });
+        } else {
+          await ctx.replyWithDocument(ctx.wizard.state.fileId, {
+            caption: ctx.wizard.state.messageText,
+            ...previewOptions
+          });
+        }
       } else {
-        await ctx.replyWithDocument(ctx.wizard.state.fileId, {
-          caption: ctx.wizard.state.messageText,
-          ...previewOptions
-        });
+        await ctx.reply(ctx.wizard.state.messageText, previewOptions);
       }
     } else {
-      await ctx.reply(ctx.wizard.state.messageText, previewOptions);
+      console.log(`📋 [BroadcastConstructor] Предпросмотр не отправляется (рассылка запланирована)`);
     }
 
     const moscowTimeStr = scheduledAt ? formatMoscowTime(scheduledAt) : null;
