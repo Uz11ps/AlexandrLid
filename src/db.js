@@ -18,9 +18,10 @@ pool.on('connect', async (client) => {
   await client.query('SET timezone = \'Europe/Moscow\'');
 });
 
-// Проверка подключения
-pool.on('connect', () => {
-  console.log('✅ Подключение к базе данных установлено');
+// Проверка подключения и установка московского часового пояса
+pool.on('connect', async (client) => {
+  await client.query('SET timezone = \'Europe/Moscow\'');
+  console.log('✅ Подключение к базе данных установлено (Moscow timezone)');
 });
 
 pool.on('error', (err) => {
