@@ -64,19 +64,25 @@ function Permissions() {
 
   const loadManagers = useCallback(async () => {
     try {
+      console.log('Loading managers...');
       const response = await axios.get('/api/managers');
       const mgrs = response.data || [];
+      console.log('Managers loaded:', mgrs.length, 'items');
       setManagers(mgrs);
       setManagersLoaded(true);
+      console.log('managersLoaded set to true');
       
-      if (mgrs.length > 0 && !selectedUserId) {
-        setSelectedUserId(mgrs[0].id.toString());
+      // Всегда устанавливаем первого пользователя, если список не пустой
+      if (mgrs.length > 0) {
+        const firstUserId = mgrs[0].id.toString();
+        console.log('Setting selectedUserId to:', firstUserId);
+        setSelectedUserId(firstUserId);
       }
     } catch (error) {
       console.error('Error loading managers:', error);
       setManagersLoaded(true);
     }
-  }, [selectedUserId]);
+  }, []);
 
   const loadRolePermissions = useCallback(async (role) => {
     try {
@@ -214,15 +220,18 @@ function Permissions() {
 
   // Принудительная загрузка прав при переключении на вкладку пользователей
   useEffect(() => {
-    if (tab === 1 && selectedUserId && managersLoaded && permissionsLoaded && permissions.length > 0) {
-      console.log('Tab switched to users, loading permissions for:', selectedUserId);
-      // Небольшая задержка для гарантии, что предыдущий эффект не мешает
-      const timer = setTimeout(() => {
+    if (tab === 1) {
+      console.log('Tab switched to users tab, selectedUserId:', selectedUserId, 'managersLoaded:', managersLoaded, 'permissionsLoaded:', permissionsLoaded);
+      // Если все данные загружены, загружаем права
+      if (selectedUserId && managersLoaded && permissionsLoaded && permissions.length > 0) {
+        console.log('Loading user permissions immediately for:', selectedUserId);
         loadUserPermissions(selectedUserId);
-      }, 100);
-      return () => clearTimeout(timer);
+      } else {
+        // Если данные еще не загружены, ждем их загрузки
+        console.log('Waiting for data to load before loading user permissions');
+      }
     }
-  }, [tab]);
+  }, [tab, selectedUserId, managersLoaded, permissionsLoaded, permissions.length, loadUserPermissions]);
 
   const handleRolePermissionChange = async (resource, action, granted) => {
     try {
