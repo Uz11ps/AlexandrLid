@@ -27,6 +27,31 @@ pool.on('connect', async (client) => {
   await client.query('SET timezone = \'Europe/Moscow\'');
 });
 
+/**
+ * Нормализует время из БД в UTC
+ * PostgreSQL возвращает TIMESTAMP как локальное время сервера (Moscow),
+ * но мы сохраняем его как UTC, поэтому нужно скорректировать
+ */
+function normalizeUTCTime(dbValue) {
+  if (!dbValue) return null;
+  
+  if (dbValue instanceof Date) {
+    // PostgreSQL вернул Date объект, интерпретированный как MSK
+    // Но на самом деле это UTC, поэтому вычитаем 3 часа
+    const mskTimestamp = dbValue.getTime();
+    const utcTimestamp = mskTimestamp - (3 * 60 * 60 * 1000);
+    return new Date(utcTimestamp);
+  } else if (typeof dbValue === 'string') {
+    // Если это строка, парсим как UTC
+    const dateStr = dbValue.endsWith('Z') || dbValue.includes('+') || dbValue.includes('-') 
+      ? dbValue 
+      : dbValue + 'Z';
+    return new Date(dateStr);
+  }
+  
+  return new Date(dbValue);
+}
+
 // Проверка подключения и установка московского часового пояса
 pool.on('connect', async (client) => {
   await client.query('SET timezone = \'Europe/Moscow\'');
@@ -309,13 +334,15 @@ export const db = {
       [title, message_text, message_type || 'text', file_id || null, buttons ? JSON.stringify(buttons) : null, segment || null, scheduledAtISO, created_by || null]
     );
     
-    // Проверяем, что сохранилось правильно
+    // Нормализуем scheduled_at из БД (PostgreSQL возвращает его как MSK, но это должно быть UTC)
     if (result.rows[0]?.scheduled_at) {
-      const savedDate = new Date(result.rows[0].scheduled_at);
+      const normalizedDate = normalizeUTCTime(result.rows[0].scheduled_at);
+      result.rows[0].scheduled_at = normalizedDate.toISOString();
+      
       console.log(`  ✅ Сохранено в БД:`);
-      console.log(`    scheduled_at (из БД): ${result.rows[0].scheduled_at}`);
-      console.log(`    scheduled_at (UTC ISO): ${savedDate.toISOString()}`);
-      console.log(`    scheduled_at (UTC timestamp): ${savedDate.getTime()}`);
+      console.log(`    scheduled_at (из БД raw): ${result.rows[0].scheduled_at}`);
+      console.log(`    scheduled_at (нормализовано UTC ISO): ${normalizedDate.toISOString()}`);
+      console.log(`    scheduled_at (UTC timestamp): ${normalizedDate.getTime()}`);
     }
     
     const broadcast = result.rows[0];
@@ -342,6 +369,10 @@ export const db = {
         buttons = null;
       }
     }
+    // Нормализуем scheduled_at
+    if (row.scheduled_at) {
+      row.scheduled_at = normalizeUTCTime(row.scheduled_at).toISOString();
+    }
     return {
       ...row,
       buttons
@@ -364,6 +395,10 @@ export const db = {
           console.error('Ошибка при парсинге buttons:', error);
           buttons = null;
         }
+      }
+      // Нормализуем scheduled_at
+      if (row.scheduled_at) {
+        row.scheduled_at = normalizeUTCTime(row.scheduled_at).toISOString();
       }
       return {
         ...row,
@@ -398,6 +433,10 @@ export const db = {
           console.error('Ошибка при парсинге buttons:', error);
           buttons = null;
         }
+      }
+      // Нормализуем scheduled_at
+      if (row.scheduled_at) {
+        row.scheduled_at = normalizeUTCTime(row.scheduled_at).toISOString();
       }
       return {
         ...row,
