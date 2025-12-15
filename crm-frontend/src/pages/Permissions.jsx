@@ -134,15 +134,8 @@ function Permissions() {
 
   const loadUserPermissions = useCallback(async (userId) => {
     try {
-      console.log('loadUserPermissions called for userId:', userId, 'permissionsLoaded:', permissionsLoaded, 'permissions.length:', permissions.length);
+      console.log('loadUserPermissions called for userId:', userId);
       setLoading(true);
-      
-      // Если permissions еще не загружены, ждем их загрузки
-      if (!permissionsLoaded || permissions.length === 0) {
-        console.log('Waiting for permissions to load...');
-        setLoading(false);
-        return;
-      }
       
       const response = await permissionsAPI.getUserPermissions(userId);
       console.log('User permissions response:', response.data?.length || 0, 'items', response.data);
@@ -162,7 +155,7 @@ function Permissions() {
     } finally {
       setLoading(false);
     }
-  }, [permissionsLoaded, permissions.length]);
+  }, []);
 
   // Инициализация данных при монтировании
   useEffect(() => {
@@ -222,7 +215,9 @@ function Permissions() {
   // Загружаем права пользователя когда managers и permissions загружены
   useEffect(() => {
     if (tab === 1 && selectedUserId && managersLoaded && permissionsLoaded && permissions.length > 0) {
-      console.log('Loading user permissions for:', selectedUserId, 'permissionsLoaded:', permissionsLoaded, 'permissions.length:', permissions.length);
+      console.log('useEffect: Loading user permissions for:', selectedUserId, 'permissionsLoaded:', permissionsLoaded, 'permissions.length:', permissions.length, 'userPermissions keys:', Object.keys(userPermissions).length);
+      // Загружаем права только если они еще не загружены для этого пользователя
+      // или если выбран другой пользователь
       loadUserPermissions(selectedUserId);
     }
   }, [tab, selectedUserId, managersLoaded, permissionsLoaded, permissions.length, loadUserPermissions]);
