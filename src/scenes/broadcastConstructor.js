@@ -150,19 +150,42 @@ const broadcastConstructor = new Scenes.WizardScene(
     } else {
       // Парсинг даты и времени в московском формате
       const dateTimeStr = ctx.message.text;
+      console.log(`\n📅 [BroadcastConstructor] Парсинг времени: "${dateTimeStr}"`);
+      
       scheduledAt = parseMoscowDateTime(dateTimeStr);
       
       if (!scheduledAt || isNaN(scheduledAt.getTime())) {
+        console.error(`❌ [BroadcastConstructor] Неверный формат времени: "${dateTimeStr}"`);
         await ctx.reply('❌ Неверный формат даты. Используйте: ДД.ММ.ГГГГ ЧЧ:ММ (московское время)');
         return;
       }
 
-      // Проверяем, что время в будущем (в московском времени)
       const nowUTC = new Date();
+      const moscowTime = new Date(scheduledAt.getTime() + (3 * 60 * 60 * 1000));
+      const moscowStr = moscowTime.toLocaleString('ru-RU', { 
+        timeZone: 'UTC',
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+      
+      console.log(`  Входное время (MSK): ${dateTimeStr}`);
+      console.log(`  Распарсенное UTC: ${scheduledAt.toISOString()}`);
+      console.log(`  Для отображения MSK: ${moscowStr}`);
+      console.log(`  Текущее UTC: ${nowUTC.toISOString()}`);
+      console.log(`  Разница: ${((scheduledAt.getTime() - nowUTC.getTime()) / 60000).toFixed(1)} минут`);
+
+      // Проверяем, что время в будущем (в UTC)
       if (scheduledAt <= nowUTC) {
-        await ctx.reply('❌ Указанная дата в прошлом. Выберите будущую дату.');
+        const diffMinutes = (nowUTC.getTime() - scheduledAt.getTime()) / 60000;
+        console.error(`❌ [BroadcastConstructor] Время в прошлом! Разница: ${diffMinutes.toFixed(1)} минут`);
+        await ctx.reply(`❌ Указанная дата в прошлом (прошло ${Math.round(diffMinutes)} минут). Выберите будущую дату.`);
         return;
       }
+      
+      console.log(`✅ [BroadcastConstructor] Время валидно, рассылка будет запланирована`);
     }
 
     // Сохранение рассылки
@@ -209,18 +232,46 @@ const broadcastConstructor = new Scenes.WizardScene(
       await ctx.reply(ctx.wizard.state.messageText, previewOptions);
     }
 
+    const moscowTimeStr = scheduledAt ? formatMoscowTime(scheduledAt) : null;
+    
+    console.log(`\n📢 [BroadcastConstructor] Рассылка создана:`);
+    console.log(`  ID: ${broadcast.id}`);
+    console.log(`  Название: "${ctx.wizard.state.title}"`);
+    console.log(`  Сегмент: ${ctx.wizard.state.segment}`);
+    console.log(`  scheduled_at в БД: ${broadcast.scheduled_at || 'null'}`);
+    console.log(`  Статус в БД: ${broadcast.status || 'не установлен'}`);
+    
+    if (scheduledAt) {
+      const moscowTime = new Date(scheduledAt.getTime() + (3 * 60 * 60 * 1000));
+      const moscowStr = moscowTime.toLocaleString('ru-RU', { 
+        timeZone: 'UTC',
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+      console.log(`  Запланировано на (MSK): ${moscowStr}`);
+      console.log(`  Запланировано на (UTC): ${scheduledAt.toISOString()}`);
+    } else {
+      console.log(`  Отправка: немедленная`);
+    }
+
     await ctx.reply(
       `✅ Рассылка "${ctx.wizard.state.title}" создана!\n\n` +
       `Сегмент: ${ctx.wizard.state.segment}\n` +
-      `${scheduledAt ? `Запланирована на: ${formatMoscowTime(scheduledAt)} (московское время)` : 'Будет отправлена сейчас'}\n\n` +
-      `Для отправки используйте /broadcast_send ${broadcast.id}`
+      `${scheduledAt ? `Запланирована на: ${moscowTimeStr} (московское время)` : 'Будет отправлена сейчас'}\n\n` +
+      `${scheduledAt ? '⏰ Рассылка будет отправлена автоматически в запланированное время' : 'Для отправки используйте /broadcast_send ' + broadcast.id}`
     );
 
     if (!scheduledAt) {
       // Обновляем статус для немедленной отправки
+      console.log(`  Установка статуса: draft (немедленная отправка)`);
       await db.updateBroadcastStatus(broadcast.id, 'draft');
     } else {
+      console.log(`  Установка статуса: scheduled (запланированная отправка)`);
       await db.updateBroadcastStatus(broadcast.id, 'scheduled');
+      console.log(`✅ [BroadcastConstructor] Рассылка ${broadcast.id} запланирована, будет отправлена автоматически`);
     }
 
     return ctx.scene.leave();
