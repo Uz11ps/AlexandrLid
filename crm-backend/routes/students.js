@@ -225,49 +225,105 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Student not found' });
     }
 
-    console.log(`[Students API] Student ${studentId} exists, lead_id: ${checkResult.rows[0].lead_id}`);
+    const studentCheck = checkResult.rows[0];
+    const leadId = studentCheck.lead_id;
+    console.log(`[Students API] Student ${studentId} exists, lead_id: ${leadId}`);
 
-    // Get student with lead info
-    // Явно перечисляем все колонки для избежания конфликтов имен
-    const studentResult = await pool.query(
-      `SELECT 
-         s.id, s.lead_id, s.contract_number, s.start_date, s.course_id, s.package_id,
-         s.payment_amount, s.payment_currency, s.payment_method, s.payment_status,
-         s.installment_plan, s.installment_amount, s.installment_periods,
-         s.materials_access, s.group_id, s.curator_id, s.progress_percent,
-         s.graduation_date, s.created_at, s.updated_at,
-         l.id as lead_table_id, l.user_id, l.fio, l.phone, l.email, l.telegram_username,
-         l.country, l.city, l.age, l.source, l.utm_source, l.utm_medium, l.utm_campaign,
-         l.referrer_id, l.trading_experience, l.interested_course,
-         l.budget, l.ready_to_start, l.preferred_contact, l.timezone, l.notes,
-         l.status, l.funnel_stage, l.manager_id, l.priority, l.tags,
-         l.is_student, l.converted_to_student_at,
-         c.name as course_name,
-         p.name as package_name,
-         g.name as group_name,
-         m.name as curator_name,
-         m.id as curator_id
-       FROM students s
-       LEFT JOIN leads l ON s.lead_id = l.id
-       LEFT JOIN courses c ON s.course_id = c.id
-       LEFT JOIN packages p ON s.package_id = p.id
-       LEFT JOIN study_groups g ON s.group_id = g.id
-       LEFT JOIN managers m ON s.curator_id = m.id
-       WHERE s.id = $1`,
-      [studentId]
-    );
-
-    console.log(`[Students API] Found ${studentResult.rows.length} student(s) with ID ${studentId} after JOIN`);
-
-    if (studentResult.rows.length === 0) {
-      console.log(`[Students API] Student ${studentId} exists but JOIN query returned no results`);
-      return res.status(500).json({ error: 'Student exists but data loading failed', student_id: studentId });
+    // Получаем данные студента отдельно
+    const studentDataResult = await pool.query('SELECT * FROM students WHERE id = $1', [studentId]);
+    if (studentDataResult.rows.length === 0) {
+      console.log(`[Students API] Student ${studentId} disappeared between checks`);
+      return res.status(404).json({ error: 'Student not found' });
     }
 
-    const student = studentResult.rows[0];
-    const leadId = student.lead_id;
+    const student = studentDataResult.rows[0];
 
-    console.log(`[Students API] Loading additional data for student ${studentId}, lead_id: ${leadId}`);
+    // Получаем данные лида отдельно (если есть)
+    let leadData = null;
+    if (leadId) {
+      try {
+        const leadResult = await pool.query('SELECT * FROM leads WHERE id = $1', [leadId]);
+        if (leadResult.rows.length > 0) {
+          leadData = leadResult.rows[0];
+          console.log(`[Students API] Lead ${leadId} found for student ${studentId}`);
+        } else {
+          console.log(`[Students API] Lead ${leadId} not found for student ${studentId}`);
+        }
+      } catch (error) {
+        console.error(`[Students API] Error fetching lead ${leadId}:`, error);
+      }
+    }
+
+    // Получаем дополнительные данные
+    let courseName = null;
+    if (student.course_id) {
+      try {
+        const courseResult = await pool.query('SELECT name FROM courses WHERE id = $1', [student.course_id]);
+        if (courseResult.rows.length > 0) {
+          courseName = courseResult.rows[0].name;
+        }
+      } catch (error) {
+        console.error(`[Students API] Error fetching course:`, error);
+      }
+    }
+
+    let packageName = null;
+    if (student.package_id) {
+      try {
+        const packageResult = await pool.query('SELECT name FROM packages WHERE id = $1', [student.package_id]);
+        if (packageResult.rows.length > 0) {
+          packageName = packageResult.rows[0].name;
+        }
+      } catch (error) {
+        console.error(`[Students API] Error fetching package:`, error);
+      }
+    }
+
+    let groupName = null;
+    if (student.group_id) {
+      try {
+        const groupResult = await pool.query('SELECT name FROM study_groups WHERE id = $1', [student.group_id]);
+        if (groupResult.rows.length > 0) {
+          groupName = groupResult.rows[0].name;
+        }
+      } catch (error) {
+        console.error(`[Students API] Error fetching group:`, error);
+      }
+    }
+
+    let curatorName = null;
+    let curatorId = null;
+    if (student.curator_id) {
+      try {
+        const curatorResult = await pool.query('SELECT id, name FROM managers WHERE id = $1', [student.curator_id]);
+        if (curatorResult.rows.length > 0) {
+          curatorName = curatorResult.rows[0].name;
+          curatorId = curatorResult.rows[0].id;
+        }
+      } catch (error) {
+        console.error(`[Students API] Error fetching curator:`, error);
+      }
+    }
+
+    // Объединяем данные студента и лида
+    const studentResult = {
+      rows: [{
+        ...student,
+        ...(leadData || {}),
+        course_name: courseName,
+        package_name: packageName,
+        group_name: groupName,
+        curator_name: curatorName,
+        curator_id: curatorId
+      }]
+    };
+
+    console.log(`[Students API] Successfully loaded student ${studentId} with all data`);
+
+    const student = studentResult.rows[0];
+    const finalLeadId = student.lead_id || leadId;
+
+    console.log(`[Students API] Loading additional data for student ${studentId}, lead_id: ${finalLeadId}`);
 
     // Get payments
     const paymentsResult = await pool.query(
@@ -286,36 +342,36 @@ router.get('/:id', async (req, res) => {
     );
 
     // Get tasks related to lead
-    const tasksResult = leadId ? await pool.query(
+    const tasksResult = finalLeadId ? await pool.query(
       `SELECT t.*, m.name as manager_name
        FROM tasks t
        LEFT JOIN managers m ON t.manager_id = m.id
        WHERE t.lead_id = $1
        ORDER BY t.due_date ASC, t.created_at DESC
        LIMIT 50`,
-      [leadId]
+      [finalLeadId]
     ) : { rows: [] };
 
     // Get interactions related to lead
-    const interactionsResult = leadId ? await pool.query(
+    const interactionsResult = finalLeadId ? await pool.query(
       `SELECT li.*, m.name as manager_name
        FROM lead_interactions li
        LEFT JOIN managers m ON li.manager_id = m.id
        WHERE li.lead_id = $1
        ORDER BY li.created_at DESC
        LIMIT 50`,
-      [leadId]
+      [finalLeadId]
     ) : { rows: [] };
 
     // Get comments related to lead
-    const commentsResult = leadId ? await pool.query(
+    const commentsResult = finalLeadId ? await pool.query(
       `SELECT c.*, m.name as manager_name, m.email as manager_email
        FROM lead_comments c
        LEFT JOIN managers m ON c.manager_id = m.id
        WHERE c.lead_id = $1
        ORDER BY c.created_at DESC
        LIMIT 50`,
-      [leadId]
+      [finalLeadId]
     ) : { rows: [] };
 
     // Get documents related to student or lead
@@ -326,7 +382,7 @@ router.get('/:id', async (req, res) => {
        WHERE (d.student_id = $1 OR d.lead_id = $2)
        ORDER BY d.created_at DESC
        LIMIT 50`,
-      [studentId, leadId || null]
+      [studentId, finalLeadId || null]
     );
 
     console.log(`[Students API] Successfully loaded student ${studentId} with all related data`);
