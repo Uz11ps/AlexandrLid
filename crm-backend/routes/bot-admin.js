@@ -175,16 +175,12 @@ router.get('/broadcasts', async (req, res) => {
   try {
     // scheduled_at хранится как TIMESTAMP без timezone, но мы сохраняем UTC значения
     // PostgreSQL интерпретирует TIMESTAMP как локальное время (MSK)
-    // Но мы сохраняем время уже как UTC, поэтому нужно просто преобразовать в timestamptz
+    // Но мы сохраняем время уже как UTC через ::timestamptz, поэтому просто читаем как есть
     const result = await pool.query(
       `SELECT 
         id, title, message_text, message_type, file_id, buttons, segment, 
         status, sent_at, sent_count, error_count, created_by, created_at,
-        CASE 
-          WHEN scheduled_at IS NOT NULL 
-          THEN (scheduled_at AT TIME ZONE 'Europe/Moscow' AT TIME ZONE 'UTC')::timestamptz
-          ELSE NULL 
-        END as scheduled_at
+        scheduled_at
        FROM broadcasts 
        ORDER BY created_at DESC`
     );
@@ -259,9 +255,11 @@ router.post('/broadcasts', async (req, res) => {
       console.log(`  📤 Отправка: немедленная (draft)`);
     }
 
+    // Сохраняем scheduled_at с явным указанием UTC
+    // Используем $4::timestamptz для правильной интерпретации времени как UTC
     const result = await pool.query(
       `INSERT INTO broadcasts (title, message_text, buttons, scheduled_at, segment, status)
-       VALUES ($1, $2, $3, $4, $5, $6)
+       VALUES ($1, $2, $3, $4::timestamptz, $5, $6)
        RETURNING *`,
       [
         title,
@@ -317,7 +315,7 @@ router.put('/broadcasts/:id', async (req, res) => {
           console.error(`Invalid scheduled_at format: "${scheduled_at}"`);
         }
       }
-      updates.push(`scheduled_at = $${paramIndex++}`);
+      updates.push(`scheduled_at = $${paramIndex++}::timestamptz`);
       values.push(scheduledAtUTC || null);
     }
     if (target_audience !== undefined) {
