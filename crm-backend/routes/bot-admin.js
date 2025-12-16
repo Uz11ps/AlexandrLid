@@ -182,7 +182,7 @@ router.get('/broadcasts', async (req, res) => {
         status, sent_at, sent_count, error_count, created_by, created_at,
         CASE 
           WHEN scheduled_at IS NOT NULL 
-          THEN (scheduled_at AT TIME ZONE 'Europe/Moscow' AT TIME ZONE 'UTC')::timestamp
+          THEN scheduled_at - INTERVAL '3 hours'
           ELSE NULL 
         END as scheduled_at
        FROM broadcasts 
