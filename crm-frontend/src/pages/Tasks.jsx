@@ -263,7 +263,7 @@ function Tasks() {
           <Tabs value={tab} onChange={(e, newValue) => setTab(newValue)}>
             <Tab label={`Сегодня (${tasks.today.length})`} />
             <Tab label={`Завтра (${tasks.tomorrow.length})`} />
-            <Tab label={`Предстоящие (${tasks.upcoming.length})`} />
+            <Tab label={`Активные задачи (${tasks.upcoming.length})`} />
           </Tabs>
 
           <Box sx={{ mt: 3 }}>

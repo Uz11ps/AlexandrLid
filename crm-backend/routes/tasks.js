@@ -88,7 +88,9 @@ router.get('/', async (req, res) => {
     } else if (date_filter === 'tomorrow') {
       query += ` AND DATE(t.due_date) = CURRENT_DATE + INTERVAL '1 day'`;
     } else if (date_filter === 'upcoming') {
-      query += ` AND DATE(t.due_date) > CURRENT_DATE`;
+      // Показываем все невыполненные задачи (включая просроченные)
+      // Это задачи со статусом 'new' или 'in_progress', независимо от даты
+      query += ` AND t.status != 'completed'`;
     }
 
     if (due_date_from) {

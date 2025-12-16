@@ -52,10 +52,8 @@ function Products() {
       if (tab === 0) {
         const response = await productsAPI.getCourses();
         setCourses(response.data || []);
-      } else if (tab === 1) {
-        const response = await productsAPI.getPackages();
-        setPackages(response.data || []);
       } else {
+        // tab === 1 - Услуги
         const response = await productsAPI.getServices();
         setServices(response.data || []);
       }
@@ -98,13 +96,8 @@ function Products() {
         } else {
           await productsAPI.createCourse(formData);
         }
-      } else if (tab === 1) {
-        if (editingItem) {
-          // Update package
-        } else {
-          await productsAPI.createPackage(formData);
-        }
       } else {
+        // tab === 1 - Услуги
         if (editingItem) {
           // Update service
         } else {
@@ -134,7 +127,6 @@ function Products() {
 
         <Tabs value={tab} onChange={(e, newValue) => setTab(newValue)} sx={{ mb: 3 }}>
           <Tab label="Курсы" />
-          <Tab label="Тарифы" />
           <Tab label="Услуги" />
         </Tabs>
 
@@ -181,55 +173,6 @@ function Products() {
 
         {tab === 1 && (
           <TableContainer component={Paper}>
-            <Box sx={{ p: 3 }}>
-              <Typography variant="body1" color="text.secondary">
-                Тарифы отображаются внутри каждого курса. Перейдите на страницу курса для управления тарифами.
-              </Typography>
-            </Box>
-          </TableContainer>
-        )}
-
-        {tab === 1 && false && (
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>ID</TableCell>
-                  <TableCell>Название</TableCell>
-                  <TableCell>Курс</TableCell>
-                  <TableCell>Цена</TableCell>
-                  <TableCell>Статус</TableCell>
-                  <TableCell>Действия</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {packages.map((pkg) => (
-                  <TableRow key={pkg.id}>
-                    <TableCell>{pkg.id}</TableCell>
-                    <TableCell>{pkg.name}</TableCell>
-                    <TableCell>{pkg.course_name || '-'}</TableCell>
-                    <TableCell>{pkg.price} {pkg.currency}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={pkg.status}
-                        color={pkg.status === 'active' ? 'success' : 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <IconButton size="small" onClick={() => handleEdit(pkg)}>
-                        <EditIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
-
-        {tab === 2 && (
-          <TableContainer component={Paper}>
             <Table>
               <TableHead>
                 <TableRow>
@@ -264,7 +207,7 @@ function Products() {
         {/* Dialog создания/редактирования */}
         <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
           <DialogTitle>
-            {editingItem ? 'Редактировать' : 'Создать'} {tab === 0 ? 'курс' : tab === 1 ? 'тариф' : 'услугу'}
+            {editingItem ? 'Редактировать' : 'Создать'} {tab === 0 ? 'курс' : 'услугу'}
           </DialogTitle>
           <DialogContent>
             <TextField
