@@ -228,10 +228,15 @@ router.get('/:id', async (req, res) => {
     console.log(`[Students API] Student ${studentId} exists, lead_id: ${checkResult.rows[0].lead_id}`);
 
     // Get student with lead info
-    // Используем s.* и l.*, но будем осторожны с конфликтами имен колонок
+    // Явно перечисляем все колонки для избежания конфликтов имен
     const studentResult = await pool.query(
-      `SELECT s.*, 
-         l.user_id, l.fio, l.phone, l.email, l.telegram_username,
+      `SELECT 
+         s.id, s.lead_id, s.contract_number, s.start_date, s.course_id, s.package_id,
+         s.payment_amount, s.payment_currency, s.payment_method, s.payment_status,
+         s.installment_plan, s.installment_amount, s.installment_periods,
+         s.materials_access, s.group_id, s.curator_id, s.progress_percent,
+         s.graduation_date, s.created_at, s.updated_at,
+         l.id as lead_table_id, l.user_id, l.fio, l.phone, l.email, l.telegram_username,
          l.country, l.city, l.age, l.source, l.utm_source, l.utm_medium, l.utm_campaign,
          l.referrer_id, l.trading_experience, l.interested_course,
          l.budget, l.ready_to_start, l.preferred_contact, l.timezone, l.notes,
