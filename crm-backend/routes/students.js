@@ -320,8 +320,8 @@ router.get('/:id', async (req, res) => {
 
     console.log(`[Students API] Successfully loaded student ${studentId} with all data`);
 
-    const student = studentResult.rows[0];
-    const finalLeadId = student.lead_id || leadId;
+    const studentWithData = studentResult.rows[0];
+    const finalLeadId = studentWithData.lead_id || leadId;
 
     console.log(`[Students API] Loading additional data for student ${studentId}, lead_id: ${finalLeadId}`);
 
@@ -388,7 +388,7 @@ router.get('/:id', async (req, res) => {
     console.log(`[Students API] Successfully loaded student ${studentId} with all related data`);
 
     res.json({
-      ...student,
+      ...studentWithData,
       payments: paymentsResult.rows,
       debts: debtsResult.rows,
       tasks: tasksResult.rows,
