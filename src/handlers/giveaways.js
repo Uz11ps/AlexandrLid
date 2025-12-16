@@ -36,13 +36,17 @@ export async function handleGiveaways(ctx) {
       const isParticipant = await db.isUserInGiveaway(giveaway.id, ctx.from.id);
       
       message += `🎯 ${giveaway.title}\n`;
-      message += `${giveaway.description || ''}\n`;
-      message += `🎁 Приз: ${giveaway.prize_description || 'не указан'}\n`;
-      message += `📅 До: ${endDate}\n`;
+      if (giveaway.description) {
+        message += `${giveaway.description}\n`;
+      }
+      // Приз с поддержкой многострочного текста
+      const prizeText = giveaway.prize_description || 'не указан';
+      message += `\n🎁 Приз:\n${prizeText}\n`;
+      message += `\n📅 До: ${endDate}\n`;
       if (giveaway.min_referrals > 0) {
         message += `📊 Минимум рефералов: ${giveaway.min_referrals}\n`;
       }
-      message += `${isParticipant ? '✅ Вы участвуете' : '❌ Вы не участвуете'}\n\n`;
+      message += `\n${isParticipant ? '✅ Вы участвуете' : '❌ Вы не участвуете'}\n\n`;
     }
 
     const { getGiveawaysMenu, getMainMenu } = await import('./menu.js');
@@ -179,20 +183,20 @@ export async function handleGiveawayJoin(ctx) {
         } else {
           console.warn(`Пригласительная ссылка не найдена для канала ${channelId}`);
           // Fallback: пытаемся использовать старый метод (если бот имеет права администратора)
-          try {
-            const member = await ctx.telegram.getChatMember(channelId, ctx.from.id);
-            if (!['member', 'administrator', 'creator'].includes(member.status)) {
-              const channelUsername = await db.getSetting('channel_username') || 'канал';
-              const errorMsg = `⚠️ Для участия необходимо подписаться на ${channelUsername}`;
-              if (ctx.callbackQuery) {
-                await ctx.answerCbQuery('❌ Нужна подписка');
-                await ctx.telegram.sendMessage(ctx.from.id, errorMsg);
-              } else {
-                await ctx.reply(errorMsg);
-              }
-              return;
+        try {
+          const member = await ctx.telegram.getChatMember(channelId, ctx.from.id);
+          if (!['member', 'administrator', 'creator'].includes(member.status)) {
+            const channelUsername = await db.getSetting('channel_username') || 'канал';
+            const errorMsg = `⚠️ Для участия необходимо подписаться на ${channelUsername}`;
+            if (ctx.callbackQuery) {
+              await ctx.answerCbQuery('❌ Нужна подписка');
+              await ctx.telegram.sendMessage(ctx.from.id, errorMsg);
+            } else {
+              await ctx.reply(errorMsg);
             }
-          } catch (error) {
+            return;
+          }
+        } catch (error) {
             console.error('Ошибка при проверке подписки (fallback):', error);
             // Если не удалось проверить, разрешаем участие (чтобы не блокировать пользователей)
             console.warn('Разрешаем участие без проверки подписки из-за ошибки');

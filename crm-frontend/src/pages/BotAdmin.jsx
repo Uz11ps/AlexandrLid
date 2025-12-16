@@ -1171,10 +1171,13 @@ function BotAdmin() {
             />
             <TextField
               fullWidth
+              multiline
+              rows={4}
               label="Описание приза"
               value={editGiveaway?.prize_description || ''}
               onChange={(e) => setEditGiveaway({ ...editGiveaway, prize_description: e.target.value })}
               sx={{ mt: 2 }}
+              helperText="Можно использовать несколько строк. Разделы будут отделяться пустой строкой."
             />
             <TextField
               fullWidth
@@ -1621,10 +1624,13 @@ function BotAdmin() {
           />
           <TextField
             fullWidth
+            multiline
+            rows={4}
             label="Описание приза"
             value={newGiveaway.prize_description}
             onChange={(e) => setNewGiveaway({ ...newGiveaway, prize_description: e.target.value })}
             sx={{ mt: 2 }}
+            helperText="Можно использовать несколько строк. Разделы будут отделяться пустой строкой."
           />
           <TextField
             fullWidth

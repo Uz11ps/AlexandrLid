@@ -290,8 +290,8 @@ bot.on('callback_query', async (ctx) => {
           }
         }
       } else {
-        const subscriptionHandlers = (await import('./handlers/subscription.js')).default;
-        await subscriptionHandlers.checkSubscriptionAndCreateLead(ctx);
+      const subscriptionHandlers = (await import('./handlers/subscription.js')).default;
+      await subscriptionHandlers.checkSubscriptionAndCreateLead(ctx);
       }
       return;
     }
@@ -395,10 +395,12 @@ bot.on('callback_query', async (ctx) => {
           if (giveaway.description) {
             message += `${giveaway.description}\n\n`;
           }
-          message += `🎁 Приз: ${giveaway.prize_description || 'не указан'}\n`;
+          // Приз с поддержкой многострочного текста
+          const prizeText = giveaway.prize_description || 'не указан';
+          message += `🎁 Приз:\n${prizeText}\n\n`;
           message += `📅 До: ${endDate}\n`;
           if (giveaway.min_referrals > 0) {
-            message += `📊 Минимум рефералов: ${giveaway.min_referrals}\n`;
+            message += `\n📊 Минимум рефералов: ${giveaway.min_referrals}\n`;
             message += `У вас: ${referralCount}\n`;
           }
           message += `\n${isParticipant ? '✅ Вы участвуете' : '❌ Вы не участвуете'}`;
@@ -966,10 +968,10 @@ bot.launch()
     
     // Устанавливаем bot instance в admin handlers
     try {
-      const adminHandlersModule = await import('./handlers/admin.js');
-      if (adminHandlersModule.setBotInstance) {
-        adminHandlersModule.setBotInstance(bot);
-      }
+    const adminHandlersModule = await import('./handlers/admin.js');
+    if (adminHandlersModule.setBotInstance) {
+      adminHandlersModule.setBotInstance(bot);
+    }
     } catch (error) {
       console.error('❌ Ошибка при установке bot instance в admin handlers:', error);
     }
