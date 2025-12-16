@@ -173,37 +173,39 @@ router.post('/users/:userId/unban', async (req, res) => {
 // Broadcasts
 router.get('/broadcasts', async (req, res) => {
   try {
+    // Используем SQL для правильного преобразования TIMESTAMP в UTC
+    // scheduled_at хранится как TIMESTAMP без timezone, но мы сохраняем UTC значения
+    // PostgreSQL интерпретирует TIMESTAMP как локальное время (MSK), поэтому нужно явно указать UTC
     const result = await pool.query(
-      'SELECT * FROM broadcasts ORDER BY created_at DESC'
+      `SELECT 
+        id, title, message_text, message_type, file_id, buttons, segment, 
+        status, sent_at, sent_count, error_count, created_by, created_at,
+        CASE 
+          WHEN scheduled_at IS NOT NULL 
+          THEN (scheduled_at AT TIME ZONE 'UTC')::timestamptz AT TIME ZONE 'UTC'
+          ELSE NULL 
+        END as scheduled_at
+       FROM broadcasts 
+       ORDER BY created_at DESC`
     );
     
-    // Нормализуем scheduled_at: PostgreSQL возвращает TIMESTAMP как MSK, но мы сохраняем UTC
-    // Вычитаем 3 часа, чтобы получить правильное UTC время
+    // Преобразуем scheduled_at в ISO строку UTC
     const normalizedBroadcasts = result.rows.map(row => {
-      let scheduledAt = null;
+      let scheduledAtISO = null;
       if (row.scheduled_at) {
         if (row.scheduled_at instanceof Date) {
-          // PostgreSQL вернул Date объект, интерпретированный как MSK
-          // Вычитаем 3 часа, чтобы получить UTC
-          scheduledAt = new Date(row.scheduled_at.getTime() - (3 * 60 * 60 * 1000));
+          scheduledAtISO = row.scheduled_at.toISOString();
         } else if (typeof row.scheduled_at === 'string') {
-          // Если это строка без timezone, PostgreSQL вернул её как MSK
-          // Парсим строку и вычитаем 3 часа
-          // Формат может быть: "2025-12-15T20:52:00" или "2025-12-15 20:52:00"
-          const dateStr = row.scheduled_at.replace(' ', 'T');
-          const date = new Date(dateStr);
-          if (!isNaN(date.getTime())) {
-            // Вычитаем 3 часа для получения UTC
-            scheduledAt = new Date(date.getTime() - (3 * 60 * 60 * 1000));
-          } else {
-            console.warn('Failed to parse scheduled_at:', row.scheduled_at);
-          }
+          // Если это уже ISO строка, используем как есть
+          scheduledAtISO = row.scheduled_at.endsWith('Z') || row.scheduled_at.includes('+') || row.scheduled_at.includes('-')
+            ? row.scheduled_at
+            : new Date(row.scheduled_at).toISOString();
         }
       }
       
       return {
         ...row,
-        scheduled_at: scheduledAt ? scheduledAt.toISOString() : null
+        scheduled_at: scheduledAtISO
       };
     });
     
