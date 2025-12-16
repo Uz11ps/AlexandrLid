@@ -30,12 +30,61 @@ router.get('/', async (req, res) => {
   try {
     const { course_id, group_id, payment_status } = req.query;
     let query = `
-      SELECT s.*, 
-             l.*,
-             c.name as course_name,
-             p.name as package_name,
-             g.name as group_name,
-             m.name as curator_name
+      SELECT 
+        s.id,
+        s.lead_id,
+        s.contract_number,
+        s.start_date,
+        s.course_id,
+        s.package_id,
+        s.payment_amount,
+        s.payment_currency,
+        s.payment_method,
+        s.payment_status,
+        s.installment_plan,
+        s.installment_amount,
+        s.installment_periods,
+        s.materials_access,
+        s.group_id,
+        s.curator_id,
+        s.progress_percent,
+        s.graduation_date,
+        s.created_at,
+        s.updated_at,
+        l.id as lead_table_id,
+        l.user_id,
+        l.fio,
+        l.phone,
+        l.email,
+        l.telegram_username,
+        l.country,
+        l.city,
+        l.age,
+        l.source,
+        l.utm_source,
+        l.utm_medium,
+        l.utm_campaign,
+        l.referrer_id,
+        l.trading_experience,
+        l.interested_course,
+        l.budget,
+        l.ready_to_start,
+        l.preferred_contact,
+        l.timezone,
+        l.notes,
+        l.status,
+        l.funnel_stage,
+        l.manager_id,
+        l.priority,
+        l.tags,
+        l.is_student,
+        l.converted_to_student_at,
+        l.created_at as lead_created_at,
+        l.updated_at as lead_updated_at,
+        c.name as course_name,
+        p.name as package_name,
+        g.name as group_name,
+        m.name as curator_name
       FROM students s
       LEFT JOIN leads l ON s.lead_id = l.id
       LEFT JOIN courses c ON s.course_id = c.id
@@ -65,6 +114,7 @@ router.get('/', async (req, res) => {
     query += ' ORDER BY s.created_at DESC';
 
     const result = await pool.query(query, params);
+    console.log(`[Students API] List endpoint: Found ${result.rows.length} students. IDs: ${result.rows.map(r => r.id).join(', ')}`);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching students:', error);
