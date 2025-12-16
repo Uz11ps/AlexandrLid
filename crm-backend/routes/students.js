@@ -209,12 +209,39 @@ router.get('/export/excel', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`[Students API] Fetching student with ID: ${id}`);
+    
+    // Валидация и преобразование ID в число
+    const studentId = parseInt(id, 10);
+    if (isNaN(studentId) || studentId <= 0) {
+      return res.status(400).json({ error: 'Invalid student ID' });
+    }
+    
+    console.log(`[Students API] Fetching student with ID: ${studentId} (original: ${id})`);
+
+    // Сначала проверяем существование студента без JOIN
+    const checkResult = await pool.query('SELECT id, lead_id FROM students WHERE id = $1', [studentId]);
+    if (checkResult.rows.length === 0) {
+      console.log(`[Students API] Student ${studentId} not found in database`);
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    console.log(`[Students API] Student ${studentId} exists, lead_id: ${checkResult.rows[0].lead_id}`);
 
     // Get student with lead info
+    // Используем s.* и l.*, но будем осторожны с конфликтами имен колонок
     const studentResult = await pool.query(
-      `SELECT s.*, l.*, c.name as course_name, p.name as package_name,
-              g.name as group_name, m.name as curator_name, m.id as curator_id
+      `SELECT s.*, 
+         l.user_id, l.fio, l.phone, l.email, l.telegram_username,
+         l.country, l.city, l.age, l.source, l.utm_source, l.utm_medium, l.utm_campaign,
+         l.referrer_id, l.trading_experience, l.interested_course,
+         l.budget, l.ready_to_start, l.preferred_contact, l.timezone, l.notes,
+         l.status, l.funnel_stage, l.manager_id, l.priority, l.tags,
+         l.is_student, l.converted_to_student_at,
+         c.name as course_name,
+         p.name as package_name,
+         g.name as group_name,
+         m.name as curator_name,
+         m.id as curator_id
        FROM students s
        LEFT JOIN leads l ON s.lead_id = l.id
        LEFT JOIN courses c ON s.course_id = c.id
@@ -222,23 +249,20 @@ router.get('/:id', async (req, res) => {
        LEFT JOIN study_groups g ON s.group_id = g.id
        LEFT JOIN managers m ON s.curator_id = m.id
        WHERE s.id = $1`,
-      [id]
+      [studentId]
     );
 
-    console.log(`[Students API] Found ${studentResult.rows.length} student(s) with ID ${id}`);
+    console.log(`[Students API] Found ${studentResult.rows.length} student(s) with ID ${studentId} after JOIN`);
 
     if (studentResult.rows.length === 0) {
-      // Проверяем, существует ли студент вообще (без JOIN)
-      const checkResult = await pool.query('SELECT id FROM students WHERE id = $1', [id]);
-      if (checkResult.rows.length > 0) {
-        console.log(`[Students API] Student ${id} exists but JOIN query failed`);
-        return res.status(500).json({ error: 'Student exists but data loading failed' });
-      }
-      return res.status(404).json({ error: 'Student not found' });
+      console.log(`[Students API] Student ${studentId} exists but JOIN query returned no results`);
+      return res.status(500).json({ error: 'Student exists but data loading failed', student_id: studentId });
     }
 
     const student = studentResult.rows[0];
     const leadId = student.lead_id;
+
+    console.log(`[Students API] Loading additional data for student ${studentId}, lead_id: ${leadId}`);
 
     // Get payments
     const paymentsResult = await pool.query(
@@ -247,13 +271,13 @@ router.get('/:id', async (req, res) => {
        LEFT JOIN managers m ON p.created_by = m.id
        WHERE p.student_id = $1 
        ORDER BY p.payment_date DESC, p.created_at DESC`,
-      [id]
+      [studentId]
     );
 
     // Get debts
     const debtsResult = await pool.query(
       'SELECT * FROM debts WHERE student_id = $1 AND status = $2 ORDER BY due_date',
-      [id, 'active']
+      [studentId, 'active']
     );
 
     // Get tasks related to lead
@@ -297,8 +321,10 @@ router.get('/:id', async (req, res) => {
        WHERE (d.student_id = $1 OR d.lead_id = $2)
        ORDER BY d.created_at DESC
        LIMIT 50`,
-      [id, leadId]
+      [studentId, leadId || null]
     );
+
+    console.log(`[Students API] Successfully loaded student ${studentId} with all related data`);
 
     res.json({
       ...student,
