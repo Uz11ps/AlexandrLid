@@ -212,11 +212,14 @@ router.get('/:id', async (req, res) => {
 
     // Get student with lead info
     const studentResult = await pool.query(
-      `SELECT s.*, l.*, c.name as course_name, p.name as package_name
+      `SELECT s.*, l.*, c.name as course_name, p.name as package_name,
+              g.name as group_name, m.name as curator_name, m.id as curator_id
        FROM students s
        LEFT JOIN leads l ON s.lead_id = l.id
        LEFT JOIN courses c ON s.course_id = c.id
        LEFT JOIN packages p ON s.package_id = p.id
+       LEFT JOIN study_groups g ON s.group_id = g.id
+       LEFT JOIN managers m ON s.curator_id = m.id
        WHERE s.id = $1`,
       [id]
     );
@@ -225,9 +228,16 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Student not found' });
     }
 
+    const student = studentResult.rows[0];
+    const leadId = student.lead_id;
+
     // Get payments
     const paymentsResult = await pool.query(
-      'SELECT * FROM payments WHERE student_id = $1 ORDER BY payment_date DESC',
+      `SELECT p.*, m.name as created_by_name
+       FROM payments p
+       LEFT JOIN managers m ON p.created_by = m.id
+       WHERE p.student_id = $1 
+       ORDER BY p.payment_date DESC, p.created_at DESC`,
       [id]
     );
 
@@ -237,14 +247,62 @@ router.get('/:id', async (req, res) => {
       [id, 'active']
     );
 
+    // Get tasks related to lead
+    const tasksResult = leadId ? await pool.query(
+      `SELECT t.*, m.name as manager_name
+       FROM tasks t
+       LEFT JOIN managers m ON t.manager_id = m.id
+       WHERE t.lead_id = $1
+       ORDER BY t.due_date ASC, t.created_at DESC
+       LIMIT 50`,
+      [leadId]
+    ) : { rows: [] };
+
+    // Get interactions related to lead
+    const interactionsResult = leadId ? await pool.query(
+      `SELECT li.*, m.name as manager_name
+       FROM lead_interactions li
+       LEFT JOIN managers m ON li.manager_id = m.id
+       WHERE li.lead_id = $1
+       ORDER BY li.created_at DESC
+       LIMIT 50`,
+      [leadId]
+    ) : { rows: [] };
+
+    // Get comments related to lead
+    const commentsResult = leadId ? await pool.query(
+      `SELECT c.*, m.name as manager_name, m.email as manager_email
+       FROM lead_comments c
+       LEFT JOIN managers m ON c.manager_id = m.id
+       WHERE c.lead_id = $1
+       ORDER BY c.created_at DESC
+       LIMIT 50`,
+      [leadId]
+    ) : { rows: [] };
+
+    // Get documents related to student or lead
+    const documentsResult = await pool.query(
+      `SELECT d.*, m.name as created_by_name
+       FROM documents d
+       LEFT JOIN managers m ON d.created_by = m.id
+       WHERE (d.student_id = $1 OR d.lead_id = $2)
+       ORDER BY d.created_at DESC
+       LIMIT 50`,
+      [id, leadId]
+    );
+
     res.json({
-      ...studentResult.rows[0],
+      ...student,
       payments: paymentsResult.rows,
-      debts: debtsResult.rows
+      debts: debtsResult.rows,
+      tasks: tasksResult.rows,
+      interactions: interactionsResult.rows,
+      comments: commentsResult.rows,
+      documents: documentsResult.rows
     });
   } catch (error) {
     console.error('Error fetching student:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
