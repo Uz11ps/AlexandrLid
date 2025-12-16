@@ -44,6 +44,42 @@ import { botAdminAPI } from '../api/bot-admin';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
+// Словарь для расшифровки технических ID кнопок в понятные названия
+const ACTION_LABELS = {
+  'menu_main': '📋 Главное меню',
+  'menu_profile': '👤 Профиль',
+  'menu_leaderboard': '🏆 Лидерборд',
+  'menu_tickets': '🎫 Тикеты',
+  'menu_giveaways': '🎁 Розыгрыши',
+  'menu_help': '❓ Помощь',
+  'giveaway_join': '🎁 Участвовать в розыгрыше',
+  'giveaway_view': '👀 Просмотр розыгрыша',
+  'check_subscription': '✅ Проверить подписку',
+  'ticket_new': '➕ Новый тикет',
+  'ticket_view': '👀 Просмотр тикета',
+  'ticket_reply': '💬 Ответить в тикет'
+};
+
+// Функция для получения понятного названия действия
+const getActionLabel = (actionId) => {
+  if (!actionId) return 'Неизвестное действие';
+  
+  // Проверяем точное совпадение
+  if (ACTION_LABELS[actionId]) {
+    return ACTION_LABELS[actionId];
+  }
+  
+  // Проверяем префиксы (например, giveaway_join_123)
+  for (const [key, label] of Object.entries(ACTION_LABELS)) {
+    if (actionId.startsWith(key)) {
+      return label;
+    }
+  }
+  
+  // Если не найдено, возвращаем оригинальный ID
+  return actionId;
+};
+
 function UserActivity() {
   const [tab, setTab] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -58,11 +94,20 @@ function UserActivity() {
   const [usersPage, setUsersPage] = useState(1);
   const [usersTotal, setUsersTotal] = useState(0);
   const [usersLoading, setUsersLoading] = useState(false);
+  
+  // Детальная аналитика
+  const [heatmapData, setHeatmapData] = useState(null);
+  const [popularActions, setPopularActions] = useState(null);
+  const [popularCommands, setPopularCommands] = useState(null);
+  const [detailedLoading, setDetailedLoading] = useState(false);
 
   useEffect(() => {
     loadActivityStats();
     loadUsersActivity();
-  }, [days]);
+    if (tab === 3) {
+      loadDetailedAnalytics();
+    }
+  }, [days, tab]);
 
   const loadActivityStats = async () => {
     try {
@@ -94,6 +139,26 @@ function UserActivity() {
     }
   };
 
+  const loadDetailedAnalytics = async () => {
+    try {
+      setDetailedLoading(true);
+      const [heatmap, actions, commands] = await Promise.all([
+        botAdminAPI.getActivityHeatmap(days),
+        botAdminAPI.getPopularActions(days, 20),
+        botAdminAPI.getPopularCommands(days, 20)
+      ]);
+      setHeatmapData(heatmap);
+      setPopularActions(actions);
+      setPopularCommands(commands);
+      setError(null);
+    } catch (err) {
+      console.error('Error loading detailed analytics:', err);
+      setError('Ошибка при загрузке детальной аналитики');
+    } finally {
+      setDetailedLoading(false);
+    }
+  };
+
   const getActivityTypeLabel = (type) => {
     const labels = {
       command: 'Команды',
@@ -104,6 +169,42 @@ function UserActivity() {
       referral: 'Рефералы'
     };
     return labels[type] || type;
+  };
+
+  // Функция для создания данных тепловой карты
+  const prepareHeatmapData = () => {
+    if (!heatmapData || !heatmapData.heatmap) return [];
+    
+    const daysOfWeek = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+    const hours = Array.from({ length: 24 }, (_, i) => i);
+    
+    // Создаем матрицу 7x24 (дни недели × часы)
+    const matrix = Array(7).fill(null).map(() => Array(24).fill(0));
+    
+    // Заполняем матрицу данными
+    heatmapData.heatmap.forEach(item => {
+      const day = parseInt(item.day_of_week);
+      const hour = parseInt(item.hour);
+      if (day >= 0 && day < 7 && hour >= 0 && hour < 24) {
+        matrix[day][hour] = parseInt(item.count);
+      }
+    });
+    
+    // Преобразуем в формат для визуализации
+    const result = [];
+    daysOfWeek.forEach((dayName, dayIndex) => {
+      hours.forEach(hour => {
+        result.push({
+          day: dayName,
+          dayIndex,
+          hour: `${hour}:00`,
+          hourIndex: hour,
+          value: matrix[dayIndex][hour]
+        });
+      });
+    });
+    
+    return result;
   };
 
   if (loading) {
@@ -151,6 +252,7 @@ function UserActivity() {
         <Tab label="Общая статистика" />
         <Tab label="Активность пользователей" />
         <Tab label="Графики" />
+        <Tab label="Детальная аналитика" />
       </Tabs>
 
       {tab === 0 && activityStats && (
@@ -358,6 +460,252 @@ function UserActivity() {
               </CardContent>
             </Card>
           </Grid>
+        </Grid>
+      )}
+
+      {tab === 3 && (
+        <Grid container spacing={3}>
+          {detailedLoading ? (
+            <Grid item xs={12}>
+              <Box display="flex" justifyContent="center" p={3}>
+                <CircularProgress />
+              </Box>
+            </Grid>
+          ) : (
+            <>
+              {/* Тепловая карта активности */}
+              <Grid item xs={12}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      Тепловая карта активности (по часам и дням недели)
+                    </Typography>
+                    {heatmapData && (
+                      <>
+                        <ResponsiveContainer width="100%" height={400}>
+                          <BarChart
+                            data={prepareHeatmapData()}
+                            margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis 
+                              dataKey="hour" 
+                              angle={-45}
+                              textAnchor="end"
+                              height={80}
+                            />
+                            <YAxis />
+                            <Tooltip 
+                              content={({ active, payload }) => {
+                                if (active && payload && payload.length) {
+                                  const data = payload[0].payload;
+                                  return (
+                                    <Paper sx={{ p: 1 }}>
+                                      <Typography variant="body2">
+                                        {data.day}, {data.hour}
+                                      </Typography>
+                                      <Typography variant="body2" color="primary">
+                                        Активностей: {data.value}
+                                      </Typography>
+                                    </Paper>
+                                  );
+                                }
+                                return null;
+                              }}
+                            />
+                            <Legend />
+                            <Bar 
+                              dataKey="value" 
+                              fill="#8884d8"
+                              name="Количество активностей"
+                            >
+                              {prepareHeatmapData().map((entry, index) => (
+                                <Cell 
+                                  key={`cell-${index}`} 
+                                  fill={entry.value > 0 
+                                    ? `rgba(136, 132, 216, ${Math.min(entry.value / 100, 1)})` 
+                                    : '#f0f0f0'
+                                  } 
+                                />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                        
+                        {/* Статистика по часам */}
+                        <Box sx={{ mt: 3 }}>
+                          <Typography variant="subtitle1" gutterBottom>
+                            Активность по часам суток
+                          </Typography>
+                          <ResponsiveContainer width="100%" height={200}>
+                            <BarChart data={heatmapData.by_hour}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="hour" />
+                              <YAxis />
+                              <Tooltip />
+                              <Bar dataKey="count" fill="#82ca9d" name="Активностей" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </Box>
+                        
+                        {/* Статистика по дням недели */}
+                        <Box sx={{ mt: 3 }}>
+                          <Typography variant="subtitle1" gutterBottom>
+                            Активность по дням недели
+                          </Typography>
+                          <ResponsiveContainer width="100%" height={200}>
+                            <BarChart data={heatmapData.by_day_of_week}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis 
+                                dataKey="day_of_week"
+                                tickFormatter={(value) => {
+                                  const days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+                                  return days[value] || value;
+                                }}
+                              />
+                              <YAxis />
+                              <Tooltip />
+                              <Bar dataKey="count" fill="#FF8042" name="Активностей" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </Box>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Популярные действия (кнопки) */}
+              <Grid item xs={12} md={6}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      Популярные разделы (Кнопки)
+                    </Typography>
+                    {popularActions && popularActions.actions.length > 0 ? (
+                      <>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart
+                            data={popularActions.actions.map(action => ({
+                              ...action,
+                              label: getActionLabel(action.action_id)
+                            }))}
+                            layout="vertical"
+                            margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis type="number" />
+                            <YAxis 
+                              dataKey="label" 
+                              type="category"
+                              width={90}
+                              tick={{ fontSize: 12 }}
+                            />
+                            <Tooltip />
+                            <Legend />
+                            <Bar dataKey="count" fill="#0088FE" name="Нажатий">
+                              {popularActions.actions.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                        <TableContainer sx={{ mt: 2 }}>
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>Действие</TableCell>
+                                <TableCell align="right">Нажатий</TableCell>
+                                <TableCell align="right">Уникальных</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {popularActions.actions.slice(0, 10).map((action) => (
+                                <TableRow key={action.action_id}>
+                                  <TableCell>
+                                    {getActionLabel(action.action_id)}
+                                  </TableCell>
+                                  <TableCell align="right">{action.count}</TableCell>
+                                  <TableCell align="right">{action.unique_users}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      </>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        Нет данных о действиях за выбранный период
+                      </Typography>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Популярные команды */}
+              <Grid item xs={12} md={6}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      Использование команд
+                    </Typography>
+                    {popularCommands && popularCommands.commands.length > 0 ? (
+                      <>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart
+                            data={popularCommands.commands}
+                            margin={{ top: 5, right: 30, left: 20, bottom: 60 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis 
+                              dataKey="command"
+                              angle={-45}
+                              textAnchor="end"
+                              height={80}
+                            />
+                            <YAxis />
+                            <Tooltip />
+                            <Legend />
+                            <Bar dataKey="count" fill="#00C49F" name="Использований">
+                              {popularCommands.commands.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                        <TableContainer sx={{ mt: 2 }}>
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>Команда</TableCell>
+                                <TableCell align="right">Использований</TableCell>
+                                <TableCell align="right">Уникальных</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {popularCommands.commands.slice(0, 10).map((cmd) => (
+                                <TableRow key={cmd.command}>
+                                  <TableCell>
+                                    <Chip label={`/${cmd.command}`} size="small" />
+                                  </TableCell>
+                                  <TableCell align="right">{cmd.count}</TableCell>
+                                  <TableCell align="right">{cmd.unique_users}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      </>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        Нет данных о командах за выбранный период
+                      </Typography>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+            </>
+          )}
         </Grid>
       )}
     </Container>

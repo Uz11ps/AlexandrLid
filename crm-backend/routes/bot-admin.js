@@ -1314,6 +1314,129 @@ router.get('/activity/users', async (req, res) => {
   }
 });
 
+// Получить тепловую карту активности (по часам и дням недели)
+router.get('/activity/heatmap', async (req, res) => {
+  try {
+    const { days = 30 } = req.query;
+    const daysNum = parseInt(days);
+
+    // Активность по часам (0-23)
+    const activityByHour = await pool.query(
+      `SELECT 
+         EXTRACT(HOUR FROM created_at AT TIME ZONE 'Europe/Moscow')::INTEGER as hour,
+         COUNT(*) as count,
+         COUNT(DISTINCT user_id) as unique_users
+       FROM user_activity 
+       WHERE created_at >= NOW() - INTERVAL '${daysNum} days'
+       GROUP BY EXTRACT(HOUR FROM created_at AT TIME ZONE 'Europe/Moscow')
+       ORDER BY hour`
+    );
+
+    // Активность по дням недели (0=воскресенье, 6=суббота)
+    const activityByDayOfWeek = await pool.query(
+      `SELECT 
+         EXTRACT(DOW FROM created_at AT TIME ZONE 'Europe/Moscow')::INTEGER as day_of_week,
+         COUNT(*) as count,
+         COUNT(DISTINCT user_id) as unique_users
+       FROM user_activity 
+       WHERE created_at >= NOW() - INTERVAL '${daysNum} days'
+       GROUP BY EXTRACT(DOW FROM created_at AT TIME ZONE 'Europe/Moscow')
+       ORDER BY day_of_week`
+    );
+
+    // Комбинированная тепловая карта: час × день недели
+    const heatmapData = await pool.query(
+      `SELECT 
+         EXTRACT(DOW FROM created_at AT TIME ZONE 'Europe/Moscow')::INTEGER as day_of_week,
+         EXTRACT(HOUR FROM created_at AT TIME ZONE 'Europe/Moscow')::INTEGER as hour,
+         COUNT(*) as count
+       FROM user_activity 
+       WHERE created_at >= NOW() - INTERVAL '${daysNum} days'
+       GROUP BY EXTRACT(DOW FROM created_at AT TIME ZONE 'Europe/Moscow'), 
+                EXTRACT(HOUR FROM created_at AT TIME ZONE 'Europe/Moscow')
+       ORDER BY day_of_week, hour`
+    );
+
+    res.json({
+      period_days: daysNum,
+      by_hour: activityByHour.rows,
+      by_day_of_week: activityByDayOfWeek.rows,
+      heatmap: heatmapData.rows
+    });
+  } catch (error) {
+    console.error('Error fetching activity heatmap:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Получить топ популярных действий (callback кнопки)
+router.get('/activity/popular-actions', async (req, res) => {
+  try {
+    const { days = 30, limit = 20 } = req.query;
+    const daysNum = parseInt(days);
+    const limitNum = parseInt(limit);
+
+    // Извлекаем callback_data из activity_data для типа 'callback'
+    const popularActions = await pool.query(
+      `SELECT 
+         activity_data->>'data' as action_id,
+         COUNT(*) as count,
+         COUNT(DISTINCT user_id) as unique_users,
+         MAX(created_at) as last_used
+       FROM user_activity 
+       WHERE activity_type = 'callback'
+         AND created_at >= NOW() - INTERVAL '${daysNum} days'
+         AND activity_data->>'data' IS NOT NULL
+       GROUP BY activity_data->>'data'
+       ORDER BY count DESC
+       LIMIT $1`,
+      [limitNum]
+    );
+
+    res.json({
+      period_days: daysNum,
+      actions: popularActions.rows
+    });
+  } catch (error) {
+    console.error('Error fetching popular actions:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Получить топ популярных команд
+router.get('/activity/popular-commands', async (req, res) => {
+  try {
+    const { days = 30, limit = 20 } = req.query;
+    const daysNum = parseInt(days);
+    const limitNum = parseInt(limit);
+
+    // Извлекаем команду из activity_data для типа 'command'
+    const popularCommands = await pool.query(
+      `SELECT 
+         activity_data->>'command' as command,
+         COUNT(*) as count,
+         COUNT(DISTINCT user_id) as unique_users,
+         MAX(created_at) as last_used
+       FROM user_activity 
+       WHERE activity_type = 'command'
+         AND created_at >= NOW() - INTERVAL '${daysNum} days'
+         AND activity_data->>'command' IS NOT NULL
+       GROUP BY activity_data->>'command'
+       ORDER BY count DESC
+       LIMIT $1`,
+      [limitNum]
+    );
+
+    res.json({
+      period_days: daysNum,
+      commands: popularCommands.rows
+    });
+  } catch (error) {
+    console.error('Error fetching popular commands:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
 // ============================================
 // Управление пригласительными ссылками
 // ============================================

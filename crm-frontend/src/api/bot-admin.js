@@ -160,6 +160,25 @@ export const botAdminAPI = {
 
   updateChannelInvite: (id, data) => {
     return axios.put(`/api/bot-admin/channel-invites/${id}`, data).then(res => res.data);
+  },
+
+  // Detailed analytics
+  getActivityHeatmap: (days = 30) => {
+    return axios.get('/api/bot-admin/activity/heatmap', {
+      params: { days }
+    }).then(res => res.data);
+  },
+
+  getPopularActions: (days = 30, limit = 20) => {
+    return axios.get('/api/bot-admin/activity/popular-actions', {
+      params: { days, limit }
+    }).then(res => res.data);
+  },
+
+  getPopularCommands: (days = 30, limit = 20) => {
+    return axios.get('/api/bot-admin/activity/popular-commands', {
+      params: { days, limit }
+    }).then(res => res.data);
   }
 };
 
