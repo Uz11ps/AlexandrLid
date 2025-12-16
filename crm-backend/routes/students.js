@@ -209,6 +209,7 @@ router.get('/export/excel', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`[Students API] Fetching student with ID: ${id}`);
 
     // Get student with lead info
     const studentResult = await pool.query(
@@ -224,7 +225,15 @@ router.get('/:id', async (req, res) => {
       [id]
     );
 
+    console.log(`[Students API] Found ${studentResult.rows.length} student(s) with ID ${id}`);
+
     if (studentResult.rows.length === 0) {
+      // Проверяем, существует ли студент вообще (без JOIN)
+      const checkResult = await pool.query('SELECT id FROM students WHERE id = $1', [id]);
+      if (checkResult.rows.length > 0) {
+        console.log(`[Students API] Student ${id} exists but JOIN query failed`);
+        return res.status(500).json({ error: 'Student exists but data loading failed' });
+      }
       return res.status(404).json({ error: 'Student not found' });
     }
 
@@ -356,7 +365,10 @@ router.post('/convert', async (req, res) => {
 
       await pool.query('COMMIT');
 
-      res.status(201).json(studentResult.rows[0]);
+      const createdStudent = studentResult.rows[0];
+      console.log(`[Students API] Student created successfully with ID: ${createdStudent.id}`);
+      
+      res.status(201).json(createdStudent);
     } catch (error) {
       await pool.query('ROLLBACK');
       throw error;

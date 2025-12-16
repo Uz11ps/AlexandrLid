@@ -79,15 +79,23 @@ function Students() {
 
   const handleConvert = async () => {
     try {
-      await studentsAPI.convertLead({
+      const response = await studentsAPI.convertLead({
         lead_id: selectedLead.id,
         ...convertData
       });
       setConvertDialogOpen(false);
-      loadStudents();
+      
+      // Перенаправляем на страницу созданного студента
+      if (response.data && response.data.id) {
+        navigate(`/students/${response.data.id}`);
+      } else {
+        // Если ID не получен, просто обновляем список
+        loadStudents();
+        alert('Студент успешно создан');
+      }
     } catch (error) {
       console.error('Error converting lead:', error);
-      alert('Ошибка при конвертации лида');
+      alert('Ошибка при конвертации лида: ' + (error.response?.data?.error || error.message));
     }
   };
 
