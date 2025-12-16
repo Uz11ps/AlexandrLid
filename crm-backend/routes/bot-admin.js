@@ -175,14 +175,14 @@ router.get('/broadcasts', async (req, res) => {
   try {
     // Используем SQL для правильного преобразования TIMESTAMP в UTC
     // scheduled_at хранится как TIMESTAMP без timezone, но мы сохраняем UTC значения
-    // PostgreSQL интерпретирует TIMESTAMP как локальное время (MSK), поэтому нужно явно указать UTC
+    // PostgreSQL интерпретирует TIMESTAMP как локальное время (MSK), поэтому нужно вычесть 3 часа
     const result = await pool.query(
       `SELECT 
         id, title, message_text, message_type, file_id, buttons, segment, 
         status, sent_at, sent_count, error_count, created_by, created_at,
         CASE 
           WHEN scheduled_at IS NOT NULL 
-          THEN (scheduled_at AT TIME ZONE 'UTC')::timestamptz AT TIME ZONE 'UTC'
+          THEN (scheduled_at AT TIME ZONE 'Europe/Moscow' AT TIME ZONE 'UTC')::timestamp
           ELSE NULL 
         END as scheduled_at
        FROM broadcasts 
