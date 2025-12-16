@@ -209,10 +209,13 @@ router.get('/export/excel', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`[Students API] Received request for student ID: "${id}" (type: ${typeof id})`);
     
     // Валидация и преобразование ID в число
     const studentId = parseInt(id, 10);
+    console.log(`[Students API] Parsed student ID: ${studentId} (isNaN: ${isNaN(studentId)}, <= 0: ${studentId <= 0})`);
     if (isNaN(studentId) || studentId <= 0) {
+      console.log(`[Students API] Invalid student ID: ${id} -> ${studentId}`);
       return res.status(400).json({ error: 'Invalid student ID' });
     }
     
@@ -306,10 +309,42 @@ router.get('/:id', async (req, res) => {
     }
 
     // Объединяем данные студента и лида
+    // Важно: сначала данные студента, потом данные лида (чтобы не перезаписать важные поля студента)
     const studentResult = {
       rows: [{
+        // Данные студента (приоритет)
         ...student,
-        ...(leadData || {}),
+        // Данные лида (дополнительные поля)
+        ...(leadData ? {
+          user_id: leadData.user_id,
+          fio: leadData.fio,
+          phone: leadData.phone,
+          email: leadData.email,
+          telegram_username: leadData.telegram_username,
+          country: leadData.country,
+          city: leadData.city,
+          age: leadData.age,
+          source: leadData.source,
+          utm_source: leadData.utm_source,
+          utm_medium: leadData.utm_medium,
+          utm_campaign: leadData.utm_campaign,
+          referrer_id: leadData.referrer_id,
+          trading_experience: leadData.trading_experience,
+          interested_course: leadData.interested_course,
+          budget: leadData.budget,
+          ready_to_start: leadData.ready_to_start,
+          preferred_contact: leadData.preferred_contact,
+          timezone: leadData.timezone,
+          notes: leadData.notes,
+          status: leadData.status,
+          funnel_stage: leadData.funnel_stage,
+          manager_id: leadData.manager_id,
+          priority: leadData.priority,
+          tags: leadData.tags,
+          is_student: leadData.is_student,
+          converted_to_student_at: leadData.converted_to_student_at
+        } : {}),
+        // Дополнительные связанные данные
         course_name: courseName,
         package_name: packageName,
         group_name: groupName,
