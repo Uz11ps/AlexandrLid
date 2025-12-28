@@ -111,21 +111,25 @@ done
 
 # Синхронизация пароля (на случай если в томе старый пароль)
 info "Синхронизация пароля PostgreSQL..."
-# Используем более точный поиск переменной
-DB_PASS=$(grep "^DB_PASSWORD=" .env | head -n 1 | cut -d'=' -f2- | tr -d '\r' | tr -d '"' | tr -d "'")
+# Максимально надежное извлечение пароля: убираем пробелы, кавычки и комментарии после пароля
+DB_PASS=$(grep "^DB_PASSWORD=" .env | cut -d'=' -f2- | sed 's/[[:space:]]*#.*$//' | sed 's/^"//;s/"$//' | sed "s/^'//;s/'$//" | xargs)
 
 if [ -z "$DB_PASS" ]; then
-    info "Предупреждение: DB_PASSWORD не найден в .env, используем 'postgres'"
+    info "⚠️ ВНИМАНИЕ: DB_PASSWORD не найден в .env или пустой! Используем 'postgres'"
     DB_PASS="postgres"
 fi
 
-info "Попытка установить пароль для пользователя postgres (длина: ${#DB_PASS})..."
-if docker compose exec -T -u postgres postgres psql -c "ALTER USER postgres WITH PASSWORD '$DB_PASS';" ; then
-    success "Пароль PostgreSQL успешно обновлен в базе"
+info "Попытка установить пароль для пользователя postgres (длина пароля: ${#DB_PASS})..."
+# Подключаемся именно к системной базе 'postgres' для смены пароля
+if docker compose exec -T -u postgres postgres psql -d postgres -c "ALTER USER postgres WITH PASSWORD '$DB_PASS';" ; then
+    success "Пароль PostgreSQL успешно синхронизирован в базе данных"
 else
-    info "⚠️ Не удалось обновить пароль через ALTER USER. Попробуем другой метод..."
-    # Попробуем через переменную окружения, если psql требует пароль
-    docker compose exec -T -e PGPASSWORD=postgres -u postgres postgres psql -c "ALTER USER postgres WITH PASSWORD '$DB_PASS';" || info "Не удалось обновить пароль даже с PGPASSWORD=postgres"
+    info "⚠️ Ошибка при ALTER USER через psql. Попробуем с PGPASSWORD=postgres..."
+    if docker compose exec -T -e PGPASSWORD=postgres -u postgres postgres psql -d postgres -c "ALTER USER postgres WITH PASSWORD '$DB_PASS';" ; then
+        success "Пароль PostgreSQL синхронизирован со второй попытки"
+    else
+        error "Критическая ошибка: Не удалось обновить пароль в базе данных. Попробуйте 'docker compose down -v' для полной очистки БД."
+    fi
 fi
     
     info "Обновление прав доступа в базе данных..."
