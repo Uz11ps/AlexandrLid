@@ -6,17 +6,17 @@ export async function up() {
     await client.query('BEGIN');
 
     // Add contest fields to users table
-    await client.query(\
+    await client.query(`
       ALTER TABLE users 
       ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 0,
       ADD COLUMN IF NOT EXISTS tickets INTEGER DEFAULT 0,
       ADD COLUMN IF NOT EXISTS stage1_points INTEGER DEFAULT 0,
       ADD COLUMN IF NOT EXISTS stage2_points INTEGER DEFAULT 0,
       ADD COLUMN IF NOT EXISTS stage3_points INTEGER DEFAULT 0;
-    \);
+    `);
 
     // Create table for daily activity limits
-    await client.query(\
+    await client.query(`
       CREATE TABLE IF NOT EXISTS user_daily_activity (
           id SERIAL PRIMARY KEY,
           user_id BIGINT NOT NULL,
@@ -26,10 +26,10 @@ export async function up() {
           FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
           UNIQUE(user_id, activity_date)
       );
-    \);
+    `);
 
     // Create table for contest winners
-    await client.query(\
+    await client.query(`
       CREATE TABLE IF NOT EXISTS contest_winners (
           id SERIAL PRIMARY KEY,
           user_id BIGINT NOT NULL,
@@ -39,10 +39,10 @@ export async function up() {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
       );
-    \);
+    `);
 
     // Create table for bot chats (channels and groups) - updating existing if needed
-    await client.query(\
+    await client.query(`
       CREATE TABLE IF NOT EXISTS bot_chats (
           id SERIAL PRIMARY KEY,
           chat_id VARCHAR(255) UNIQUE NOT NULL,
@@ -52,7 +52,7 @@ export async function up() {
           is_active BOOLEAN DEFAULT true,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-    \);
+    `);
 
     await client.query('COMMIT');
     console.log('✅ Migration 005 (contest system) completed');

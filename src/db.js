@@ -1117,10 +1117,10 @@ export const db = {
 
         // Получаем или создаем запись активности за сегодня
         const activityRes = await client.query(
-          \`INSERT INTO user_daily_activity (user_id, activity_date)
+          `INSERT INTO user_daily_activity (user_id, activity_date)
            VALUES ($1, CURRENT_DATE)
            ON CONFLICT (user_id, activity_date) DO UPDATE SET user_id = EXCLUDED.user_id
-           RETURNING *\`,
+           RETURNING *`,
           [userId]
         );
 
@@ -1132,17 +1132,17 @@ export const db = {
           const column = type === 'message' ? 'message_points' : 'reaction_points';
           
           await client.query(
-            \`UPDATE user_daily_activity 
-             SET \${column} = \${column} + $1 
-             WHERE user_id = $2 AND activity_date = CURRENT_DATE\`,
+            `UPDATE user_daily_activity 
+             SET ${column} = ${column} + $1 
+             WHERE user_id = $2 AND activity_date = CURRENT_DATE`,
             [pointsToAdd, userId]
           );
 
           // Добавляем баллы пользователю
           const stage = 2; // Предположим, активность актуальна для этапа 2
           await client.query(
-            \`UPDATE users SET points = points + $1, stage\${stage}_points = stage\${stage}_points + $1 
-             WHERE user_id = $2\`,
+            `UPDATE users SET points = points + $1, stage${stage}_points = stage${stage}_points + $1 
+             WHERE user_id = $2`,
             [pointsToAdd, userId]
           );
 
