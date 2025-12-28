@@ -123,9 +123,30 @@ export async function up() {
                 manager_id INTEGER,
                 title VARCHAR(255) NOT NULL,
                 description TEXT,
+                task_type VARCHAR(50) DEFAULT 'reminder',
+                priority VARCHAR(50) DEFAULT 'normal',
                 due_date TIMESTAMP,
                 status VARCHAR(50) DEFAULT 'new',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        // 6.5 Сделки
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS deals (
+                id SERIAL PRIMARY KEY,
+                lead_id INTEGER REFERENCES leads(id) ON DELETE CASCADE,
+                manager_id INTEGER,
+                title VARCHAR(255) NOT NULL,
+                amount DECIMAL(10, 2) DEFAULT 0,
+                currency VARCHAR(10) DEFAULT 'RUB',
+                stage VARCHAR(50) DEFAULT 'new',
+                status VARCHAR(50) DEFAULT 'active',
+                description TEXT,
+                expected_close_date DATE,
+                closed_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
 
