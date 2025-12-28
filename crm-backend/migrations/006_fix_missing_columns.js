@@ -5,9 +5,9 @@ export async function up() {
     try {
         await client.query('BEGIN');
 
-        console.log('🛠️ [Migration 006] Definitive schema sync starting...');
+        console.log('🛠️ [Migration 006] Final Definitive Schema Sync starting...');
 
-        // 1. Таблица COURSES
+        // 1. COURSES
         await client.query(`
             ALTER TABLE courses 
             ADD COLUMN IF NOT EXISTS format VARCHAR(50) DEFAULT 'online',
@@ -19,7 +19,7 @@ export async function up() {
             ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
         `);
 
-        // 2. Таблица LEADS
+        // 2. LEADS
         await client.query(`
             ALTER TABLE leads 
             ADD COLUMN IF NOT EXISTS country VARCHAR(100),
@@ -42,7 +42,7 @@ export async function up() {
             ADD COLUMN IF NOT EXISTS source VARCHAR(100);
         `);
 
-        // 3. Таблица STUDENTS
+        // 3. STUDENTS
         await client.query(`
             ALTER TABLE students 
             ADD COLUMN IF NOT EXISTS contract_number VARCHAR(100),
@@ -59,15 +59,44 @@ export async function up() {
             ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
         `);
 
-        // 4. Таблица TICKETS
+        // 4. TICKETS & MESSAGES
         await client.query(`
             ALTER TABLE tickets 
             ADD COLUMN IF NOT EXISTS manager_id INTEGER,
             ADD COLUMN IF NOT EXISTS subject VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS priority VARCHAR(50) DEFAULT 'normal',
+            ADD COLUMN IF NOT EXISTS closed_at TIMESTAMP,
+            ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+            CREATE TABLE IF NOT EXISTS ticket_messages (
+                id SERIAL PRIMARY KEY,
+                ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
+                sender_type VARCHAR(20) NOT NULL, -- 'user', 'manager', 'admin'
+                sender_id BIGINT NOT NULL,
+                message_text TEXT NOT NULL,
+                is_read BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        // 5. DOCUMENTS
+        await client.query(`
+            ALTER TABLE documents 
+            ADD COLUMN IF NOT EXISTS lead_id INTEGER REFERENCES leads(id) ON DELETE CASCADE,
+            ADD COLUMN IF NOT EXISTS deal_id INTEGER,
+            ADD COLUMN IF NOT EXISTS template_id INTEGER,
+            ADD COLUMN IF NOT EXISTS document_type VARCHAR(50),
+            ADD COLUMN IF NOT EXISTS file_name VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS file_path TEXT,
+            ADD COLUMN IF NOT EXISTS file_size INTEGER,
+            ADD COLUMN IF NOT EXISTS mime_type VARCHAR(100),
+            ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'draft',
+            ADD COLUMN IF NOT EXISTS signed_at TIMESTAMP,
+            ADD COLUMN IF NOT EXISTS created_by INTEGER,
             ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
         `);
 
-        // 5. Таблица TASKS
+        // 6. TASKS
         await client.query(`
             ALTER TABLE tasks 
             ADD COLUMN IF NOT EXISTS manager_id INTEGER,
@@ -76,7 +105,7 @@ export async function up() {
             ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
         `);
 
-        // 6. Таблица MESSAGE_TEMPLATES
+        // 7. MESSAGE_TEMPLATES
         await client.query(`
             ALTER TABLE message_templates 
             ADD COLUMN IF NOT EXISTS category VARCHAR(100),
@@ -87,16 +116,7 @@ export async function up() {
             ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
         `);
 
-        // 7. Таблица DOCUMENT_TEMPLATES
-        await client.query(`
-            ALTER TABLE document_templates 
-            ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE,
-            ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
-        `);
-
-        // 8. Новые таблицы
-        
-        // DEALS
+        // 8. DEALS
         await client.query(`
             CREATE TABLE IF NOT EXISTS deals (
                 id SERIAL PRIMARY KEY,
@@ -125,7 +145,7 @@ export async function up() {
             );
         `);
 
-        // DEBTS
+        // 9. OTHER TABLES (DEBTS, INTERACTIONS, COMMENTS, OBJECTIONS, SERVICES, TARIFFS)
         await client.query(`
             CREATE TABLE IF NOT EXISTS debts (
                 id SERIAL PRIMARY KEY,
@@ -138,10 +158,7 @@ export async function up() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
-        `);
 
-        // LEAD_INTERACTIONS
-        await client.query(`
             CREATE TABLE IF NOT EXISTS lead_interactions (
                 id SERIAL PRIMARY KEY,
                 lead_id INTEGER REFERENCES leads(id) ON DELETE CASCADE,
@@ -151,10 +168,7 @@ export async function up() {
                 notes TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
-        `);
 
-        // LEAD_COMMENTS
-        await client.query(`
             CREATE TABLE IF NOT EXISTS lead_comments (
                 id SERIAL PRIMARY KEY,
                 lead_id INTEGER REFERENCES leads(id) ON DELETE CASCADE,
@@ -162,10 +176,7 @@ export async function up() {
                 comment_text TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
-        `);
 
-        // OBJECTION_RESPONSES
-        await client.query(`
             CREATE TABLE IF NOT EXISTS objection_responses (
                 id SERIAL PRIMARY KEY,
                 objection_type VARCHAR(100) NOT NULL,
@@ -175,10 +186,7 @@ export async function up() {
                 usage_count INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
-        `);
 
-        // ADDITIONAL_SERVICES
-        await client.query(`
             CREATE TABLE IF NOT EXISTS additional_services (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
@@ -191,10 +199,7 @@ export async function up() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
-        `);
 
-        // COURSE_TARIFFS (на случай если SQL файл не был запущен)
-        await client.query(`
             CREATE TABLE IF NOT EXISTS course_tariffs (
                 id SERIAL PRIMARY KEY,
                 course_id INTEGER REFERENCES courses(id) ON DELETE CASCADE,
@@ -211,11 +216,22 @@ export async function up() {
             );
         `);
 
+        // 10. PAYMENTS FIX
+        await client.query(`
+            ALTER TABLE payments 
+            ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'RUB',
+            ADD COLUMN IF NOT EXISTS payment_type VARCHAR(50) DEFAULT 'full',
+            ADD COLUMN IF NOT EXISTS installment_number INTEGER,
+            ADD COLUMN IF NOT EXISTS transaction_id VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS notes TEXT,
+            ADD COLUMN IF NOT EXISTS created_by INTEGER;
+        `);
+
         await client.query('COMMIT');
-        console.log('✅ [Migration 006] SCHEMA SYNC COMPLETED ONCE AND FOR ALL');
+        console.log('✅ [Migration 006] ALL TABLES SYNCED SUCCESSFULLY');
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error('❌ [Migration 006] Definitive schema sync FAILED:', error);
+        console.error('❌ [Migration 006] Schema sync FAILED:', error);
     } finally {
         client.release();
     }
