@@ -227,8 +227,18 @@ export async function up() {
             ADD COLUMN IF NOT EXISTS created_by INTEGER;
         `);
 
-        await client.query('COMMIT');
-        console.log('✅ [Migration 006] ALL TABLES SYNCED SUCCESSFULLY');
+        // 11. ANALYTICS RELATED (ADD MISSING COLUMNS IN LEADS)
+        await client.query(`
+            ALTER TABLE leads 
+            ADD COLUMN IF NOT EXISTS fio VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS phone VARCHAR(50);
+        `);
+
+        // 12. ENSURE DEALS HAS TITLE (IT WAS MISSING IN SOME COPIES)
+        await client.query(`
+            ALTER TABLE deals 
+            ADD COLUMN IF NOT EXISTS title VARCHAR(255) DEFAULT 'Новая сделка';
+        `);
     } catch (error) {
         await client.query('ROLLBACK');
         console.error('❌ [Migration 006] Schema sync FAILED:', error);
