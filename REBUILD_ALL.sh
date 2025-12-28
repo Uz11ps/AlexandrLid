@@ -143,8 +143,6 @@ fi
     info "Создание администратора по умолчанию (123@mail.ru / 123)..."
     docker compose exec -T crm-backend node scripts/create-admin.js "123@mail.ru" "123" "Administrator"
     success "Администратор проверен/создан"
-else
-    info "Предупреждение: Не удалось изменить пароль через psql (возможно, база еще инициализируется)"
 fi
 
 # Дополнительное ожидание для других сервисов
