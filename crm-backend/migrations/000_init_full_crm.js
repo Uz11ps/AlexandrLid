@@ -152,6 +152,7 @@ export async function up() {
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
                 file_url TEXT,
+                is_active BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
@@ -200,10 +201,12 @@ export async function up() {
             CREATE TABLE IF NOT EXISTS tickets (
                 id SERIAL PRIMARY KEY,
                 user_id BIGINT,
+                manager_id INTEGER,
                 subject VARCHAR(255),
                 message TEXT,
                 status VARCHAR(50) DEFAULT 'open',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
 
