@@ -3,9 +3,9 @@ services:
     image: postgres:16-alpine
     container_name: telegram_bot_postgres
     environment:
-      POSTGRES_DB: telegram_bot_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${DB_NAME:-telegram_bot_db}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       TZ: Europe/Moscow
     ports:
       - "5433:5432"
@@ -13,7 +13,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,13 +26,6 @@ services:
         condition: service_healthy
     env_file:
       - .env
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: telegram_bot_db
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      TZ: Europe/Moscow
     restart: unless-stopped
 
   crm-backend:
@@ -44,11 +37,6 @@ services:
     env_file:
       - .env
     environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: telegram_bot_db
-      DB_USER: postgres
-      DB_PASSWORD: postgres
       PORT: 3001
       TZ: Europe/Moscow
     ports:
@@ -66,4 +54,3 @@ services:
 
 volumes:
   postgres_data:
-
