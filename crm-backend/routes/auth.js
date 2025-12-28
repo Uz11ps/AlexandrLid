@@ -57,8 +57,10 @@ const router = express.Router();
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log(`[Auth DEBUG] Login attempt for: ${email}`);
 
     if (!email || !password) {
+      console.log('[Auth DEBUG] Missing email or password');
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
@@ -68,28 +70,41 @@ router.post('/login', async (req, res) => {
     );
 
     if (result.rows.length === 0) {
+      console.log(`[Auth DEBUG] Manager not found or inactive: ${email}`);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const manager = result.rows[0];
+    console.log(`[Auth DEBUG] Manager found: ${manager.email}, Role: ${manager.role}, ID: ${manager.id}`);
+    
+    if (!manager.password_hash) {
+      console.error('[Auth DEBUG] ERROR: password_hash is missing in database for this manager!');
+      return res.status(500).json({ error: 'Database error: missing password hash' });
+    }
+
     const isValidPassword = await bcrypt.compare(password, manager.password_hash);
+    console.log(`[Auth DEBUG] Password valid: ${isValidPassword}`);
 
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     // Update last login
+    console.log('[Auth DEBUG] Updating last login...');
     await pool.query(
       'UPDATE managers SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
       [manager.id]
     );
 
     // Generate JWT token
+    console.log('[Auth DEBUG] Generating JWT token...');
+    const secret = process.env.JWT_SECRET || 'default_secret_change_in_production';
     const token = jwt.sign(
       { id: manager.id, email: manager.email, role: manager.role },
-      process.env.JWT_SECRET || 'default_secret_change_in_production',
+      secret,
       { expiresIn: '24h' }
     );
+    console.log('[Auth DEBUG] JWT token generated successfully');
 
     res.json({
       token,
@@ -101,8 +116,8 @@ router.post('/login', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('[Auth DEBUG] CRITICAL LOGIN ERROR:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
