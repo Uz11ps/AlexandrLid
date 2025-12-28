@@ -143,7 +143,6 @@ fi
     info "Создание администратора по умолчанию (123@mail.ru / 123)..."
     docker compose exec -T crm-backend node scripts/create-admin.js "123@mail.ru" "123" "Administrator"
     success "Администратор проверен/создан"
-fi
 
 # Дополнительное ожидание для других сервисов
 sleep 5

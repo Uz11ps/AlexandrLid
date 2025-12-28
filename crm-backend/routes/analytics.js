@@ -130,8 +130,7 @@ router.get('/financial', async (req, res) => {
         COUNT(*) as transaction_count,
         COALESCE(AVG(amount), 0) as average_check
       FROM payments
-      ${dateFilter}
-      WHERE status = 'completed'`
+      ${dateFilter ? dateFilter + " AND status = 'completed'" : "WHERE status = 'completed'"} `
     );
 
     // Revenue by source
@@ -143,8 +142,7 @@ router.get('/financial', async (req, res) => {
       FROM payments p
       JOIN students s ON p.student_id = s.id
       JOIN leads l ON s.lead_id = l.id
-      ${dateFilter.replace('payment_date', 'p.payment_date')}
-      WHERE p.status = 'completed'
+      ${dateFilter ? dateFilter.replace('WHERE payment_date', 'WHERE p.payment_date') + " AND p.status = 'completed'" : "WHERE p.status = 'completed'"}
       GROUP BY l.source
       ORDER BY revenue DESC`
     );
@@ -166,8 +164,7 @@ router.get('/financial', async (req, res) => {
           COALESCE(SUM(amount), 0) as revenue,
           COUNT(*) as transactions
         FROM payments
-        ${dateFilter}
-        WHERE status = 'completed'
+        ${dateFilter ? dateFilter + " AND status = 'completed'" : "WHERE status = 'completed'"}
         ${dateGroupBy}
         ORDER BY date ASC`
       );
