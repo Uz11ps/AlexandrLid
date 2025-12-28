@@ -1,27 +1,38 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import path from 'path';
 
-dotenv.config();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 const { Pool } = pg;
 
-const dbConfig = {
-  host: (process.env.DB_HOST || 'postgres').trim(),
-  port: parseInt((process.env.DB_PORT || '5432').trim()),
-  database: (process.env.DB_NAME || 'telegram_bot_db').trim(),
-  user: (process.env.DB_USER || 'postgres').trim(),
-  password: (process.env.DB_PASSWORD || 'postgres').trim(),
-  // Настройки пула для стабильности
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+// Функция для безопасного получения переменной
+const getEnv = (key, defaultValue) => {
+  const value = process.env[key];
+  if (!value) return defaultValue;
+  return String(value).trim().replace(/\r/g, '');
 };
+
+const dbConfig = {
+  host: getEnv('DB_HOST', 'postgres'),
+  port: parseInt(getEnv('DB_PORT', '5432')),
+  database: getEnv('DB_NAME', 'telegram_bot_db'),
+  user: getEnv('DB_USER', 'postgres'),
+  password: getEnv('DB_PASSWORD', 'postgres'),
+  max: 10,
+  idleTimeoutMillis: 30000,
+};
+
+console.log(`🔍 [DB] Connecting as ${dbConfig.user} to ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`);
 
 const pool = new Pool(dbConfig);
 
-// Единственная проверка при старте
-pool.query('SELECT NOW()')
-  .then(() => console.log('✅ [DB] Global connection established'))
-  .catch(err => console.error('❌ [DB] Connection failed:', err.message));
+// Тестовый запрос
+pool.query('SELECT 1', (err) => {
+  if (err) console.error('❌ [DB] Connection Error:', err.message);
+  else console.log('✅ [DB] Connected successfully');
+});
 
 export default pool;
