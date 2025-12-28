@@ -2,6 +2,8 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: telegram_bot_postgres
+    env_file:
+      - .env
     environment:
       POSTGRES_DB: ${DB_NAME:-telegram_bot_db}
       POSTGRES_USER: ${DB_USER:-postgres}

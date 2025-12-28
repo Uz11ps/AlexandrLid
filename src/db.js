@@ -1,36 +1,36 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__dirname, '../.env') });
 dotenv.config();
 
 const { Pool } = pg;
 
-// В Docker Compose используем имя сервиса 'postgres', иначе 'localhost'
-const dbHost = process.env.DB_HOST || (process.env.NODE_ENV === 'production' ? 'postgres' : 'localhost');
-const dbPort = parseInt(process.env.DB_PORT || '5432');
-const dbName = process.env.DB_NAME || 'telegram_bot_db';
-const dbUser = process.env.DB_USER || 'postgres';
-const dbPassword = process.env.DB_PASSWORD || 'postgres';
+// В Docker Compose используем имя сервиса 'postgres'
+const dbConfig = {
+  host: process.env.DB_HOST || 'postgres',
+  port: parseInt(process.env.DB_PORT || '5432'),
+  database: process.env.DB_NAME || 'telegram_bot_db',
+  user: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASSWORD || 'postgres',
+};
 
-console.log(`🔌 Подключение к БД: ${dbHost}:${dbPort}/${dbName} (user: ${dbUser})`);
-
-const pool = new Pool({
-  host: dbHost,
-  port: dbPort,
-  database: dbName,
-  user: dbUser,
-  password: dbPassword,
+console.log('🔍 [Bot DB Debug] Connection details:', {
+  host: dbConfig.host,
+  port: dbConfig.port,
+  database: dbConfig.database,
+  user: dbConfig.user,
+  passwordSet: !!dbConfig.password
 });
 
-// Устанавливаем московский часовой пояс для всех подключений к БД
-pool.on('connect', async (client) => {
-  await client.query('SET timezone = \'Europe/Moscow\'');
-});
+const pool = new Pool(dbConfig);
 
-// Проверка подключения и установка московского часового пояса
+// Устанавливаем московский часовой пояс
 pool.on('connect', async (client) => {
   await client.query('SET timezone = \'Europe/Moscow\'');
-  console.log('✅ Подключение к базе данных установлено (Moscow timezone)');
 });
 
 pool.on('error', (err) => {
@@ -276,7 +276,6 @@ export const db = {
     console.log(`  Создано пользователем: ${created_by || 'система'}`);
     
     // Сохраняем scheduled_at напрямую - передаем Date объект или ISO строку
-    // PostgreSQL с timezone='Europe/Moscow' обработает корректно
     let scheduledAtValue = null;
     if (scheduled_at) {
       scheduledAtValue = scheduled_at instanceof Date ? scheduled_at : new Date(scheduled_at);
@@ -290,7 +289,6 @@ export const db = {
       console.log(`  📤 Отправка: немедленная`);
     }
     
-    // Сохраняем scheduled_at как ISO строку UTC для гарантии правильного сохранения
     let scheduledAtISO = null;
     if (scheduledAtValue) {
       scheduledAtISO = scheduledAtValue.toISOString();
@@ -397,22 +395,12 @@ export const db = {
   },
 
   async getScheduledBroadcasts() {
-    // Выбираем рассылки со статусом 'scheduled', время которых наступило
-    // scheduled_at хранится как TIMESTAMP (без timezone), но мы сохраняем UTC время
-    
     const nowUTC = new Date();
     const nowUTCISO = nowUTC.toISOString();
-    // Преобразуем в формат, который PostgreSQL понимает как UTC
-    const nowUTCString = nowUTC.toISOString().replace('T', ' ').replace('Z', '');
     
     console.log(`\n🔍 [DB] getScheduledBroadcasts:`);
     console.log(`  Текущее UTC время: ${nowUTCISO}`);
-    console.log(`  Текущее время (timestamp): ${nowUTC.getTime()}`);
-    console.log(`  PostgreSQL формат: ${nowUTCString}`);
     
-    // Используем параметризованный запрос для точного сравнения
-    // scheduled_at хранится как TIMESTAMP (без timezone), но мы сохраняем UTC значения
-    // PostgreSQL интерпретирует TIMESTAMP как локальное время, поэтому нужно явно указать UTC
     const result = await pool.query(
       `SELECT * FROM broadcasts 
        WHERE status = 'scheduled' 
@@ -427,35 +415,6 @@ export const db = {
     );
     
     console.log(`  Найдено рассылок для отправки: ${result.rows.length}`);
-    
-    // Дополнительная диагностика: проверяем все scheduled рассылки
-    const allScheduledResult = await pool.query(
-      `SELECT id, title, status, scheduled_at, 
-              scheduled_at::text as scheduled_at_raw,
-              (scheduled_at AT TIME ZONE 'UTC')::timestamptz as scheduled_at_utc
-       FROM broadcasts 
-       WHERE status = 'scheduled' AND scheduled_at IS NOT NULL
-       ORDER BY scheduled_at DESC
-       LIMIT 10`,
-      []
-    );
-    
-    console.log(`  Всего scheduled рассылок в БД: ${allScheduledResult.rows.length}`);
-    allScheduledResult.rows.forEach(row => {
-      const scheduledTime = row.scheduled_at ? new Date(row.scheduled_at).toISOString() : 'N/A';
-      const scheduledUTC = row.scheduled_at_utc ? new Date(row.scheduled_at_utc).toISOString() : 'N/A';
-      const timeDiff = row.scheduled_at ? Math.round((nowUTC.getTime() - new Date(row.scheduled_at).getTime()) / 1000 / 60) : 0;
-      const shouldSend = row.scheduled_at ? new Date(row.scheduled_at).getTime() <= nowUTC.getTime() : false;
-      console.log(`    - ID: ${row.id}, scheduled_at (raw): ${row.scheduled_at_raw}, scheduled_at (parsed): ${scheduledTime}, scheduled_at (UTC): ${scheduledUTC}, title: "${row.title}", прошло минут: ${timeDiff}, должна отправиться: ${shouldSend}`);
-    });
-    
-    if (result.rows.length > 0) {
-      result.rows.forEach(row => {
-        const scheduledTime = row.scheduled_at ? new Date(row.scheduled_at).toISOString() : 'N/A';
-        const timeDiff = row.scheduled_at ? Math.round((nowUTC.getTime() - new Date(row.scheduled_at).getTime()) / 1000 / 60) : 0;
-        console.log(`    ✅ ВЫБРАНО ДЛЯ ОТПРАВКИ - ID: ${row.id}, scheduled_at: ${scheduledTime}, title: "${row.title}", прошло минут: ${timeDiff}`);
-      });
-    }
     
     return result.rows.map(row => {
       let buttons = null;
@@ -472,22 +431,13 @@ export const db = {
         }
       }
       
-      // Нормализуем scheduled_at к UTC Date объекту
-      // PostgreSQL возвращает TIMESTAMP как локальное время (MSK), но мы сохраняем UTC
-      // Поэтому нужно вычесть 3 часа, чтобы получить правильное UTC время
       let scheduledAt = null;
       if (row.scheduled_at) {
         if (row.scheduled_at instanceof Date) {
-          // PostgreSQL вернул Date объект, интерпретированный как MSK
-          // Вычитаем 3 часа, чтобы получить UTC
           scheduledAt = new Date(row.scheduled_at.getTime() - (3 * 60 * 60 * 1000));
         } else if (typeof row.scheduled_at === 'string') {
-          // Если это строка без timezone, PostgreSQL вернул её как MSK
-          // Парсим как UTC, вычитая 3 часа
           const date = new Date(row.scheduled_at);
           if (!isNaN(date.getTime())) {
-            // Предполагаем, что строка была интерпретирована как локальное время
-            // Вычитаем 3 часа для получения UTC
             scheduledAt = new Date(date.getTime() - (3 * 60 * 60 * 1000));
           }
         }
@@ -503,7 +453,6 @@ export const db = {
 
   async updateBroadcastStatus(id, status, sentCount = null, errorCount = null) {
     console.log(`\n💾 [DB] Обновление статуса рассылки ID: ${id}`);
-    console.log(`  Новый статус: ${status}`);
     
     const updates = ['status = $1'];
     const values = [status];
@@ -515,33 +464,19 @@ export const db = {
         paramIndex++;
         updates.push(`sent_count = $${paramIndex}`);
         values.push(sentCount);
-        console.log(`  Отправлено: ${sentCount}`);
       }
       if (errorCount !== null) {
         paramIndex++;
         updates.push(`error_count = $${paramIndex}`);
         values.push(errorCount);
-        console.log(`  Ошибок: ${errorCount}`);
       }
-      console.log(`  Время отправки: ${new Date().toISOString()}`);
-    } else if (status === 'scheduled') {
-      console.log(`  Рассылка запланирована`);
-    } else if (status === 'cancelled') {
-      console.log(`  Рассылка отменена`);
     }
 
-    // ID всегда последний параметр
     paramIndex++;
     const result = await pool.query(
       `UPDATE broadcasts SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
       [...values, id]
     );
-    
-    if (result.rows.length > 0) {
-      console.log(`✅ [DB] Статус рассылки ${id} обновлен на '${status}'`);
-    } else {
-      console.error(`❌ [DB] Рассылка ${id} не найдена при обновлении статуса`);
-    }
     
     return result.rows[0];
   },
@@ -561,10 +496,8 @@ export const db = {
 
     switch (segment) {
       case 'all':
-        // Все пользователи
         break;
       case 'active':
-        // Активные пользователи (за последние 30 дней)
         query += " AND created_at >= NOW() - INTERVAL '30 days'";
         break;
       case 'active_7':
@@ -596,7 +529,6 @@ export const db = {
         break;
     }
 
-    // Исключаем заблокированных пользователей
     query += ' AND user_id NOT IN (SELECT user_id FROM blacklist)';
 
     const result = await pool.query(query, params);
@@ -798,7 +730,6 @@ export const db = {
 
   // Получить пользователей без подписки на канал
   async getUsersWithoutChannelSubscription(channelId) {
-    // Эта функция будет использоваться вместе с проверкой подписки через API
     const result = await pool.query(
       'SELECT user_id FROM users WHERE is_bot = FALSE'
     );
@@ -813,24 +744,18 @@ export const db = {
   async createOrUpdateLeadFromUser(userId, userData = {}) {
     try {
       const user = await this.getUser(userId);
-      if (!user) {
-        console.log('User not found for lead creation:', userId);
-        return null;
-      }
+      if (!user) return null;
 
       const fio = userData.fio || `${user.first_name || ''} ${user.last_name || ''}`.trim() || null;
       const telegramUsername = user.username || null;
       const source = userData.source || 'Telegram Bot';
 
-      // Проверяем, существует ли уже лид для этого user_id
       const existingLead = await pool.query(
         'SELECT * FROM leads WHERE user_id = $1',
         [userId]
       );
 
       if (existingLead.rows.length > 0) {
-        // Обновляем существующего лида
-        // Исправляем SQL: явно указываем тип для $4 перед использованием в CASE
         const result = await pool.query(
           `UPDATE leads 
            SET telegram_username = COALESCE($1, telegram_username),
@@ -847,19 +772,11 @@ export const db = {
         );
         return result.rows[0];
       } else {
-        // Создаем нового лида
         const result = await pool.query(
           `INSERT INTO leads (user_id, fio, telegram_username, source, status, funnel_stage, created_at, updated_at)
            VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
            RETURNING *`,
-          [
-            userId,
-            fio,
-            telegramUsername,
-            source,
-            'Новый лид',
-            'Новый лид'
-          ]
+          [userId, fio, telegramUsername, source, 'Новый лид', 'Новый лид']
         );
         return result.rows[0];
       }
@@ -883,10 +800,7 @@ export const db = {
     }
   },
 
-  // ============================================
   // Работа с пригласительными ссылками каналов/групп
-  // ============================================
-  
   async createChannelInvite(inviteData) {
     const { channel_id, channel_username, channel_type, invite_link } = inviteData;
     const result = await pool.query(
@@ -947,10 +861,7 @@ export const db = {
     return result.rows[0] || null;
   },
 
-  // ============================================
   // Работа с подписками через пригласительные ссылки
-  // ============================================
-
   async recordChannelSubscription(userId, channelInviteId) {
     const result = await pool.query(
       `INSERT INTO user_channel_subscriptions (user_id, channel_invite_id, subscribed_at, is_verified)
@@ -983,10 +894,7 @@ export const db = {
     return result.rows;
   },
 
-  // ============================================
   // Работа с активностью пользователей
-  // ============================================
-
   async logUserActivity(userId, activityType, activityData = null, metadata = null) {
     try {
       const result = await pool.query(
@@ -1002,12 +910,7 @@ export const db = {
       );
       return result.rows[0];
     } catch (error) {
-      // Игнорируем ошибку FK violation (23503) - пользователь еще не создан
-      // Это происходит когда activityLogger срабатывает до создания пользователя
-      if (error.code === '23503') {
-        // Тихо игнорируем - пользователь будет создан позже
-        return null;
-      }
+      if (error.code === '23503') return null;
       console.error('Ошибка при логировании активности:', error);
       return null;
     }
@@ -1048,13 +951,7 @@ export const db = {
          u.first_name,
          COUNT(ua.id) as total_activities,
          COUNT(DISTINCT DATE(ua.created_at)) as active_days,
-         MAX(ua.created_at) as last_activity,
-         COUNT(CASE WHEN ua.activity_type = 'command' THEN 1 END) as commands_count,
-         COUNT(CASE WHEN ua.activity_type = 'message' THEN 1 END) as messages_count,
-         COUNT(CASE WHEN ua.activity_type = 'callback' THEN 1 END) as callbacks_count,
-         COUNT(CASE WHEN ua.activity_type = 'subscription' THEN 1 END) as subscriptions_count,
-         COUNT(CASE WHEN ua.activity_type = 'giveaway_join' THEN 1 END) as giveaway_joins_count,
-         COUNT(CASE WHEN ua.activity_type = 'referral' THEN 1 END) as referrals_count
+         MAX(ua.created_at) as last_activity
        FROM users u
        LEFT JOIN user_activity ua ON u.user_id = ua.user_id 
          AND ua.created_at >= NOW() - INTERVAL '${days} days'
@@ -1087,20 +984,15 @@ export const db = {
       const values = [points, userId];
       let paramIndex = 2;
 
-      if (stage === 1) {
-        updates.push('stage1_points = stage1_points + $1');
-      } else if (stage === 2) {
-        updates.push('stage2_points = stage2_points + $1');
-      } else if (stage === 3) {
-        updates.push('stage3_points = stage3_points + $1');
-      }
+      if (stage === 1) updates.push('stage1_points = stage1_points + $1');
+      else if (stage === 2) updates.push('stage2_points = stage2_points + $1');
+      else if (stage === 3) updates.push('stage3_points = stage3_points + $1');
 
       await pool.query(
         `UPDATE users SET ${updates.join(', ')} WHERE user_id = $${paramIndex}`,
         values
       );
 
-      // Логируем начисление баллов
       await this.logUserActivity(userId, 'points_award', { points, reason, stage });
       return true;
     } catch (error) {
@@ -1115,7 +1007,6 @@ export const db = {
       try {
         await client.query('BEGIN');
 
-        // Получаем или создаем запись активности за сегодня
         const activityRes = await client.query(
           `INSERT INTO user_daily_activity (user_id, activity_date)
            VALUES ($1, CURRENT_DATE)
@@ -1138,10 +1029,9 @@ export const db = {
             [pointsToAdd, userId]
           );
 
-          // Добавляем баллы пользователю
-          const stage = 2; // Предположим, активность актуальна для этапа 2
+          const stage = 2;
           await client.query(
-            `UPDATE users SET points = points + $1, stage${stage}_points = stage${stage}_points + $1 
+            `UPDATE users SET points = points + $1, stage2_points = stage2_points + $1 
              WHERE user_id = $2`,
             [pointsToAdd, userId]
           );
@@ -1171,4 +1061,3 @@ export const db = {
 };
 
 export default db;
-
