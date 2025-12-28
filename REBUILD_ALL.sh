@@ -117,7 +117,11 @@ if docker compose exec -T -u postgres postgres psql -c "ALTER USER postgres WITH
     
     info "Перезапуск сервисов для применения нового пароля..."
     docker compose restart bot crm-backend
-    sleep 5
+    sleep 10
+
+    info "Создание администратора по умолчанию (123@mail.ru / 123)..."
+    docker compose exec -T crm-backend node scripts/create-admin.js "123@mail.ru" "123" "Administrator"
+    success "Администратор проверен/создан"
 else
     info "Предупреждение: Не удалось изменить пароль через psql (возможно, база еще инициализируется)"
 fi

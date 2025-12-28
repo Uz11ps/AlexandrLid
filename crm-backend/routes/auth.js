@@ -117,7 +117,12 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     console.error('[Auth DEBUG] CRITICAL LOGIN ERROR:', error);
-    res.status(500).json({ error: 'Internal server error', details: error.message });
+    // Добавляем детали ошибки в ответ для диагностики
+    res.status(500).json({ 
+      error: 'Internal server error', 
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
+    });
   }
 });
 

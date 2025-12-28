@@ -7,6 +7,20 @@ export async function up() {
 
         console.log('📦 [Init CRM] Creating core tables...');
 
+        // 0. Таблица менеджеров (основная для прав доступа)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS managers (
+                id SERIAL PRIMARY KEY,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                role VARCHAR(50) DEFAULT 'manager',
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_login TIMESTAMP
+            );
+        `);
+
         // 1. Справочники и воронка
         await client.query(`
             CREATE TABLE IF NOT EXISTS funnel_stages (
