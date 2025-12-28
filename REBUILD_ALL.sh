@@ -122,6 +122,10 @@ fi
 if docker compose exec -T -u postgres postgres psql -c "ALTER USER postgres WITH PASSWORD '$DB_PASS';" ; then
     success "Пароль PostgreSQL синхронизирован"
     
+    info "Обновление прав доступа в базе данных..."
+    docker compose exec -T -u postgres postgres psql -d telegram_bot_db -c "GRANT ALL PRIVILEGES ON SCHEMA public TO postgres; GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres;" > /dev/null
+    success "Права доступа обновлены"
+
     info "Перезапуск сервисов для применения нового пароля..."
     docker compose restart bot crm-backend
     sleep 10
