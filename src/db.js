@@ -9,12 +9,18 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const { Pool } = pg;
 
+const getEnv = (key, defaultValue) => {
+  const value = process.env[key];
+  if (!value) return defaultValue;
+  return String(value).trim().replace(/\r/g, '');
+};
+
 const pool = new Pool({
-  host: process.env.DB_HOST || 'postgres',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME || 'telegram_bot_db',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
+  host: getEnv('DB_HOST', 'postgres'),
+  port: parseInt(getEnv('DB_PORT', '5432')),
+  database: getEnv('DB_NAME', 'telegram_bot_db'),
+  user: getEnv('DB_USER', 'postgres'),
+  password: getEnv('DB_PASSWORD', 'postgres'),
 });
 
 pool.on('connect', async (client) => {

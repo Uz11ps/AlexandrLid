@@ -126,8 +126,8 @@ if docker compose exec -T -u postgres postgres psql -c "ALTER USER postgres WITH
     docker compose exec -T -u postgres postgres psql -d telegram_bot_db -c "GRANT ALL PRIVILEGES ON SCHEMA public TO postgres; GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres;" > /dev/null
     success "Права доступа обновлены"
 
-    info "Перезапуск сервисов для применения нового пароля..."
-    docker compose restart bot crm-backend
+    info "Принудительное пересоздание сервисов для применения нового пароля..."
+    docker compose up -d --force-recreate bot crm-backend
     sleep 10
 
     info "Создание администратора по умолчанию (123@mail.ru / 123)..."
