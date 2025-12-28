@@ -5,50 +5,21 @@ export async function up() {
     try {
         await client.query('BEGIN');
 
-        console.log('🛠️ [Migration 006] Fixing missing columns in existing tables...');
+        console.log('🛠️ [Migration 006] Definitive schema sync starting...');
 
-        // Фикс для шаблонов документов
+        // 1. Таблица COURSES
         await client.query(`
-            ALTER TABLE document_templates 
-            ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
-        `);
-
-        // Фикс для тикетов
-        await client.query(`
-            ALTER TABLE tickets 
-            ADD COLUMN IF NOT EXISTS manager_id INTEGER,
-            ADD COLUMN IF NOT EXISTS subject VARCHAR(255),
+            ALTER TABLE courses 
+            ADD COLUMN IF NOT EXISTS format VARCHAR(50) DEFAULT 'online',
+            ADD COLUMN IF NOT EXISTS duration_weeks INTEGER,
+            ADD COLUMN IF NOT EXISTS program_structure JSONB,
+            ADD COLUMN IF NOT EXISTS base_price DECIMAL(10, 2),
+            ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'RUB',
+            ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active',
             ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
         `);
 
-        // Фикс для задач
-        await client.query(`
-            ALTER TABLE tasks 
-            ADD COLUMN IF NOT EXISTS manager_id INTEGER,
-            ADD COLUMN IF NOT EXISTS task_type VARCHAR(50) DEFAULT 'reminder',
-            ADD COLUMN IF NOT EXISTS priority VARCHAR(50) DEFAULT 'normal';
-        `);
-
-        // Создание таблицы deals (Сделки), если её нет
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS deals (
-                id SERIAL PRIMARY KEY,
-                lead_id INTEGER REFERENCES leads(id) ON DELETE CASCADE,
-                manager_id INTEGER,
-                title VARCHAR(255) NOT NULL,
-                amount DECIMAL(10, 2) DEFAULT 0,
-                currency VARCHAR(10) DEFAULT 'RUB',
-                stage VARCHAR(50) DEFAULT 'new',
-                status VARCHAR(50) DEFAULT 'active',
-                description TEXT,
-                expected_close_date DATE,
-                closed_at TIMESTAMP,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-
-        // Фикс для лидов (все недостающие поля из кода)
+        // 2. Таблица LEADS
         await client.query(`
             ALTER TABLE leads 
             ADD COLUMN IF NOT EXISTS country VARCHAR(100),
@@ -71,7 +42,7 @@ export async function up() {
             ADD COLUMN IF NOT EXISTS source VARCHAR(100);
         `);
 
-        // Фикс для студентов
+        // 3. Таблица STUDENTS
         await client.query(`
             ALTER TABLE students 
             ADD COLUMN IF NOT EXISTS contract_number VARCHAR(100),
@@ -88,18 +59,73 @@ export async function up() {
             ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
         `);
 
-        // Фикс для платежей
+        // 4. Таблица TICKETS
         await client.query(`
-            ALTER TABLE payments 
-            ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'RUB',
-            ADD COLUMN IF NOT EXISTS payment_type VARCHAR(50) DEFAULT 'full',
-            ADD COLUMN IF NOT EXISTS installment_number INTEGER,
-            ADD COLUMN IF NOT EXISTS transaction_id VARCHAR(255),
-            ADD COLUMN IF NOT EXISTS notes TEXT,
-            ADD COLUMN IF NOT EXISTS created_by INTEGER;
+            ALTER TABLE tickets 
+            ADD COLUMN IF NOT EXISTS manager_id INTEGER,
+            ADD COLUMN IF NOT EXISTS subject VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
         `);
 
-        // Создание таблицы debts (Долги), если её нет
+        // 5. Таблица TASKS
+        await client.query(`
+            ALTER TABLE tasks 
+            ADD COLUMN IF NOT EXISTS manager_id INTEGER,
+            ADD COLUMN IF NOT EXISTS task_type VARCHAR(50) DEFAULT 'reminder',
+            ADD COLUMN IF NOT EXISTS priority VARCHAR(50) DEFAULT 'normal',
+            ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+        `);
+
+        // 6. Таблица MESSAGE_TEMPLATES
+        await client.query(`
+            ALTER TABLE message_templates 
+            ADD COLUMN IF NOT EXISTS category VARCHAR(100),
+            ADD COLUMN IF NOT EXISTS template_text TEXT,
+            ADD COLUMN IF NOT EXISTS variables JSONB,
+            ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE,
+            ADD COLUMN IF NOT EXISTS created_by INTEGER,
+            ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+        `);
+
+        // 7. Таблица DOCUMENT_TEMPLATES
+        await client.query(`
+            ALTER TABLE document_templates 
+            ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE,
+            ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+        `);
+
+        // 8. Новые таблицы
+        
+        // DEALS
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS deals (
+                id SERIAL PRIMARY KEY,
+                lead_id INTEGER REFERENCES leads(id) ON DELETE CASCADE,
+                student_id INTEGER REFERENCES students(id) ON DELETE SET NULL,
+                product_id INTEGER,
+                product_type VARCHAR(50),
+                manager_id INTEGER,
+                title VARCHAR(255) NOT NULL,
+                amount DECIMAL(10, 2) DEFAULT 0,
+                currency VARCHAR(10) DEFAULT 'RUB',
+                stage VARCHAR(50) DEFAULT 'new',
+                status VARCHAR(50) DEFAULT 'active',
+                probability_percent INTEGER DEFAULT 0,
+                source VARCHAR(100),
+                payment_method VARCHAR(50),
+                description TEXT,
+                expected_close_date DATE,
+                actual_close_date DATE,
+                closed_at TIMESTAMP,
+                commission DECIMAL(10, 2) DEFAULT 0,
+                net_profit DECIMAL(10, 2) DEFAULT 0,
+                acquisition_cost DECIMAL(10, 2) DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        // DEBTS
         await client.query(`
             CREATE TABLE IF NOT EXISTS debts (
                 id SERIAL PRIMARY KEY,
@@ -114,7 +140,7 @@ export async function up() {
             );
         `);
 
-        // Создание таблицы lead_interactions, если её нет
+        // LEAD_INTERACTIONS
         await client.query(`
             CREATE TABLE IF NOT EXISTS lead_interactions (
                 id SERIAL PRIMARY KEY,
@@ -127,7 +153,7 @@ export async function up() {
             );
         `);
 
-        // Создание таблицы lead_comments, если её нет
+        // LEAD_COMMENTS
         await client.query(`
             CREATE TABLE IF NOT EXISTS lead_comments (
                 id SERIAL PRIMARY KEY,
@@ -138,24 +164,61 @@ export async function up() {
             );
         `);
 
-        // Фикс для курсов
+        // OBJECTION_RESPONSES
         await client.query(`
-            ALTER TABLE courses 
-            ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active';
+            CREATE TABLE IF NOT EXISTS objection_responses (
+                id SERIAL PRIMARY KEY,
+                objection_type VARCHAR(100) NOT NULL,
+                response_text TEXT NOT NULL,
+                category VARCHAR(100),
+                effectiveness_rating DECIMAL(3, 2),
+                usage_count INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        // ADDITIONAL_SERVICES
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS additional_services (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                description TEXT,
+                price DECIMAL(10, 2) NOT NULL,
+                currency VARCHAR(10) DEFAULT 'RUB',
+                duration_hours INTEGER,
+                service_type VARCHAR(50),
+                status VARCHAR(50) DEFAULT 'active',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        // COURSE_TARIFFS (на случай если SQL файл не был запущен)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS course_tariffs (
+                id SERIAL PRIMARY KEY,
+                course_id INTEGER REFERENCES courses(id) ON DELETE CASCADE,
+                name VARCHAR(255) NOT NULL,
+                description TEXT,
+                price DECIMAL(10, 2) NOT NULL,
+                currency VARCHAR(10) DEFAULT 'RUB',
+                features JSONB,
+                installment_available BOOLEAN DEFAULT FALSE,
+                order_index INTEGER DEFAULT 0,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
         `);
 
         await client.query('COMMIT');
-        console.log('✅ [Migration 006] Database schema fixed successfully');
+        console.log('✅ [Migration 006] SCHEMA SYNC COMPLETED ONCE AND FOR ALL');
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error('❌ [Migration 006] Failed to fix database schema:', error);
-        // Не пробрасываем ошибку дальше, чтобы сервер мог запуститься
+        console.error('❌ [Migration 006] Definitive schema sync FAILED:', error);
     } finally {
         client.release();
     }
 }
 
-export async function down() {
-    // Не требуется
-}
-
+export async function down() {}
