@@ -22,6 +22,7 @@ import ticketsRoutes from './routes/tickets.js';
 import permissionsRoutes from './routes/permissions.js';
 import managersRoutes from './routes/managers.js';
 import rolesRoutes from './routes/roles.js';
+import { up as initFullCrm } from './migrations/000_init_full_crm.js';
 import { createCourseTariffsTable } from './migrations/001_create_course_tariffs.js';
 import { up as createRolesTable } from './migrations/002_create_roles.js';
 import { up as removeRoleCheckConstraint } from './migrations/003_remove_role_check_constraint.js';
@@ -213,6 +214,7 @@ app.use((err, req, res, next) => {
 async function startServer() {
   try {
     console.log('🔄 Running database migrations...');
+    await initFullCrm();
     await createCourseTariffsTable();
     console.log('✅ Migration 001 (course_tariffs) completed');
     
