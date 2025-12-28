@@ -45,17 +45,22 @@ export async function up() {
         // 3. STUDENTS
         await client.query(`
             ALTER TABLE students 
+            ADD COLUMN IF NOT EXISTS course_id INTEGER,
+            ADD COLUMN IF NOT EXISTS package_id INTEGER,
+            ADD COLUMN IF NOT EXISTS group_id INTEGER,
+            ADD COLUMN IF NOT EXISTS curator_id INTEGER,
             ADD COLUMN IF NOT EXISTS contract_number VARCHAR(100),
+            ADD COLUMN IF NOT EXISTS start_date DATE,
+            ADD COLUMN IF NOT EXISTS graduation_date DATE,
             ADD COLUMN IF NOT EXISTS payment_amount DECIMAL(10, 2),
             ADD COLUMN IF NOT EXISTS payment_currency VARCHAR(10) DEFAULT 'RUB',
             ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50),
+            ADD COLUMN IF NOT EXISTS payment_status VARCHAR(50) DEFAULT 'pending',
             ADD COLUMN IF NOT EXISTS installment_plan BOOLEAN DEFAULT FALSE,
             ADD COLUMN IF NOT EXISTS installment_amount DECIMAL(10, 2),
             ADD COLUMN IF NOT EXISTS installment_periods INTEGER,
             ADD COLUMN IF NOT EXISTS materials_access BOOLEAN DEFAULT TRUE,
-            ADD COLUMN IF NOT EXISTS curator_id INTEGER,
             ADD COLUMN IF NOT EXISTS progress_percent INTEGER DEFAULT 0,
-            ADD COLUMN IF NOT EXISTS graduation_date DATE,
             ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
         `);
 
@@ -143,6 +148,12 @@ export async function up() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+
+            -- Если таблица существовала, добавим недостающие поля
+            ALTER TABLE deals 
+            ADD COLUMN IF NOT EXISTS student_id INTEGER REFERENCES students(id) ON DELETE SET NULL,
+            ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active',
+            ADD COLUMN IF NOT EXISTS title VARCHAR(255) DEFAULT 'Новая сделка';
         `);
 
         // 9. OTHER TABLES (DEBTS, INTERACTIONS, COMMENTS, OBJECTIONS, SERVICES, TARIFFS)
@@ -219,6 +230,8 @@ export async function up() {
         // 10. PAYMENTS FIX
         await client.query(`
             ALTER TABLE payments 
+            ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'completed',
+            ADD COLUMN IF NOT EXISTS payment_date DATE DEFAULT CURRENT_DATE,
             ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'RUB',
             ADD COLUMN IF NOT EXISTS payment_type VARCHAR(50) DEFAULT 'full',
             ADD COLUMN IF NOT EXISTS installment_number INTEGER,
@@ -232,12 +245,6 @@ export async function up() {
             ALTER TABLE leads 
             ADD COLUMN IF NOT EXISTS fio VARCHAR(255),
             ADD COLUMN IF NOT EXISTS phone VARCHAR(50);
-        `);
-
-        // 12. ENSURE DEALS HAS TITLE (IT WAS MISSING IN SOME COPIES)
-        await client.query(`
-            ALTER TABLE deals 
-            ADD COLUMN IF NOT EXISTS title VARCHAR(255) DEFAULT 'Новая сделка';
         `);
     } catch (error) {
         await client.query('ROLLBACK');
