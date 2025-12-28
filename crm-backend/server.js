@@ -26,6 +26,7 @@ import { createCourseTariffsTable } from './migrations/001_create_course_tariffs
 import { up as createRolesTable } from './migrations/002_create_roles.js';
 import { up as removeRoleCheckConstraint } from './migrations/003_remove_role_check_constraint.js';
 import { up as createChannelInvitesAndActivity } from './migrations/004_create_channel_invites_and_activity.js';
+import { up as runContestSystemMigration } from './migrations/005_contest_system.js';
 
 // Обертка для миграции ролей с обработкой ошибок
 async function runRolesMigration() {
@@ -241,6 +242,15 @@ async function startServer() {
     } catch (error) {
       console.error('❌ Migration 004 failed:', error);
       console.warn('⚠️ Channel invites and activity features may not work');
+    }
+    
+    // Система конкурса
+    try {
+      await runContestSystemMigration();
+      console.log('✅ Migration 005 (contest system) completed');
+    } catch (error) {
+      console.error('❌ Migration 005 failed:', error);
+      console.warn('⚠️ Contest system features may not work');
     }
     
     console.log('✅ All migrations completed');

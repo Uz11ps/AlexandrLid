@@ -8,7 +8,7 @@ export function getMainMenu() {
           { text: '🏆 Лидерборд', callback_data: 'menu_leaderboard' }
         ],
         [
-          { text: '🎁 Розыгрыши', callback_data: 'menu_giveaways' }
+          { text: '🎁 КОНКУРС', callback_data: 'menu_contest' }
         ],
         [
           { text: '💬 Тикеты', callback_data: 'menu_tickets' }

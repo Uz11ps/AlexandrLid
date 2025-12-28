@@ -46,7 +46,7 @@ export function initScheduler(bot) {
       }
       
       console.log(`   📋 Найдено ${scheduledBroadcasts.length} рассылок для отправки`);
-      
+
       for (const broadcast of scheduledBroadcasts) {
         const scheduledTime = broadcast.scheduled_at ? new Date(broadcast.scheduled_at).toISOString() : 'N/A';
         console.log(`\n   📤 [Scheduler] Обработка рассылки:`);
@@ -54,27 +54,27 @@ export function initScheduler(bot) {
         console.log(`      Название: "${broadcast.title}"`);
         console.log(`      Запланировано на: ${scheduledTime}`);
         console.log(`      Текущее время: ${checkTime}`);
-        
-        try {
+          
+          try {
           // Создаем контекст для отправки
-          const fakeCtx = {
-            telegram: botInstance.telegram
-          };
-          
+            const fakeCtx = {
+              telegram: botInstance.telegram
+            };
+            
           const result = await sendBroadcast(fakeCtx, broadcast.id);
-          
+            
           if (result.success) {
             console.log(`      ✅ Рассылка ${broadcast.id} успешно отправлена: ${result.sent}/${result.total} пользователей`);
           } else {
             console.error(`      ❌ Ошибка рассылки ${broadcast.id}: ${result.error}`);
           }
-        } catch (error) {
+          } catch (error) {
           console.error(`      ❌ Критическая ошибка рассылки ${broadcast.id}:`, error.message);
           console.error(`      Stack:`, error.stack);
           // Помечаем как отмененную при критической ошибке
-          try {
-            await db.updateBroadcastStatus(broadcast.id, 'cancelled');
-          } catch (updateError) {
+            try {
+              await db.updateBroadcastStatus(broadcast.id, 'cancelled');
+            } catch (updateError) {
             console.error(`      ❌ Не удалось обновить статус рассылки:`, updateError.message);
           }
         }
@@ -101,7 +101,7 @@ export function initScheduler(bot) {
   } catch (error) {
     console.error('❌ [Scheduler] КРИТИЧЕСКАЯ ОШИБКА настройки interval задачи:', error);
     console.error('   Stack:', error.stack);
-  }
+    }
   
   // Дополнительно: проверка каждую минуту через cron (резервный механизм)
   try {

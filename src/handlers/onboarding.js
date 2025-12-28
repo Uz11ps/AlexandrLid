@@ -95,12 +95,26 @@ export async function handleStart(ctx) {
       console.log('Referral created:', referralCreated ? 'YES' : 'NO (already exists or error)');
       
       if (referralCreated) {
+        // Начисление баллов рефереру (10 баллов за активного реферала)
+        try {
+          const { addPoints } = (await import('../db.js')).db;
+          const { getCurrentStage } = await import('./contest.js');
+          const currentStage = getCurrentStage().id;
+          await db.addPoints(referrerId, 10, 'За приглашение реферала', currentStage);
+        } catch (error) {
+          console.error('Ошибка при начислении баллов рефереру:', error);
+        }
+
         // Уведомление реферера о новом реферале
         try {
+          const userPointsResult = await db.getUser(referrerId);
           await ctx.telegram.sendMessage(
             referrerId,
-            `🎉 У вас новый реферал!\n\n` +
-            `Пользователь ${firstName || 'без имени'} присоединился по вашей ссылке.`
+            `🎉 Отлично!\n\n` +
+            `Твой друг ${firstName || 'без имени'} присоединился к конкурсу!\n\n` +
+            `✅ +10 баллов\n` +
+            `Всего твоих баллов: ${userPointsResult.points || 0}\n\n` +
+            `Продолжай делиться ссылкой! 🚀`
           );
           
           // Триггер автоворонки для нового реферала
@@ -159,10 +173,19 @@ export async function handleStart(ctx) {
     }
     
     const { getMainMenu } = await import('./menu.js');
+    const { getCurrentStage } = await import('./contest.js');
+    const stage = getCurrentStage();
+
     return ctx.reply(
-      `👋 С возвращением, ${firstName || 'друг'}!\n\n` +
-      `${referrerId ? '✅ Реферальная ссылка засчитана!\n\n' : ''}` +
-      `Выберите действие в меню:`,
+      `🔥 Добро пожаловать БОЛЬШОЙ РОЗЫГРЫШ от MOMENTUM TRADING!\n\n` +
+      `3 недели. 3 этапа. Много призов.\n\n` +
+      `Сейчас идёт ${stage.name} (${stage.period})\n\n` +
+      `Что дальше:\n` +
+      `→ Получи свою реферальную ссылку \n` +
+      `→ Пригласи минимум 2 друзей\n` +
+      `→ Участвуй в розыгрыше призов\n\n` +
+      `Баллы с каждого этапа копятся и работают на тебя в финале!\n\n` +
+      `Начнём? 👇`,
       getMainMenu()
     );
   }
@@ -238,10 +261,19 @@ export async function handleStart(ctx) {
   }
 
   // Приветственное сообщение
+  const { getCurrentStage } = await import('./contest.js');
+  const stage = getCurrentStage();
+  
   const welcomeMessage = 
-    `👋 Добро пожаловать, ${firstName || 'друг'}!\n\n` +
-    `${referrerId ? '✅ Вы присоединились по реферальной ссылке!\n\n' : ''}` +
-    `Выберите действие в меню ниже:`;
+    `🔥 Добро пожаловать БОЛЬШОЙ РОЗЫГРЫШ от MOMENTUM TRADING!\n\n` +
+    `3 недели. 3 этапа. Много призов.\n\n` +
+    `Сейчас идёт ${stage.name} (${stage.period})\n\n` +
+    ` Что дальше:\n` +
+    `→ Получи свою реферальную ссылку \n` +
+    `→ Пригласи минимум 2 друзей\n` +
+    `→ Участвуй в розыгрыше призов\n\n` +
+    `Баллы с каждого этапа копятся и работают на тебя в финале!\n\n` +
+    `Начнём? 👇`;
 
   const { getMainMenu } = await import('./menu.js');
   await ctx.reply(welcomeMessage, getMainMenu());

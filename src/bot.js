@@ -310,6 +310,15 @@ bot.on('callback_query', async (ctx) => {
           await ctx.reply('📋 ГЛАВНОЕ МЕНЮ\n\nВыберите действие:', getMainMenu());
         }
         break;
+      case 'menu_contest':
+        try {
+          const { handleContestMenu } = await import('./handlers/contest.js');
+          await handleContestMenu(ctx);
+        } catch (error) {
+          console.error('Ошибка при открытии конкурса:', error);
+          await ctx.reply('❌ Ошибка при открытии конкурса.');
+        }
+        break;
       case 'menu_profile':
         try {
           const profileHandler = (await import('./handlers/profile.js')).default;
@@ -371,6 +380,39 @@ bot.on('callback_query', async (ctx) => {
         break;
     }
     return;
+    }
+
+    // Обработка конкурса
+    if (data.startsWith('contest_') || data.startsWith('refs_')) {
+      await ctx.answerCbQuery();
+      const contestHandlers = await import('./handlers/contest.js');
+      
+      if (data === 'menu_contest') {
+        await contestHandlers.handleContestMenu(ctx);
+      } else if (data === 'contest_prizes') {
+        await contestHandlers.handleContestPrizes(ctx);
+      } else if (data === 'contest_rules') {
+        await contestHandlers.handleContestRules(ctx);
+      } else if (data === 'contest_stats') {
+        await contestHandlers.handleContestStats(ctx);
+      } else if (data === 'contest_referrals') {
+        await contestHandlers.handleContestReferrals(ctx);
+      } else if (data === 'contest_share') {
+        const userId = ctx.from.id;
+        const shareText = `🔥 Участвуй в БОЛЬШОМ РОЗЫГРЫШЕ от MOMENTUM TRADING!\n\n` +
+          `3 недели. Много призов. Шанс выиграть билет до $10,000!\n\n` +
+          `Присоединяйся по моей ссылке: https://t.me/${ctx.botInfo.username}?start=ref_${userId}`;
+        await ctx.reply(shareText);
+      } else if (data.startsWith('refs_filter_')) {
+        const filter = data.replace('refs_filter_', '');
+        await contestHandlers.handleContestReferrals(ctx, 1, filter);
+      } else if (data.startsWith('refs_page_')) {
+        const parts = data.split('_');
+        const page = parseInt(parts[2]);
+        const filter = parts[3];
+        await contestHandlers.handleContestReferrals(ctx, page, filter);
+      }
+      return;
     }
 
     // Обработка розыгрышей
@@ -634,46 +676,29 @@ bot.on('text', async (ctx) => {
 
   // Обработка тикетов (приоритет)
   if (ctx.session && (ctx.session.waitingForTicketSubject || ctx.session.waitingForTicketReply || ctx.session.activeTicketId)) {
-    const ticketHandlers = (await import('./handlers/tickets.js')).default;
-    
-    if (ctx.session.waitingForTicketSubject) {
-      await ticketHandlers.handleTicketSubject(ctx);
-      return;
-    }
-    
-    if (ctx.session.waitingForTicketReply || ctx.session.activeTicketId) {
-      await ticketHandlers.handleTicketMessage(ctx);
-      if (ctx.session) {
-        ctx.session.waitingForTicketReply = false;
+    // ...
+  }
+
+  // Обработка активности конкурса (баллы за сообщения > 50 символов)
+  if (ctx.chat.type === 'group' || ctx.chat.type === 'supergroup') {
+    if (messageText.length >= 50) {
+      try {
+        const pointsAdded = await db.addActivityPoints(userId, 'message', 2, 20);
+        if (pointsAdded > 0) {
+          // Можно не уведомлять в чат, чтобы не спамить, или отправить в личку
+          try {
+            const user = await db.getUser(userId);
+            await ctx.telegram.sendMessage(userId, `⭐️ +${pointsAdded} БАЛЛОВ!\n\nЗа активность в чате\n\nВсего баллов: ${user.points}\nТак держать! 💪`);
+          } catch (e) {
+            // Игнорируем если не можем написать в личку
+          }
+        }
+      } catch (error) {
+        console.error('Ошибка при начислении баллов за активность:', error);
       }
-      return;
     }
   }
   
-  // Проверка на наличие активного тикета (если пользователь просто пишет сообщение)
-  try {
-    const ticketHandlers = (await import('./handlers/tickets.js')).default;
-    
-    // Проверить, есть ли открытый тикет
-    const { pool } = await import('./db.js');
-    const ticketResult = await pool.query(
-      `SELECT * FROM tickets 
-       WHERE user_id = $1 AND status IN ('open', 'in_progress', 'reopened')
-       ORDER BY created_at DESC LIMIT 1`,
-      [userId]
-    );
-    
-    if (ticketResult.rows.length > 0 && !messageText.startsWith('/')) {
-      // Если есть открытый тикет и это не команда, обработать как сообщение в тикет
-      if (!ctx.session) ctx.session = {};
-      ctx.session.activeTicketId = ticketResult.rows[0].id;
-      await ticketHandlers.handleTicketMessage(ctx);
-      return;
-    }
-  } catch (error) {
-    // Если ошибка, продолжить обычную обработку
-    console.error('Error checking ticket:', error);
-  }
   // Если это команда, обрабатываем как обычно
   if (ctx.message.text.startsWith('/')) {
     // Команды обрабатываются отдельными обработчиками выше
@@ -880,6 +905,21 @@ bot.on('chat_member', async (ctx) => {
     }
   } catch (error) {
     console.error('Ошибка при обработке chat_member:', error);
+  }
+});
+
+// Обработка реакций (если поддерживается версией Telegraf)
+bot.on('message_reaction', async (ctx) => {
+  try {
+    const userId = ctx.from.id;
+    const pointsAdded = await db.addActivityPoints(userId, 'reaction', 2, 10);
+    if (pointsAdded > 0) {
+      try {
+        await ctx.telegram.sendMessage(userId, `⭐️ +${pointsAdded} БАЛЛОВ!\n\nЗа реакцию в чате/канале\n\nВсего баллов: ${(await db.getUser(userId)).points}\nТак держать! 💪`);
+      } catch (e) {}
+    }
+  } catch (error) {
+    console.error('Ошибка при обработке реакции:', error);
   }
 });
 

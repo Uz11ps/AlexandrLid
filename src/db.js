@@ -1080,6 +1080,90 @@ export const db = {
     return result.rows;
   },
 
+  // Работа с баллами и активностью конкурса
+  async addPoints(userId, points, reason, stage = null) {
+    try {
+      const updates = ['points = points + $1'];
+      const values = [points, userId];
+      let paramIndex = 2;
+
+      if (stage === 1) {
+        updates.push('stage1_points = stage1_points + $1');
+      } else if (stage === 2) {
+        updates.push('stage2_points = stage2_points + $1');
+      } else if (stage === 3) {
+        updates.push('stage3_points = stage3_points + $1');
+      }
+
+      await pool.query(
+        `UPDATE users SET ${updates.join(', ')} WHERE user_id = $${paramIndex}`,
+        values
+      );
+
+      // Логируем начисление баллов
+      await this.logUserActivity(userId, 'points_award', { points, reason, stage });
+      return true;
+    } catch (error) {
+      console.error('Ошибка при добавлении баллов:', error);
+      return false;
+    }
+  },
+
+  async addActivityPoints(userId, type, points, dailyLimit) {
+    try {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+
+        // Получаем или создаем запись активности за сегодня
+        const activityRes = await client.query(
+          \`INSERT INTO user_daily_activity (user_id, activity_date)
+           VALUES ($1, CURRENT_DATE)
+           ON CONFLICT (user_id, activity_date) DO UPDATE SET user_id = EXCLUDED.user_id
+           RETURNING *\`,
+          [userId]
+        );
+
+        const activity = activityRes.rows[0];
+        const currentPoints = type === 'message' ? activity.message_points : activity.reaction_points;
+
+        if (currentPoints < dailyLimit) {
+          const pointsToAdd = Math.min(points, dailyLimit - currentPoints);
+          const column = type === 'message' ? 'message_points' : 'reaction_points';
+          
+          await client.query(
+            \`UPDATE user_daily_activity 
+             SET \${column} = \${column} + $1 
+             WHERE user_id = $2 AND activity_date = CURRENT_DATE\`,
+            [pointsToAdd, userId]
+          );
+
+          // Добавляем баллы пользователю
+          const stage = 2; // Предположим, активность актуальна для этапа 2
+          await client.query(
+            \`UPDATE users SET points = points + $1, stage\${stage}_points = stage\${stage}_points + $1 
+             WHERE user_id = $2\`,
+            [pointsToAdd, userId]
+          );
+
+          await client.query('COMMIT');
+          return pointsToAdd;
+        }
+
+        await client.query('ROLLBACK');
+        return 0;
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      console.error('Ошибка при начислении баллов за активность:', error);
+      return 0;
+    }
+  },
+
   // Закрыть соединение
   async close() {
     await pool.end();

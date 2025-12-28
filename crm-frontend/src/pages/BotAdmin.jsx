@@ -53,6 +53,7 @@ function BotAdmin() {
   const [autofunnels, setAutofunnels] = useState([]);
   const [leadMagnets, setLeadMagnets] = useState([]);
   const [giveaways, setGiveaways] = useState([]);
+  const [channelInvites, setChannelInvites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -107,6 +108,13 @@ function BotAdmin() {
   const [selectedGiveaway, setSelectedGiveaway] = useState(null);
   const [winners, setWinners] = useState([]);
   const [selectionType, setSelectionType] = useState('top');
+  const [channelInviteDialogOpen, setChannelInviteDialogOpen] = useState(false);
+  const [newChannelInvite, setNewChannelInvite] = useState({
+    channel_id: '',
+    channel_username: '',
+    channel_type: 'channel',
+    invite_link: ''
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -133,8 +141,11 @@ function BotAdmin() {
           const response = await botAdminAPI.getGiveaways();
           if (mounted) setGiveaways(response.data || []);
         } else if (tab === 6) {
-          // Экспорт - ничего не загружаем
+          const response = await botAdminAPI.getChannelInvites();
+          if (mounted) setChannelInvites(response || []);
         } else if (tab === 7) {
+          // Экспорт - ничего не загружаем
+        } else if (tab === 8) {
           const response = await botAdminAPI.getSettings();
           if (mounted) setSettings(response.data || { 
             channel_id: '', 
@@ -185,8 +196,11 @@ function BotAdmin() {
         const response = await botAdminAPI.getGiveaways();
         setGiveaways(response.data || []);
       } else if (tab === 6) {
-        // Экспорт - ничего не загружаем
+        const response = await botAdminAPI.getChannelInvites();
+        setChannelInvites(response || []);
       } else if (tab === 7) {
+        // Экспорт - ничего не загружаем
+      } else if (tab === 8) {
         const response = await botAdminAPI.getSettings();
         setSettings(response.data || { 
           channel_id: '', 
@@ -415,6 +429,7 @@ function BotAdmin() {
           <Tab label="Автоворонки" />
           <Tab label="Лид-магниты" />
           <Tab label="Розыгрыши" />
+          <Tab label="Каналы и группы" />
           <Tab label="Экспорт" />
           <Tab label="Настройки" />
         </Tabs>
@@ -829,8 +844,77 @@ function BotAdmin() {
           </>
         )}
 
-        {/* Экспорт */}
+        {/* Каналы и группы */}
         {tab === 6 && (
+          <>
+            <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setChannelInviteDialogOpen(true)}
+              >
+                Добавить канал/группу
+              </Button>
+            </Box>
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>ID</TableCell>
+                    <TableCell>Telegram ID</TableCell>
+                    <TableCell>Username</TableCell>
+                    <TableCell>Тип</TableCell>
+                    <TableCell>Ссылка</TableCell>
+                    <TableCell>Подписчиков</TableCell>
+                    <TableCell>Статус</TableCell>
+                    <TableCell>Действия</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {channelInvites.map((invite) => (
+                    <TableRow key={invite.id}>
+                      <TableCell>{invite.id}</TableCell>
+                      <TableCell>{invite.channel_id}</TableCell>
+                      <TableCell>{invite.channel_username ? `@${invite.channel_username}` : '-'}</TableCell>
+                      <TableCell>{invite.channel_type === 'channel' ? 'Канал' : 'Группа'}</TableCell>
+                      <TableCell>
+                        <a href={invite.invite_link} target="_blank" rel="noopener noreferrer">
+                          {invite.invite_link.length > 30 ? invite.invite_link.substring(0, 30) + '...' : invite.invite_link}
+                        </a>
+                      </TableCell>
+                      <TableCell>{invite.subscribers_count || 0}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={invite.is_active ? 'Активен' : 'Неактивен'}
+                          color={invite.is_active ? 'success' : 'default'}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <IconButton
+                          size="small"
+                          onClick={async () => {
+                            try {
+                              await botAdminAPI.updateChannelInvite(invite.id, { is_active: !invite.is_active });
+                              loadData();
+                            } catch (error) {
+                              console.error('Error updating channel invite:', error);
+                            }
+                          }}
+                        >
+                          <Switch checked={invite.is_active} size="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </>
+        )}
+
+        {/* Экспорт */}
+        {tab === 7 && (
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
               Экспорт данных
@@ -1669,6 +1753,73 @@ function BotAdmin() {
             disabled={!newGiveaway.title || !newGiveaway.end_date}
           >
             Создать
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Диалог добавления канала/группы */}
+      <Dialog 
+        open={channelInviteDialogOpen} 
+        onClose={() => setChannelInviteDialogOpen(false)} 
+        maxWidth="md" 
+        fullWidth
+      >
+        <DialogTitle>Добавить канал или группу</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Telegram ID канала/группы"
+            value={newChannelInvite.channel_id}
+            onChange={(e) => setNewChannelInvite({ ...newChannelInvite, channel_id: e.target.value })}
+            placeholder="-100..."
+            sx={{ mt: 2 }}
+            helperText="ID можно узнать в боте или через @userinfobot"
+          />
+          <TextField
+            fullWidth
+            label="Username (без @, если есть)"
+            value={newChannelInvite.channel_username}
+            onChange={(e) => setNewChannelInvite({ ...newChannelInvite, channel_username: e.target.value })}
+            sx={{ mt: 2 }}
+          />
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>Тип</InputLabel>
+            <Select
+              value={newChannelInvite.channel_type}
+              onChange={(e) => setNewChannelInvite({ ...newChannelInvite, channel_type: e.target.value })}
+            >
+              <MenuItem value="channel">Канал</MenuItem>
+              <MenuItem value="group">Группа</MenuItem>
+            </Select>
+          </FormControl>
+          <TextField
+            fullWidth
+            label="Пригласительная ссылка"
+            value={newChannelInvite.invite_link}
+            onChange={(e) => setNewChannelInvite({ ...newChannelInvite, invite_link: e.target.value })}
+            placeholder="https://t.me/joinchat/..."
+            sx={{ mt: 2 }}
+            helperText="Создайте в Telegram специальную ссылку для отслеживания подписок"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setChannelInviteDialogOpen(false)}>Отмена</Button>
+          <Button
+            onClick={async () => {
+              try {
+                await botAdminAPI.createChannelInvite(newChannelInvite);
+                setChannelInviteDialogOpen(false);
+                setNewChannelInvite({ channel_id: '', channel_username: '', channel_type: 'channel', invite_link: '' });
+                loadData();
+              } catch (error) {
+                console.error('Error creating channel invite:', error);
+                alert('Ошибка: ' + (error.response?.data?.error || error.message));
+              }
+            }}
+            variant="contained"
+            disabled={!newChannelInvite.channel_id || !newChannelInvite.invite_link}
+          >
+            Добавить
           </Button>
         </DialogActions>
       </Dialog>

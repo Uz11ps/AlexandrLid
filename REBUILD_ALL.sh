@@ -46,17 +46,17 @@ success "Контейнеры остановлены"
 
 # 2. Удаление старых контейнеров (только при полной пересборке)
 if [ "$FULL_REBUILD" = true ]; then
-    echo ""
+echo ""
     echo "2. Удаление старых контейнеров..."
-    docker compose rm -f
+docker compose rm -f
     success "Старые контейнеры удалены"
 fi
 
 # 3. Очистка кэша сборки (только при полной пересборке)
 if [ "$FULL_REBUILD" = true ]; then
-    echo ""
-    echo "3. Очистка кэша сборки..."
-    docker builder prune -f
+echo ""
+echo "3. Очистка кэша сборки..."
+docker builder prune -f
     success "Кэш сборки очищен"
 fi
 
