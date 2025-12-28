@@ -99,7 +99,7 @@ sleep 10
 # Проверка готовности PostgreSQL
 echo "Проверка готовности PostgreSQL..."
 for i in {1..30}; do
-    if docker compose exec -T postgres pg_isready -U postgres > /dev/null 2>&1; then
+    if docker compose exec -T -u postgres postgres pg_isready > /dev/null 2>&1; then
         success "PostgreSQL готов"
         break
     fi
@@ -110,11 +110,17 @@ for i in {1..30}; do
 done
 
 # Синхронизация пароля (на случай если в томе старый пароль)
-echo "Синхронизация пароля PostgreSQL..."
-DB_PASS=$(grep DB_PASSWORD .env | cut -d'=' -f2 | tr -d '\r')
-# Используем -u postgres чтобы подключиться без пароля внутри контейнера
-docker compose exec -T -u postgres postgres psql -c "ALTER USER postgres WITH PASSWORD '$DB_PASS';" > /dev/null 2>&1
-success "Пароль PostgreSQL синхронизирован"
+info "Синхронизация пароля PostgreSQL..."
+DB_PASS=$(grep DB_PASSWORD .env | cut -d'=' -f2 | tr -d '\r' | tr -d '"' | tr -d "'")
+if docker compose exec -T -u postgres postgres psql -c "ALTER USER postgres WITH PASSWORD '$DB_PASS';" ; then
+    success "Пароль PostgreSQL синхронизирован"
+    
+    info "Перезапуск сервисов для применения нового пароля..."
+    docker compose restart bot crm-backend
+    sleep 5
+else
+    info "Предупреждение: Не удалось изменить пароль через psql (возможно, база еще инициализируется)"
+fi
 
 # Дополнительное ожидание для других сервисов
 sleep 5
