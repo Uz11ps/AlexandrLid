@@ -23,7 +23,7 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "2. Применение миграции..."
-docker compose exec -T postgres psql -U postgres -d telegram_bot_db < init_crm_extended.sql
+docker compose exec -T -u postgres postgres psql -d telegram_bot_db < init_crm_extended.sql
 
 if [ $? -eq 0 ]; then
     echo "✅ Миграция успешно применена!"

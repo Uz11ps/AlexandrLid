@@ -109,6 +109,13 @@ for i in {1..30}; do
     sleep 1
 done
 
+# Синхронизация пароля (на случай если в томе старый пароль)
+echo "Синхронизация пароля PostgreSQL..."
+DB_PASS=$(grep DB_PASSWORD .env | cut -d'=' -f2 | tr -d '\r')
+# Используем -u postgres чтобы подключиться без пароля внутри контейнера
+docker compose exec -T -u postgres postgres psql -c "ALTER USER postgres WITH PASSWORD '$DB_PASS';" > /dev/null 2>&1
+success "Пароль PostgreSQL синхронизирован"
+
 # Дополнительное ожидание для других сервисов
 sleep 5
 
@@ -130,15 +137,15 @@ echo "9. Проверка логов сервисов..."
 
 echo ""
 echo "Последние логи бота:"
-docker compose logs --tail=10 telegram_bot_app 2>&1 | tail -5
+docker compose logs --tail=20 bot 2>&1
 
 echo ""
 echo "Последние логи backend:"
-docker compose logs --tail=10 crm-backend 2>&1 | tail -5
+docker compose logs --tail=20 crm-backend 2>&1
 
 echo ""
 echo "Последние логи frontend:"
-docker compose logs --tail=10 crm-frontend 2>&1 | tail -5
+docker compose logs --tail=20 crm-frontend 2>&1
 
 # 10. Проверка работы API
 echo ""
@@ -146,7 +153,6 @@ echo "10. Проверка работы API..."
 sleep 3
 if curl -s http://localhost:3001/api/health > /dev/null 2>&1; then
     success "API работает"
-    curl -s http://localhost:3001/api/health | head -1
 else
     info "API не отвечает (возможно, еще запускается)"
 fi
@@ -160,7 +166,7 @@ echo ""
 echo "⚠️  Не забудьте обновить страницу с очисткой кэша (Ctrl+F5 или Ctrl+Shift+R)"
 echo ""
 echo "Для просмотра логов используйте:"
-echo "  docker compose logs -f telegram_bot_app"
+echo "  docker compose logs -f bot"
 echo "  docker compose logs -f crm-backend"
 echo "  docker compose logs -f crm-frontend"
 
