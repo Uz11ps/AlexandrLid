@@ -64,7 +64,8 @@ router.post('/login', async (req, res) => {
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       database: process.env.DB_NAME,
-      port: process.env.DB_PORT
+      port: process.env.DB_PORT,
+      passwordLength: process.env.DB_PASSWORD ? process.env.DB_PASSWORD.length : 0
     };
     console.log('[Auth DEBUG] Current env params:', dbDebug);
 
@@ -131,7 +132,8 @@ router.post('/login', async (req, res) => {
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       database: process.env.DB_NAME,
-      port: process.env.DB_PORT
+      port: process.env.DB_PORT,
+      passwordLength: process.env.DB_PASSWORD ? process.env.DB_PASSWORD.length : 0
     };
     console.error('[Auth DEBUG] Connection params used:', dbDebug);
     

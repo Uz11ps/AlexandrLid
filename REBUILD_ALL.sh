@@ -111,7 +111,7 @@ done
 
 # Синхронизация пароля (на случай если в томе старый пароль)
 info "Синхронизация пароля PostgreSQL..."
-# Используем более точный поиск переменной, чтобы не поймать комментарии
+# Используем более точный поиск переменной
 DB_PASS=$(grep "^DB_PASSWORD=" .env | head -n 1 | cut -d'=' -f2- | tr -d '\r' | tr -d '"' | tr -d "'")
 
 if [ -z "$DB_PASS" ]; then
@@ -119,15 +119,21 @@ if [ -z "$DB_PASS" ]; then
     DB_PASS="postgres"
 fi
 
+info "Попытка установить пароль для пользователя postgres (длина: ${#DB_PASS})..."
 if docker compose exec -T -u postgres postgres psql -c "ALTER USER postgres WITH PASSWORD '$DB_PASS';" ; then
-    success "Пароль PostgreSQL синхронизирован"
+    success "Пароль PostgreSQL успешно обновлен в базе"
+else
+    info "⚠️ Не удалось обновить пароль через ALTER USER. Попробуем другой метод..."
+    # Попробуем через переменную окружения, если psql требует пароль
+    docker compose exec -T -e PGPASSWORD=postgres -u postgres postgres psql -c "ALTER USER postgres WITH PASSWORD '$DB_PASS';" || info "Не удалось обновить пароль даже с PGPASSWORD=postgres"
+fi
     
     info "Обновление прав доступа в базе данных..."
     docker compose exec -T -u postgres postgres psql -d telegram_bot_db -c "GRANT ALL PRIVILEGES ON SCHEMA public TO postgres; GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres;" > /dev/null
     success "Права доступа обновлены"
 
-    info "Принудительное пересоздание сервисов для применения нового пароля..."
-    docker compose up -d --force-recreate bot crm-backend
+    info "Принудительная пересборка и пересоздание сервисов..."
+    docker compose up -d --build --force-recreate bot crm-backend
     sleep 10
 
     info "Создание администратора по умолчанию (123@mail.ru / 123)..."
