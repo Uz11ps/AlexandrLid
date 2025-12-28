@@ -1,39 +1,31 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.join(__dirname, '.env') });
-dotenv.config(); // Повторно для подстраховки из текущей директории
+// Загружаем .env
+dotenv.config();
 
 const { Pool } = pg;
 
-const dbConfig = {
+// Используем значения напрямую из process.env с жесткими дефолтами для Docker
+const pool = new Pool({
   host: process.env.DB_HOST || 'postgres',
   port: parseInt(process.env.DB_PORT || '5432'),
   database: process.env.DB_NAME || 'telegram_bot_db',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
-};
-
-console.log('🔍 [DB Debug] Connection details:', {
-  host: dbConfig.host,
-  port: dbConfig.port,
-  database: dbConfig.database,
-  user: dbConfig.user,
-  passwordSet: !!dbConfig.password
 });
 
-const pool = new Pool(dbConfig);
-
-// Устанавливаем московский часовой пояс
-pool.on('connect', async (client) => {
-  await client.query('SET timezone = \'Europe/Moscow\'');
+// Проверка подключения при старте
+pool.query('SELECT NOW()', (err, res) => {
+  if (err) {
+    console.error('❌ [DB Singleton] Initial connection failed:', err.message);
+  } else {
+    console.log('✅ [DB Singleton] Connection established');
+  }
 });
 
 pool.on('error', (err) => {
-  console.error('❌ Unexpected error on idle client', err);
+  console.error('❌ [DB Pool] Unexpected error:', err);
 });
 
 export default pool;
