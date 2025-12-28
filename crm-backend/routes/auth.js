@@ -58,6 +58,15 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     console.log(`[Auth DEBUG] Login attempt for: ${email}`);
+    
+    // Прямая проверка переменных окружения в момент запроса
+    const dbDebug = {
+      host: process.env.DB_HOST,
+      user: process.env.DB_USER,
+      database: process.env.DB_NAME,
+      port: process.env.DB_PORT
+    };
+    console.log('[Auth DEBUG] Current env params:', dbDebug);
 
     if (!email || !password) {
       console.log('[Auth DEBUG] Missing email or password');
