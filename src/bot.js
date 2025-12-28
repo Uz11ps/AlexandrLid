@@ -676,7 +676,44 @@ bot.on('text', async (ctx) => {
 
   // Обработка тикетов (приоритет)
   if (ctx.session && (ctx.session.waitingForTicketSubject || ctx.session.waitingForTicketReply || ctx.session.activeTicketId)) {
-    // ...
+    const ticketHandlers = (await import('./handlers/tickets.js')).default;
+    
+    if (ctx.session.waitingForTicketSubject) {
+      await ticketHandlers.handleTicketSubject(ctx);
+      return;
+    }
+    
+    if (ctx.session.waitingForTicketReply || ctx.session.activeTicketId) {
+      await ticketHandlers.handleTicketMessage(ctx);
+      if (ctx.session) {
+        ctx.session.waitingForTicketReply = false;
+      }
+      return;
+    }
+  }
+  
+  // Проверка на наличие активного тикета (если пользователь просто пишет сообщение)
+  try {
+    const ticketHandlers = (await import('./handlers/tickets.js')).default;
+    
+    // Проверить, есть ли открытый тикет
+    const ticketResult = await pool.query(
+      `SELECT * FROM tickets 
+       WHERE user_id = $1 AND status IN ('open', 'in_progress', 'reopened')
+       ORDER BY created_at DESC LIMIT 1`,
+      [userId]
+    );
+    
+    if (ticketResult.rows.length > 0 && !messageText.startsWith('/')) {
+      // Если есть открытый тикет и это не команда, обработать как сообщение в тикет
+      if (!ctx.session) ctx.session = {};
+      ctx.session.activeTicketId = ticketResult.rows[0].id;
+      await ticketHandlers.handleTicketMessage(ctx);
+      return;
+    }
+  } catch (error) {
+    // Если ошибка, продолжить обычную обработку
+    console.error('Error checking ticket:', error);
   }
 
   // Обработка активности конкурса (баллы за сообщения > 50 символов)
