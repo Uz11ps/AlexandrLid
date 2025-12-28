@@ -117,11 +117,19 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     console.error('[Auth DEBUG] CRITICAL LOGIN ERROR:', error);
-    // Добавляем детали ошибки в ответ для диагностики
+    // Добавляем параметры подключения для отладки (БЕЗ пароля)
+    const dbDebug = {
+      host: process.env.DB_HOST,
+      user: process.env.DB_USER,
+      database: process.env.DB_NAME,
+      port: process.env.DB_PORT
+    };
+    console.error('[Auth DEBUG] Connection params used:', dbDebug);
+    
     res.status(500).json({ 
       error: 'Internal server error', 
       details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
+      db_info: dbDebug
     });
   }
 });

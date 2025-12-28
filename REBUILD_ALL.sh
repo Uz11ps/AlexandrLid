@@ -111,7 +111,14 @@ done
 
 # Синхронизация пароля (на случай если в томе старый пароль)
 info "Синхронизация пароля PostgreSQL..."
-DB_PASS=$(grep DB_PASSWORD .env | cut -d'=' -f2 | tr -d '\r' | tr -d '"' | tr -d "'")
+# Используем более точный поиск переменной, чтобы не поймать комментарии
+DB_PASS=$(grep "^DB_PASSWORD=" .env | head -n 1 | cut -d'=' -f2- | tr -d '\r' | tr -d '"' | tr -d "'")
+
+if [ -z "$DB_PASS" ]; then
+    info "Предупреждение: DB_PASSWORD не найден в .env, используем 'postgres'"
+    DB_PASS="postgres"
+fi
+
 if docker compose exec -T -u postgres postgres psql -c "ALTER USER postgres WITH PASSWORD '$DB_PASS';" ; then
     success "Пароль PostgreSQL синхронизирован"
     
