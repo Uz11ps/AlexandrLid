@@ -1,13 +1,12 @@
-import pool from '../db.js';
+import { query } from '../db.js';
 
 export async function up() {
-    const client = await pool.connect();
     try {
         console.log('🛠️ [Migration 006] STARTING EXHAUSTIVE SCHEMA SYNC...');
 
         const ensureColumn = async (table, column, typeDef) => {
             try {
-                await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${column} ${typeDef}`);
+                await query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${column} ${typeDef}`);
                 console.log(`   ✅ Column ensured: ${table}.${column}`);
             } catch (err) {
                 console.error(`   ❌ Error adding ${column} to ${table}:`, err.message);
@@ -41,7 +40,7 @@ export async function up() {
         await ensureColumn('students', 'curator_id', "INTEGER");
 
         // 4. DEALS
-        await client.query(`
+        await query(`
             CREATE TABLE IF NOT EXISTS deals (
                 id SERIAL PRIMARY KEY,
                 lead_id INTEGER,
@@ -64,8 +63,7 @@ export async function up() {
         console.log('✅ [Migration 006] SCHEMA SYNC COMPLETED SUCCESSFULLY');
     } catch (error) {
         console.error('❌ [Migration 006] CRITICAL ERROR:', error);
-    } finally {
-        client.release();
+        throw error;
     }
 }
 
