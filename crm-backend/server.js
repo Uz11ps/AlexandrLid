@@ -210,6 +210,7 @@ async function startServer() {
   
   app.listen(PORT, () => {
     console.log(`🚀 CRM Backend server running on port ${PORT}`);
+    console.log('⏳ [Post-startup] Scheduling column ensuring in 5 seconds...');
     
     // Пытаемся добавить недостающие колонки после запуска сервера
     // Это выполняется асинхронно и не блокирует запуск сервера
@@ -259,7 +260,7 @@ async function startServer() {
       } catch (error) {
         console.error('❌ [Post-startup] Error ensuring columns:', error.message);
       }
-    }, 2000); // Задержка 2 секунды, чтобы дать время серверу запуститься
+    }, 5000); // Задержка 5 секунд, чтобы дать время серверу запуститься и подключиться к БД
   });
 }
 
