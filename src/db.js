@@ -121,6 +121,10 @@ const testConnection = async (password) => {
       user: getEnv('DB_USER', 'postgres'),
       password: password,
       connectionTimeoutMillis: 5000,
+      // Явно указываем метод аутентификации
+      ssl: false,
+      // Отключаем кэширование паролей
+      keepAlive: false,
     };
     
     console.log(`🔍 [Bot DB] Testing Client connection with: host=${config.host}, port=${config.port}, db=${config.database}, user=${config.user}, passLen=${password ? password.length : 'null'}`);
