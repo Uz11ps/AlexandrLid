@@ -1,4 +1,4 @@
-import { query } from '../db.js';
+import db from '../db.js';
 
 // Простой rate limiting middleware
 const userRequests = new Map();
@@ -14,16 +14,24 @@ let rateLimitSettings = {
 // Загрузка настроек лимитов из БД
 async function loadRateLimitSettings() {
   try {
-    const settingsResult = await query(
-      "SELECT key, value FROM bot_settings WHERE key IN ('user_rate_limit', 'user_rate_window', 'admin_rate_limit', 'admin_rate_window')"
-    );
+    // Используем методы из объекта db для получения настроек
+    const userRateLimit = await db.getSetting('user_rate_limit');
+    const userRateWindow = await db.getSetting('user_rate_window');
+    const adminRateLimit = await db.getSetting('admin_rate_limit');
+    const adminRateWindow = await db.getSetting('admin_rate_window');
     
-    settingsResult.rows.forEach(row => {
-      if (row.key === 'user_rate_limit') rateLimitSettings.user_rate_limit = parseInt(row.value) || 20;
-      if (row.key === 'user_rate_window') rateLimitSettings.user_rate_window = parseInt(row.value) || 3600000;
-      if (row.key === 'admin_rate_limit') rateLimitSettings.admin_rate_limit = parseInt(row.value) || 100;
-      if (row.key === 'admin_rate_window') rateLimitSettings.admin_rate_window = parseInt(row.value) || 3600000;
-    });
+    if (userRateLimit !== null && userRateLimit !== undefined) {
+      rateLimitSettings.user_rate_limit = parseInt(userRateLimit) || 20;
+    }
+    if (userRateWindow !== null && userRateWindow !== undefined) {
+      rateLimitSettings.user_rate_window = parseInt(userRateWindow) || 3600000;
+    }
+    if (adminRateLimit !== null && adminRateLimit !== undefined) {
+      rateLimitSettings.admin_rate_limit = parseInt(adminRateLimit) || 100;
+    }
+    if (adminRateWindow !== null && adminRateWindow !== undefined) {
+      rateLimitSettings.admin_rate_window = parseInt(adminRateWindow) || 3600000;
+    }
   } catch (error) {
     console.error('Error loading rate limit settings:', error);
     // Используем значения по умолчанию при ошибке подключения к БД
