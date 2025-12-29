@@ -9,13 +9,12 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const { Pool } = pg;
 
-// Принудительная очистка переменных окружения от пробелов, \r и комментариев
+// Принудительная очистка переменных окружения
 const getEnv = (key, defaultValue) => {
   let value = process.env[key];
-  if (!value) return defaultValue;
-  // Убираем комментарии (все что после #) и лишние пробелы/символы возврата каретки
-  value = String(value).split('#')[0].trim().replace(/\r/g, '');
-  return value || defaultValue;
+  if (value === undefined || value === '') return defaultValue;
+  // Убираем комментарии и лишние пробелы
+  return String(value).split('#')[0].trim().replace(/\r/g, '');
 };
 
 const dbConfig = {
@@ -23,43 +22,29 @@ const dbConfig = {
   port: parseInt(getEnv('DB_PORT', '5432')),
   database: getEnv('DB_NAME', 'telegram_bot_db'),
   user: getEnv('DB_USER', 'postgres'),
-  password: getEnv('DB_PASSWORD', 'postgres'),
+  password: getEnv('DB_PASSWORD', ''), // Оставляем пустым, если не задано
 };
 
 const maskPassword = (pass) => {
-  if (!pass) return 'none';
+  if (!pass) return 'EMPTY';
   if (pass === 'postgres') return 'default (postgres)';
   if (pass.length <= 2) return '*'.repeat(pass.length);
   return pass[0] + '*'.repeat(pass.length - 2) + pass[pass.length - 1];
 };
 
-console.log(`🔍 [Bot DB] Attempting connection to ${dbConfig.host}:${dbConfig.port} as ${dbConfig.user} (pass: ${maskPassword(dbConfig.password)}, len: ${dbConfig.password.length})`);
+console.log(`🔍 [Bot DB] Connecting to ${dbConfig.host} as ${dbConfig.user} (pass: ${maskPassword(dbConfig.password)}, len: ${dbConfig.password.length})`);
 
 let pool = new Pool(dbConfig);
 
-// Упрощаем логику: просто логируем и пробуем подключиться
+// Упрощаем: если не подключились - значит пароль из ENV неверный
 (async () => {
   try {
     const client = await pool.connect();
     console.log('✅ [Bot DB] Connected successfully');
     client.release();
   } catch (err) {
-    console.error(`❌ [Bot DB] Connection failed with password: ${maskPassword(dbConfig.password)}`);
-    console.error(`❌ [Bot DB] Error details: ${err.message}`);
-    
-    // Если пароль из env не подошел, пробуем дефолтный (только для отладки)
-    if (dbConfig.password !== 'postgres') {
-      console.log('⚠️ [Bot DB] Trying fallback to default "postgres" password...');
-      try {
-        const fallbackPool = new Pool({ ...dbConfig, password: 'postgres' });
-        const client = await fallbackPool.connect();
-        console.log('✅ [Bot DB] Connected using fallback! (Please update your .env)');
-        pool = fallbackPool;
-        client.release();
-      } catch (e) {
-        console.error('❌ [Bot DB] Fallback also failed.');
-      }
-    }
+    console.error(`❌ [Bot DB] CRITICAL CONNECTION ERROR: ${err.message}`);
+    console.error(`❌ [Bot DB] Check your DB_PASSWORD in .env! It must match the password in the database.`);
   }
 })();
 
