@@ -9,11 +9,13 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const { Pool } = pg;
 
-// Принудительная очистка переменных окружения от пробелов и \r
+// Принудительная очистка переменных окружения от пробелов, \r и комментариев
 const getEnv = (key, defaultValue) => {
-  const value = process.env[key];
+  let value = process.env[key];
   if (!value) return defaultValue;
-  return String(value).trim().replace(/\r/g, '');
+  // Убираем комментарии (все что после #) и лишние пробелы/символы возврата каретки
+  value = String(value).split('#')[0].trim().replace(/\r/g, '');
+  return value || defaultValue;
 };
 
 const dbConfig = {
