@@ -159,10 +159,13 @@ const safeQuery = async (text, params) => {
       console.log(`🔍 [Bot DB] Match: ${currentPassword === envPass}`);
       
       // ЗАКРЫВАЕМ старый пул ПЕРЕД созданием нового
+      console.log(`🔄 [Bot DB] ========== NEW RECOVERY LOGIC ==========`);
       console.log(`🔄 [Bot DB] Closing old pool and testing passwords with direct Client...`);
       try {
         await pool.end();
+        console.log(`✅ [Bot DB] Old pool closed successfully`);
       } catch (e) {
+        console.log(`⚠️ [Bot DB] Error closing old pool: ${e.message}`);
         // Игнорируем ошибки при закрытии
       }
       
