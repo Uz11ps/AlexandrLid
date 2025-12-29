@@ -290,11 +290,15 @@ export async function handleStart(ctx) {
   }
 
   // Приветственное сообщение
+  console.log('[START HANDLER] ========== НАЧАЛО ФОРМИРОВАНИЯ СООБЩЕНИЯ ==========');
+  console.log('[START HANDLER] Импортируем getCurrentStage...');
   const { getCurrentStage } = await import('./contest.js');
+  console.log('[START HANDLER] getCurrentStage импортирован, вызываем...');
   const stage = getCurrentStage();
   
   console.log('[START HANDLER] getCurrentStage вызван, этап:', stage.name, stage.period);
   console.log('[START HANDLER] Текущая дата:', new Date().toISOString());
+  console.log('[START HANDLER] stage object:', JSON.stringify(stage, null, 2));
   
   // Формируем условия - для всех этапов одинаковые
   const conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
