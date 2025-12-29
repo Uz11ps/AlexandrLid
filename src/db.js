@@ -13,18 +13,29 @@ const getEnv = (key, defaultValue) => {
     .replace(/^["']|["']$/g, ''); // Удаляем кавычки
 };
 
-const getDbConfig = (password) => ({
-  host: getEnv('DB_HOST', 'telegram_db_alex'),
-  port: parseInt(getEnv('DB_PORT', '5432')),
-  database: getEnv('DB_NAME', 'telegram_bot_db'),
-  user: getEnv('DB_USER', 'postgres'),
-  password: password,
-  max: 10,
-  idleTimeoutMillis: 300000, // 5 минут вместо 30 секунд
-  connectionTimeoutMillis: 10000,
-  // Отключаем автоматическое переподключение при ошибках - будем обрабатывать вручную
-  allowExitOnIdle: false,
-});
+const getDbConfig = (password) => {
+  const config = {
+    host: getEnv('DB_HOST', 'telegram_db_alex'),
+    port: parseInt(getEnv('DB_PORT', '5432')),
+    database: getEnv('DB_NAME', 'telegram_bot_db'),
+    user: getEnv('DB_USER', 'postgres'),
+    password: password,
+    max: 10,
+    idleTimeoutMillis: 300000, // 5 минут вместо 30 секунд
+    connectionTimeoutMillis: 10000,
+    // Отключаем автоматическое переподключение при ошибках - будем обрабатывать вручную
+    allowExitOnIdle: false,
+  };
+  
+  // Дополнительная диагностика при создании конфигурации
+  if (password && password.length > 0) {
+    console.log(`🔍 [Bot DB] Creating config with password len=${password.length}, first char='${password[0]}', last char='${password[password.length-1]}'`);
+  } else {
+    console.log(`⚠️ [Bot DB] Creating config with EMPTY password!`);
+  }
+  
+  return config;
+};
 
 // Глобальное состояние
 let currentPassword = getEnv('DB_PASSWORD', 'postgres');
