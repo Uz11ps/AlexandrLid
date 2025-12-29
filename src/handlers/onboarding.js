@@ -193,15 +193,24 @@ export async function handleStart(ctx) {
     const { getMainMenu } = await import('./menu.js');
     const { getCurrentStage } = await import('./contest.js');
     const stage = getCurrentStage();
+    
+    // Формируем условия в зависимости от этапа
+    let conditionsText = '';
+    if (stage.id === 1) {
+      conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
+    } else if (stage.id === 2) {
+      conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
+    } else {
+      // ФИНАЛ: используем условия из stage.conditions
+      conditionsText = stage.conditions.replace(/^- /gm, '→ ').replace(/\n/g, '\n');
+    }
 
     return ctx.reply(
       `🔥 Добро пожаловать БОЛЬШОЙ РОЗЫГРЫШ от MOMENTUM TRADING!\n\n` +
       `3 недели. 3 этапа. Много призов.\n\n` +
       `Сейчас идёт ${stage.name} (${stage.period})\n\n` +
       `Что дальше:\n` +
-      `→ Получи свою реферальную ссылку \n` +
-      `→ Пригласи минимум 2 друзей\n` +
-      `→ Участвуй в розыгрыше призов\n\n` +
+      `${conditionsText}\n\n` +
       `Баллы с каждого этапа копятся и работают на тебя в финале!\n\n` +
       `Начнём? 👇`,
       getMainMenu()
@@ -295,13 +304,11 @@ export async function handleStart(ctx) {
   // Формируем условия в зависимости от этапа
   let conditionsText = '';
   if (stage.id === 1) {
-    // ЭТАП 1: стандартные условия
     conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
   } else if (stage.id === 2) {
-    // ЭТАП 2: добавляем викторину
-    conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в викторине\n→ Участвуй в розыгрыше призов`;
+    conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
   } else {
-    // ФИНАЛ: используем условия из stage.conditions, но форматируем их
+    // ФИНАЛ: используем условия из stage.conditions
     conditionsText = stage.conditions.replace(/^- /gm, '→ ').replace(/\n/g, '\n');
   }
   
@@ -338,7 +345,7 @@ export async function handleStart(ctx) {
       if (stage.id === 1) {
         conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
       } else if (stage.id === 2) {
-        conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в викторине\n→ Участвуй в розыгрыше призов`;
+        conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
       } else {
         conditionsText = stage.conditions.replace(/^- /gm, '→ ').replace(/\n/g, '\n');
       }
