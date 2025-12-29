@@ -207,14 +207,21 @@ const safeQuery = async (text, params) => {
       for (let i = 0; i < uniquePasswords.length; i++) {
         const pass = uniquePasswords[i];
         console.log(`🔑 [Bot DB] Testing password #${i+1} (len: ${pass.length}) with direct Client...`);
+        console.log(`🔑 [Bot DB] About to call testConnection with password: "${pass}"`);
         
-        const works = await testConnection(pass);
-        if (works) {
-          console.log(`✅ [Bot DB] Password #${i+1} works with direct Client! Creating pool...`);
-          workingPassword = pass;
-          break;
-        } else {
-          console.log(`❌ [Bot DB] Password #${i+1} failed with direct Client`);
+        try {
+          const works = await testConnection(pass);
+          console.log(`🔑 [Bot DB] testConnection returned: ${works}`);
+          if (works) {
+            console.log(`✅ [Bot DB] Password #${i+1} works with direct Client! Creating pool...`);
+            workingPassword = pass;
+            break;
+          } else {
+            console.log(`❌ [Bot DB] Password #${i+1} failed with direct Client`);
+          }
+        } catch (e) {
+          console.log(`❌ [Bot DB] testConnection threw exception: ${e.message}`);
+          console.log(`❌ [Bot DB] Exception stack: ${e.stack}`);
         }
       }
       
