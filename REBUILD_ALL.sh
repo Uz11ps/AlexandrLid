@@ -76,6 +76,7 @@ fi
 
 # Явно экспортируем DB_PASSWORD для docker-compose.yml
 export DB_PASSWORD="$DB_PASS_FOR_COMPOSE"
+info "Экспортирован DB_PASSWORD для docker-compose.yml: [${#DB_PASSWORD} символов]"
 
 if ! docker compose up -d; then
     error "Не удалось запустить сервисы"
@@ -119,21 +120,58 @@ fi
 # Это гарантирует, что база использует тот же пароль, что и приложение
 info "Принудительная синхронизация пароля в базе данных..."
 WORKING_PASSWORD="${WORKING_PASSWORD:-$DB_PASS_FROM_ENV}"
-if docker compose exec -T -e PGPASSWORD="$WORKING_PASSWORD" telegram_db_alex psql -U postgres -d postgres -c "ALTER USER postgres WITH PASSWORD '$DB_PASS_FROM_ENV';" > /dev/null 2>&1; then
-    success "Пароль синхронизирован в базе данных!"
-    # Перезапускаем базу для применения изменений
-    info "Перезапуск базы данных для применения пароля..."
+
+# Устанавливаем пароль через ALTER USER (экранируем специальные символы)
+info "Установка пароля через ALTER USER..."
+# Используем одинарные кавычки для экранирования пароля в SQL
+SQL_PASSWORD=$(echo "$DB_PASS_FROM_ENV" | sed "s/'/''/g")  # Экранируем одинарные кавычки для SQL
+if docker compose exec -T -e PGPASSWORD="$WORKING_PASSWORD" telegram_db_alex psql -U postgres -d postgres -c "ALTER USER postgres WITH PASSWORD '$SQL_PASSWORD';" > /dev/null 2>&1; then
+    success "Команда ALTER USER выполнена!"
+else
+    warning "Команда ALTER USER завершилась с ошибкой, но продолжаем..."
+fi
+
+# Проверяем пароль сразу (без перезапуска базы)
+info "Проверка пароля сразу после установки..."
+sleep 2
+
+# Пробуем подключиться с новым паролем несколько раз
+MAX_RETRIES=3
+RETRY_COUNT=0
+PASSWORD_WORKS=false
+
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    if docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d telegram_bot_db -c "SELECT 1;" > /dev/null 2>&1; then
+        success "Проверка #$((RETRY_COUNT+1)): пароль работает!"
+        PASSWORD_WORKS=true
+        break
+    else
+        info "Проверка #$((RETRY_COUNT+1)): пароль не работает, ждем..."
+        sleep 2
+        RETRY_COUNT=$((RETRY_COUNT+1))
+    fi
+done
+
+if [ "$PASSWORD_WORKS" = false ]; then
+    warning "Пароль не работает сразу. Пробуем перезапустить базу..."
     docker compose restart telegram_db_alex
     sleep 5
-    # Проверяем, что новый пароль работает
+    
+    # Ждем готовности базы
+    for i in {1..10}; do
+        if docker compose exec -T -u postgres telegram_db_alex pg_isready > /dev/null 2>&1; then
+            break
+        fi
+        sleep 1
+    done
+    
+    # Финальная проверка после перезапуска
     if docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d telegram_bot_db -c "SELECT 1;" > /dev/null 2>&1; then
-        success "Проверка: новый пароль работает!"
+        success "После перезапуска: пароль работает!"
     else
-        warning "Проверка: новый пароль не работает сразу после установки. Возможно, нужна дополнительная задержка."
-        sleep 3
+        error "КРИТИЧНО: Пароль не работает даже после перезапуска базы!"
+        error "Проверьте, что пароль в .env совпадает с POSTGRES_PASSWORD в docker-compose.yml"
     fi
-else
-    warning "Не удалось установить пароль через ALTER USER. Возможно, база уже использует правильный пароль."
 fi
 
 # 7. Проверка прав доступа
