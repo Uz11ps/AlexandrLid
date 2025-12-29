@@ -247,10 +247,34 @@ export async function up() {
 
         // Добавляем недостающие колонки, если таблицы уже существуют
         // Используем прямые ALTER TABLE команды для надежности
-        await client.query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS payment_currency VARCHAR(10) DEFAULT 'RUB';`);
-        await client.query(`ALTER TABLE IF EXISTS message_templates ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;`);
-        await client.query(`ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS created_by INTEGER;`);
-        await client.query(`ALTER TABLE IF EXISTS courses ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;`);
+        console.log('🔧 [Init CRM] Ensuring missing columns...');
+        try {
+            await client.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS payment_currency VARCHAR(10) DEFAULT 'RUB';`);
+            console.log('✅ [Init CRM] Column students.payment_currency ensured');
+        } catch (e) {
+            console.log(`⚠️ [Init CRM] students.payment_currency: ${e.message}`);
+        }
+        
+        try {
+            await client.query(`ALTER TABLE message_templates ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;`);
+            console.log('✅ [Init CRM] Column message_templates.is_active ensured');
+        } catch (e) {
+            console.log(`⚠️ [Init CRM] message_templates.is_active: ${e.message}`);
+        }
+        
+        try {
+            await client.query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS created_by INTEGER;`);
+            console.log('✅ [Init CRM] Column documents.created_by ensured');
+        } catch (e) {
+            console.log(`⚠️ [Init CRM] documents.created_by: ${e.message}`);
+        }
+        
+        try {
+            await client.query(`ALTER TABLE courses ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;`);
+            console.log('✅ [Init CRM] Column courses.updated_at ensured');
+        } catch (e) {
+            console.log(`⚠️ [Init CRM] courses.updated_at: ${e.message}`);
+        }
         
         // Создаем таблицу ticket_messages, если она не существует
         await client.query(`
@@ -262,6 +286,7 @@ export async function up() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
+        console.log('✅ [Init CRM] Table ticket_messages ensured');
 
         await client.query('COMMIT');
         console.log('✅ [Init CRM] All tables created and initialized');
