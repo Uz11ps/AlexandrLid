@@ -47,6 +47,7 @@ export async function up() {
         await ensureColumn('students', 'contract_number', "VARCHAR(100)");
         await ensureColumn('students', 'start_date', "DATE");
         await ensureColumn('students', 'payment_amount', "DECIMAL(10, 2)");
+        console.log('   🔍 Checking payment_currency...');
         await ensureColumn('students', 'payment_currency', "VARCHAR(10) DEFAULT 'RUB'");
         await ensureColumn('students', 'payment_status', "VARCHAR(50) DEFAULT 'pending'");
         await ensureColumn('students', 'progress_percent', "INTEGER DEFAULT 0");
@@ -74,12 +75,15 @@ export async function up() {
         await ensureColumn('payments', 'payment_date', "DATE DEFAULT CURRENT_DATE");
 
         // 6. MESSAGE_TEMPLATES
+        console.log('   🔍 Checking message_templates.is_active...');
         await ensureColumn('message_templates', 'is_active', "BOOLEAN DEFAULT TRUE");
 
         // 7. DOCUMENTS
+        console.log('   🔍 Checking documents.created_by...');
         await ensureColumn('documents', 'created_by', "INTEGER");
 
         // 8. TICKET_MESSAGES
+        console.log('   🔍 Checking ticket_messages table...');
         try {
             const checkTable = await query(`
                 SELECT table_name 
