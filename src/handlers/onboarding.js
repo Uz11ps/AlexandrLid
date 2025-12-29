@@ -293,6 +293,9 @@ export async function handleStart(ctx) {
   const { getCurrentStage } = await import('./contest.js');
   const stage = getCurrentStage();
   
+  console.log('[START HANDLER] getCurrentStage вызван, этап:', stage.name, stage.period);
+  console.log('[START HANDLER] Текущая дата:', new Date().toISOString());
+  
   // Формируем условия - для всех этапов одинаковые
   const conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
   
@@ -305,6 +308,8 @@ export async function handleStart(ctx) {
     `Баллы с каждого этапа копятся и работают на тебя в финале!\n\n` +
     `Начнём? 👇`;
 
+  console.log('[START HANDLER] Формируем сообщение:', welcomeMessage);
+  
   const { getMainMenu } = await import('./menu.js');
   await ctx.reply(welcomeMessage, getMainMenu());
 
