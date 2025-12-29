@@ -46,6 +46,7 @@ const dbName = getEnv('DB_NAME', 'telegram_bot_db');
 const dbUser = getEnv('DB_USER', 'postgres');
 
 console.log(`🔍 [Bot DB] ========== INITIALIZATION ==========`);
+console.log(`🔍 [Bot DB] CODE VERSION: v2.0 - Direct Client Testing`);
 console.log(`🔍 [Bot DB] DB_HOST: ${dbHost}`);
 console.log(`🔍 [Bot DB] DB_PORT: ${dbPort}`);
 console.log(`🔍 [Bot DB] DB_NAME: ${dbName}`);
