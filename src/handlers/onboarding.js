@@ -194,16 +194,8 @@ export async function handleStart(ctx) {
     const { getCurrentStage } = await import('./contest.js');
     const stage = getCurrentStage();
     
-    // Формируем условия в зависимости от этапа
-    let conditionsText = '';
-    if (stage.id === 1) {
-      conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
-    } else if (stage.id === 2) {
-      conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
-    } else {
-      // ФИНАЛ: используем условия из stage.conditions
-      conditionsText = stage.conditions.replace(/^- /gm, '→ ').replace(/\n/g, '\n');
-    }
+    // Формируем условия - для всех этапов одинаковые
+    const conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
 
     return ctx.reply(
       `🔥 Добро пожаловать БОЛЬШОЙ РОЗЫГРЫШ от MOMENTUM TRADING!\n\n` +
@@ -301,16 +293,8 @@ export async function handleStart(ctx) {
   const { getCurrentStage } = await import('./contest.js');
   const stage = getCurrentStage();
   
-  // Формируем условия в зависимости от этапа
-  let conditionsText = '';
-  if (stage.id === 1) {
-    conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
-  } else if (stage.id === 2) {
-    conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
-  } else {
-    // ФИНАЛ: используем условия из stage.conditions
-    conditionsText = stage.conditions.replace(/^- /gm, '→ ').replace(/\n/g, '\n');
-  }
+  // Формируем условия - для всех этапов одинаковые
+  const conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
   
   const welcomeMessage = 
     `🔥 Добро пожаловать БОЛЬШОЙ РОЗЫГРЫШ от MOMENTUM TRADING!\n\n` +
@@ -340,15 +324,8 @@ export async function handleStart(ctx) {
       const { getCurrentStage } = await import('./contest.js');
       const stage = getCurrentStage();
       
-      // Формируем условия в зависимости от этапа
-      let conditionsText = '';
-      if (stage.id === 1) {
-        conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
-      } else if (stage.id === 2) {
-        conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
-      } else {
-        conditionsText = stage.conditions.replace(/^- /gm, '→ ').replace(/\n/g, '\n');
-      }
+      // Формируем условия - для всех этапов одинаковые
+      const conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
       
       const welcomeMessage = 
         `🔥 Добро пожаловать БОЛЬШОЙ РОЗЫГРЫШ от MOMENTUM TRADING!\n\n` +
