@@ -1,28 +1,14 @@
 import pg from 'pg';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-// Загружаем .env вручную для максимальной надежности
-dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const { Pool } = pg;
 
-// Принудительная очистка переменных окружения
-const getEnv = (key, defaultValue) => {
-  let value = process.env[key];
-  if (value === undefined || value === '') return defaultValue;
-  return String(value).split('#')[0].trim().replace(/\r/g, '');
-};
-
+// В Docker-среде переменные окружения доступны напрямую через process.env
 const dbConfig = {
-  host: getEnv('DB_HOST', 'postgres'),
-  port: parseInt(getEnv('DB_PORT', '5432')),
-  database: getEnv('DB_NAME', 'telegram_bot_db'),
-  user: getEnv('DB_USER', 'postgres'),
-  password: getEnv('DB_PASSWORD', ''),
+  host: process.env.DB_HOST || 'postgres',
+  port: parseInt(process.env.DB_PORT || '5432'),
+  database: process.env.DB_NAME || 'telegram_bot_db',
+  user: process.env.DB_USER || 'postgres',
+  password: (process.env.DB_PASSWORD || '').split('#')[0].trim().replace(/\r/g, ''),
 };
 
 const maskPassword = (pass) => {
@@ -34,19 +20,17 @@ const maskPassword = (pass) => {
 
 console.log(`🔍 [Bot DB] Connecting to ${dbConfig.host} as ${dbConfig.user} (pass: ${maskPassword(dbConfig.password)}, len: ${dbConfig.password.length})`);
 
-let pool = new Pool(dbConfig);
+const pool = new Pool(dbConfig);
 
-// Упрощаем: если не подключились - значит пароль из ENV неверный
-(async () => {
-  try {
-    const client = await pool.connect();
+// Проверка подключения при старте
+pool.connect((err, client, release) => {
+  if (err) {
+    console.error('❌ [Bot DB] Connection error:', err.message);
+  } else {
     console.log('✅ [Bot DB] Connected successfully');
-    client.release();
-  } catch (err) {
-    console.error(`❌ [Bot DB] CRITICAL CONNECTION ERROR: ${err.message}`);
-    console.error(`❌ [Bot DB] Check your DB_PASSWORD in .env! It must match the password in the database.`);
+    release();
   }
-})();
+});
 
 export { pool };
 

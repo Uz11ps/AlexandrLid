@@ -70,37 +70,14 @@ for i in {1..30}; do
     sleep 1
 done
 
-# 8. Синхронизация пароля (Через переменную окружения для надежности)
-info "Синхронизация пароля PostgreSQL..."
-# Более надежный метод извлечения: убираем комментарии, пробелы и кавычки
-DB_PASS=$(grep "^DB_PASSWORD=" .env | cut -d'=' -f2- | sed 's/[[:space:]]*#.*$//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/^"//;s/"$//' | sed "s/^'//;s/'$//")
-
-if [ -z "$DB_PASS" ]; then
-    info "⚠️  DB_PASSWORD не найден в .env, используем 'postgres'"
-    DB_PASS="postgres"
-fi
-
-info "Попытка установить пароль для пользователя postgres (длина пароля: ${#DB_PASS})..."
-# Используем psql для смены пароля. Важно: Host shell расширяет $DB_PASS
-if docker compose exec -T -u postgres postgres psql -d postgres -c "ALTER USER postgres WITH PASSWORD '$DB_PASS';" ; then
-    success "Пароль PostgreSQL успешно обновлен в базе"
-else
-    info "⚠️  Не удалось обновить пароль первым методом. Пробуем второй..."
-    # Если первый метод не сработал (редко), пробуем через PGPASSWORD
-    docker compose exec -T -e PGPASSWORD=postgres -u postgres postgres psql -d postgres -c "ALTER USER postgres WITH PASSWORD '$DB_PASS';" || info "Все методы смены пароля исчерпаны."
-fi
-
-# 9. Обновление прав
-info "Обновление прав доступа..."
+# 8. Синхронизация пароля (НЕ ТРЕБУЕТСЯ, так как используется POSTGRES_PASSWORD)
+info "Проверка прав доступа..."
 docker compose exec -T -u postgres postgres psql -d telegram_bot_db -c "GRANT ALL PRIVILEGES ON SCHEMA public TO postgres; GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres;" > /dev/null
 
-# 10. Принудительный перезапуск
-info "Принудительное пересоздание сервисов с новым паролем..."
-docker compose up -d --force-recreate bot crm-backend
-sleep 5
-
-# 11. Создание администратора
+# 9. Создание администратора
 info "Создание администратора..."
+# Даем время на окончательный старт бэкенда
+sleep 5
 docker compose exec -T crm-backend node scripts/create-admin.js "123@mail.ru" "123" "Administrator"
 
 success "=== ГОТОВО! ==="

@@ -1,26 +1,12 @@
 import pg from 'pg';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-// Загружаем .env вручную
-dotenv.config({ path: path.join(__dirname, '../.env') });
-
-// Принудительная очистка переменных окружения
-const getEnv = (key, defaultValue) => {
-  let value = process.env[key];
-  if (value === undefined || value === '') return defaultValue;
-  return String(value).split('#')[0].trim().replace(/\r/g, '');
-};
-
+// В Docker-среде используем напрямую process.env
 const dbConfig = {
-  host: getEnv('DB_HOST', 'postgres'),
-  port: parseInt(getEnv('DB_PORT', '5432')),
-  database: getEnv('DB_NAME', 'telegram_bot_db'),
-  user: getEnv('DB_USER', 'postgres'),
-  password: getEnv('DB_PASSWORD', ''),
+  host: process.env.DB_HOST || 'postgres',
+  port: parseInt(process.env.DB_PORT || '5432'),
+  database: process.env.DB_NAME || 'telegram_bot_db',
+  user: process.env.DB_USER || 'postgres',
+  password: (process.env.DB_PASSWORD || '').split('#')[0].trim().replace(/\r/g, ''),
   max: 10,
   idleTimeoutMillis: 30000,
 };
@@ -34,16 +20,17 @@ const maskPassword = (pass) => {
 
 console.log(`🔍 [DB] Connecting to ${dbConfig.host} as ${dbConfig.user} (pass: ${maskPassword(dbConfig.password)}, len: ${dbConfig.password.length})`);
 
-let pool = new pg.Pool(dbConfig);
+const pool = new pg.Pool(dbConfig);
 
-(async () => {
-  try {
-    const client = await pool.connect();
+pool.connect((err, client, release) => {
+  if (err) {
+    console.error('❌ [DB] Connection error:', err.message);
+  } else {
     console.log('✅ [DB] Connected successfully');
-    client.release();
-  } catch (err) {
-    console.error(`❌ [DB] CRITICAL CONNECTION ERROR: ${err.message}`);
+    release();
   }
-})();
+});
+
+export default pool;
 
 export default pool;
