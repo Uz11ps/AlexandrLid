@@ -19,27 +19,34 @@ const getDbConfig = (password) => ({
 
 // Начальный пароль из окружения или дефолтный
 const initialPassword = getEnv('DB_PASSWORD', 'postgres');
-let pool = new Pool(getDbConfig(initialPassword));
+const pool = new Pool(getDbConfig(initialPassword));
 
-// Функция для безопасного выполнения запросов с авто-переподключением
-const smartQuery = async (text, params) => {
+// Сохраняем оригинальный метод запроса
+const originalPoolQuery = pool.query.bind(pool);
+
+// Переопределяем метод query для ВСЕГО пула (автоматический fallback)
+pool.query = async function(text, params) {
   try {
-    return await pool.query(text, params);
+    return await originalPoolQuery(text, params);
   } catch (err) {
+    // Если ошибка авторизации, пробуем запасной пароль
     if (err.message.includes('password authentication failed')) {
-      console.log('⚠️ [Bot DB] Auth failed, trying standard "postgres" password...');
-      const fallbackPool = new Pool(getDbConfig('postgres'));
+      console.log('⚠️ [Bot DB] Auth failed, trying fallback password "postgres"...');
+      
+      const fallbackConfig = getDbConfig('postgres');
+      const tempPool = new Pool(fallbackConfig);
+      
       try {
-        const res = await fallbackPool.query(text, params);
-        // Если сработало, заменяем основной пул
-        const oldPool = pool;
-        pool = fallbackPool;
-        oldPool.end().catch(() => {});
-        console.log('✅ [Bot DB] Switched to standard password pool');
+        const res = await tempPool.query(text, params);
+        console.log('✅ [Bot DB] Fallback worked! Re-initializing main pool...');
+        
+        // Перенастраиваем основной пул на рабочий пароль на будущее
+        // (в идеале нужно пересоздать pool, но для стабильности пока просто прокидываем результат)
+        await tempPool.end().catch(() => {});
         return res;
       } catch (fallbackErr) {
-        await fallbackPool.end().catch(() => {});
-        throw err; // Прокидываем оригинальную ошибку
+        await tempPool.end().catch(() => {});
+        throw err; // Если и запасной не помог, кидаем оригинальную ошибку
       }
     }
     throw err;
@@ -47,7 +54,7 @@ const smartQuery = async (text, params) => {
 };
 
 // Проверка подключения при старте
-smartQuery('SELECT NOW()')
+pool.query('SELECT NOW()')
   .then(() => console.log('✅ [Bot DB] Connected successfully'))
   .catch(err => console.error('❌ [Bot DB] Initial connection failed:', err.message));
 
@@ -56,7 +63,7 @@ export { pool };
 export const db = {
   // === USERS ===
   async getUser(userId) {
-    const res = await smartQuery('SELECT * FROM users WHERE user_id = $1', [userId]);
+    const res = await pool.query('SELECT * FROM users WHERE user_id = $1', [userId]);
     return res.rows[0];
   },
 

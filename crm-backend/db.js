@@ -20,24 +20,26 @@ const getDbConfig = (password) => ({
 });
 
 const initialPassword = getEnv('DB_PASSWORD', 'postgres');
-let pool = new Pool(getDbConfig(initialPassword));
+const pool = new Pool(getDbConfig(initialPassword));
 
-// Функция для безопасного выполнения запросов с авто-переподключением
-export const query = async (text, params) => {
+// Сохраняем оригинальный метод
+const originalPoolQuery = pool.query.bind(pool);
+
+// Переопределяем метод query для ВСЕГО пула (автоматический fallback)
+pool.query = async function(text, params) {
   try {
-    return await pool.query(text, params);
+    return await originalPoolQuery(text, params);
   } catch (err) {
     if (err.message.includes('password authentication failed')) {
-      console.log('⚠️ [DB] Auth failed, trying standard password...');
-      const fallbackPool = new Pool(getDbConfig('postgres'));
+      console.log('⚠️ [Backend DB] Auth failed, trying fallback password...');
+      const tempPool = new Pool(getDbConfig('postgres'));
       try {
-        const res = await fallbackPool.query(text, params);
-        const oldPool = pool;
-        pool = fallbackPool;
-        oldPool.end().catch(() => {});
+        const res = await tempPool.query(text, params);
+        console.log('✅ [Backend DB] Fallback worked!');
+        await tempPool.end().catch(() => {});
         return res;
       } catch (fallbackErr) {
-        await fallbackPool.end().catch(() => {});
+        await tempPool.end().catch(() => {});
         throw err;
       }
     }
@@ -45,8 +47,11 @@ export const query = async (text, params) => {
   }
 };
 
+// Экспортируем функцию запроса (теперь она вызывает обернутый pool.query)
+export const query = (text, params) => pool.query(text, params);
+
 // Проверка подключения
-query('SELECT NOW()')
+pool.query('SELECT NOW()')
   .then(() => console.log('✅ [DB] Connected successfully'))
   .catch(err => console.error('❌ [DB] Connection error:', err.message));
 
