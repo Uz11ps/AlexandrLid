@@ -245,7 +245,10 @@ export async function up() {
             );
         `);
 
-        // Добавляем недостающие колонки, если таблицы уже существуют
+        await client.query('COMMIT');
+        console.log('✅ [Init CRM] All tables created and initialized');
+        
+        // Добавляем недостающие колонки ПОСЛЕ COMMIT, чтобы они всегда применялись
         // Используем прямые ALTER TABLE команды для надежности
         console.log('🔧 [Init CRM] Ensuring missing columns...');
         try {
@@ -275,21 +278,6 @@ export async function up() {
         } catch (e) {
             console.log(`⚠️ [Init CRM] courses.updated_at: ${e.message}`);
         }
-        
-        // Создаем таблицу ticket_messages, если она не существует
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS ticket_messages (
-                id SERIAL PRIMARY KEY,
-                ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
-                manager_id INTEGER REFERENCES managers(id) ON DELETE SET NULL,
-                message TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-        console.log('✅ [Init CRM] Table ticket_messages ensured');
-
-        await client.query('COMMIT');
-        console.log('✅ [Init CRM] All tables created and initialized');
     } catch (error) {
         await client.query('ROLLBACK');
         console.error('❌ [Init CRM] Failed to initialize database:', error);
