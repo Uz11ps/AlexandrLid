@@ -1,7 +1,7 @@
-import pool from '../db.js';
+import { connect } from '../db.js';
 
 export async function up() {
-    const client = await pool.connect();
+    const client = await connect();
     try {
         await client.query('BEGIN');
 

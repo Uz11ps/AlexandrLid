@@ -162,6 +162,17 @@ export const query = async (text, params) => {
   }
 };
 
+// Функция для получения клиента из пула (для транзакций в миграциях)
+export const connect = async () => {
+  // Убеждаемся, что пул использует актуальный пароль
+  const envPass = getEnv('DB_PASSWORD', 'postgres');
+  if (envPass !== currentPassword) {
+    console.log(`🔄 [Backend DB] Password changed in env (${currentPassword.length} -> ${envPass.length}), updating pool...`);
+    switchPool(envPass);
+  }
+  return await pool.connect();
+};
+
 // Проверка подключения
 query('SELECT NOW()')
   .then(() => console.log('✅ [DB] Connected successfully'))
