@@ -302,6 +302,8 @@ export async function handleStart(ctx) {
     `Баллы с каждого этапа копятся и работают на тебя в финале!\n\n` +
     `Начнём? 👇`;
   
+  console.log('[START HANDLER] Отправляем сообщение с ЭТАП 1:', welcomeMessage);
+  
   const { getMainMenu } = await import('./menu.js');
   await ctx.reply(welcomeMessage, getMainMenu());
 
