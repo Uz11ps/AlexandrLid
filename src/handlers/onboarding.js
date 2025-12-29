@@ -71,20 +71,32 @@ export async function handleStart(ctx) {
 
   // Проверка реферера (если указан) - делаем до проверки существующего пользователя
   if (referrerId) {
-    const referrer = await db.getUser(referrerId);
-    console.log('[REFERRAL DEBUG] Referrer check - referrer found:', !!referrer, 'referrerId:', referrerId);
-    if (!referrer) {
-      console.log('[REFERRAL DEBUG] Referrer not found in database, ignoring');
-      referrerId = null; // Реферер не найден, игнорируем
-    } else if (referrerId === userId) {
-      console.log('[REFERRAL DEBUG] User trying to refer themselves, ignoring');
-      referrerId = null; // Нельзя быть рефералом самого себя
+    try {
+      const referrer = await db.getUser(referrerId);
+      console.log('[REFERRAL DEBUG] Referrer check - referrer found:', !!referrer, 'referrerId:', referrerId);
+      if (!referrer) {
+        console.log('[REFERRAL DEBUG] Referrer not found in database, ignoring');
+        referrerId = null; // Реферер не найден, игнорируем
+      } else if (referrerId === userId) {
+        console.log('[REFERRAL DEBUG] User trying to refer themselves, ignoring');
+        referrerId = null; // Нельзя быть рефералом самого себя
+      }
+    } catch (error) {
+      console.error('[REFERRAL DEBUG] Error checking referrer:', error.message);
+      referrerId = null; // При ошибке БД игнорируем реферера
     }
   }
 
   // Проверка на существование пользователя
-  const existingUser = await db.getUser(userId);
-  console.log('[REFERRAL DEBUG] Existing user:', !!existingUser, 'referrerId after checks:', referrerId);
+  let existingUser = null;
+  try {
+    existingUser = await db.getUser(userId);
+    console.log('[REFERRAL DEBUG] Existing user:', !!existingUser, 'referrerId after checks:', referrerId);
+  } catch (error) {
+    console.error('[REFERRAL DEBUG] Error checking existing user:', error.message);
+    // При ошибке БД считаем пользователя новым
+    existingUser = null;
+  }
 
   if (existingUser) {
     // Пользователь уже зарегистрирован, но проверяем реферальную ссылку
@@ -135,15 +147,20 @@ export async function handleStart(ctx) {
     }
     
     // Обновляем данные пользователя (но не меняем referrer_id, если он уже установлен)
-    await db.createUser({
-      user_id: userId,
-      username,
-      first_name: firstName,
-      last_name: lastName,
-      language_code: languageCode,
-      referrer_id: existingUser.referrer_id, // Сохраняем существующего реферера
-      is_bot: isBot,
-    });
+    try {
+      await db.createUser({
+        user_id: userId,
+        username,
+        first_name: firstName,
+        last_name: lastName,
+        language_code: languageCode,
+        referrer_id: existingUser.referrer_id, // Сохраняем существующего реферера
+        is_bot: isBot,
+      });
+    } catch (error) {
+      console.error('Ошибка при обновлении пользователя:', error.message);
+      // Продолжаем работу даже при ошибке обновления
+    }
 
     // Синхронизация с CRM: обновление лида
     // Также проверяем подписку на канал и обновляем источник лида
@@ -191,15 +208,20 @@ export async function handleStart(ctx) {
   }
 
   // Создание нового пользователя
-  await db.createUser({
-    user_id: userId,
-    username,
-    first_name: firstName,
-    last_name: lastName,
-    language_code: languageCode,
-    referrer_id: referrerId,
-    is_bot: isBot,
-  });
+  try {
+    await db.createUser({
+      user_id: userId,
+      username,
+      first_name: firstName,
+      last_name: lastName,
+      language_code: languageCode,
+      referrer_id: referrerId,
+      is_bot: isBot,
+    });
+  } catch (error) {
+    console.error('Ошибка при создании пользователя:', error.message);
+    // Продолжаем работу даже при ошибке создания пользователя
+  }
 
   // Синхронизация с CRM: создание/обновление лида
   // Также проверяем подписку на канал и обновляем источник лида
@@ -230,7 +252,12 @@ export async function handleStart(ctx) {
 
   // Создание реферальной связи (если есть реферер)
   if (referrerId) {
-    await db.createReferral(referrerId, userId);
+    try {
+      await db.createReferral(referrerId, userId);
+    } catch (error) {
+      console.error('Ошибка при создании реферальной связи:', error.message);
+      // Продолжаем работу даже при ошибке создания реферальной связи
+    }
     
     // Уведомление реферера о новом реферале
     try {
