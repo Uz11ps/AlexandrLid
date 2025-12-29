@@ -246,21 +246,21 @@ export async function up() {
         `);
 
         // Добавляем недостающие колонки, если таблицы уже существуют
+        // Используем прямые ALTER TABLE команды для надежности
+        await client.query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS payment_currency VARCHAR(10) DEFAULT 'RUB';`);
+        await client.query(`ALTER TABLE IF EXISTS message_templates ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;`);
+        await client.query(`ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS created_by INTEGER;`);
+        await client.query(`ALTER TABLE IF EXISTS courses ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;`);
+        
+        // Создаем таблицу ticket_messages, если она не существует
         await client.query(`
-            DO $$ 
-            BEGIN
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'students' AND column_name = 'payment_currency') THEN
-                    ALTER TABLE students ADD COLUMN payment_currency VARCHAR(10) DEFAULT 'RUB';
-                END IF;
-                
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'message_templates' AND column_name = 'is_active') THEN
-                    ALTER TABLE message_templates ADD COLUMN is_active BOOLEAN DEFAULT TRUE;
-                END IF;
-                
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'documents' AND column_name = 'created_by') THEN
-                    ALTER TABLE documents ADD COLUMN created_by INTEGER REFERENCES managers(id) ON DELETE SET NULL;
-                END IF;
-            END $$;
+            CREATE TABLE IF NOT EXISTS ticket_messages (
+                id SERIAL PRIMARY KEY,
+                ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
+                manager_id INTEGER REFERENCES managers(id) ON DELETE SET NULL,
+                message TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
         `);
 
         await client.query('COMMIT');
