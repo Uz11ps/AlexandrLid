@@ -248,10 +248,37 @@ fi
 # 7.8. Проверка подключения из контейнера бота
 info "Проверка подключения к БД из контейнера бота..."
 # Устанавливаем psql в контейнер бота (если его нет) и проверяем подключение
-BOT_CONNECTION_TEST=$(docker compose exec -T bot sh -c "command -v psql > /dev/null 2>&1 || apk add --no-cache postgresql-client > /dev/null 2>&1; PGPASSWORD=\"$DB_PASS_FROM_ENV\" psql -h telegram_db_alex -U postgres -d telegram_bot_db -c 'SELECT 1;' 2>&1" 2>&1)
+info "Установка postgresql-client в контейнер бота..."
+docker compose exec -T bot sh -c "apk add --no-cache postgresql-client > /dev/null 2>&1 || true" 2>&1
+
+info "Попытка подключения с паролем из .env (len: ${#DB_PASS_FROM_ENV})..."
+BOT_CONNECTION_TEST=$(docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" bot psql -h telegram_db_alex -U postgres -d telegram_bot_db -c "SELECT 1;" 2>&1)
 if echo "$BOT_CONNECTION_TEST" | grep -q "password authentication failed"; then
     warning "Бот НЕ может подключиться с паролем из .env!"
     info "Ошибка подключения: $(echo "$BOT_CONNECTION_TEST" | head -n 1)"
+    
+    # Пробуем подключиться с паролем 'postgres'
+    info "Попытка подключения с паролем 'postgres'..."
+    BOT_CONNECTION_TEST_POSTGRES=$(docker compose exec -T -e PGPASSWORD="postgres" bot psql -h telegram_db_alex -U postgres -d telegram_bot_db -c "SELECT 1;" 2>&1)
+    if echo "$BOT_CONNECTION_TEST_POSTGRES" | grep -q "password authentication failed"; then
+        warning "Бот НЕ может подключиться даже с паролем 'postgres'!"
+        info "Ошибка подключения: $(echo "$BOT_CONNECTION_TEST_POSTGRES" | head -n 1)"
+    else
+        success "Бот может подключиться с паролем 'postgres'!"
+        warning "Пароль в БД не совпадает с паролем из .env!"
+        info "Синхронизируем пароль в БД с паролем из .env..."
+        SQL_PASSWORD=$(echo "$DB_PASS_FROM_ENV" | sed "s/'/''/g")
+        docker compose exec -T -e PGPASSWORD="postgres" telegram_db_alex psql -U postgres -d postgres -c "ALTER USER postgres WITH PASSWORD '$SQL_PASSWORD';" > /dev/null 2>&1
+        sleep 3
+        # Проверяем снова
+        BOT_CONNECTION_TEST_RETRY=$(docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" bot psql -h telegram_db_alex -U postgres -d telegram_bot_db -c "SELECT 1;" 2>&1)
+        if echo "$BOT_CONNECTION_TEST_RETRY" | grep -q "password authentication failed"; then
+            warning "Пароль все еще не работает после синхронизации!"
+        else
+            success "Пароль синхронизирован и работает!"
+        fi
+    fi
+    
     info "Проверяем сетевую доступность..."
     # Проверяем, может ли контейнер бота достичь контейнера базы данных
     if docker compose exec -T bot ping -c 1 telegram_db_alex > /dev/null 2>&1; then
