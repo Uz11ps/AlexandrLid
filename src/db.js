@@ -24,14 +24,32 @@ const getDbConfig = (password) => ({
 // Глобальное состояние
 let currentPassword = getEnv('DB_PASSWORD', 'postgres');
 console.log(`🔍 [Bot DB] Initial password from env: len=${currentPassword.length}, host=${getEnv('DB_HOST', 'telegram_db_alex')}`);
-let pool = new Pool(getDbConfig(currentPassword));
+let pool = createPool(currentPassword);
+
+// Функция создания пула с обработчиками ошибок
+function createPool(password) {
+  const newPool = new Pool(getDbConfig(password));
+  
+  // Обработчик ошибок пула - пересоздаем при ошибке авторизации
+  newPool.on('error', (err) => {
+    if (err.message.includes('password authentication failed')) {
+      console.log(`⚠️ [Bot DB] Pool error: auth failed. Recreating pool...`);
+      // Не пересоздаем здесь, так как это может вызвать рекурсию
+      // Вместо этого полагаемся на safeQuery
+    } else {
+      console.error(`❌ [Bot DB] Pool error:`, err.message);
+    }
+  });
+  
+  return newPool;
+}
 
 // Функция смены пула на лету
 const switchPool = (newPassword) => {
   console.log(`🔄 [Bot DB] Switching to password length: ${newPassword.length}`);
   const oldPool = pool;
   currentPassword = newPassword;
-  pool = new Pool(getDbConfig(newPassword));
+  pool = createPool(newPassword);
   setTimeout(() => oldPool.end().catch(() => {}), 5000);
 };
 
@@ -40,35 +58,47 @@ const safeQuery = async (text, params) => {
   try {
     return await pool.query(text, params);
   } catch (err) {
-    if (err.message.includes('password authentication failed')) {
+    if (err.message.includes('password authentication failed') || err.code === '28P01') {
       console.log(`⚠️ [Bot DB] Auth failed with current password (len: ${currentPassword.length}). Starting recovery...`);
+      
+      // Получаем свежий пароль из окружения (на случай, если он изменился)
       const envPass = getEnv('DB_PASSWORD', 'postgres');
-      const passwords = [envPass, 'postgres', '', 'password'];
       
-      console.log(`🔍 [Bot DB] Will try ${passwords.length} passwords...`);
+      // Пробуем ВСЕ пароли, включая текущий (на случай, если проблема в пуле)
+      const passwords = [
+        envPass,           // 1. Пароль из .env
+        currentPassword,   // 2. Текущий пароль (может быть проблема в пуле)
+        'postgres',        // 3. Стандартный
+        '',                // 4. Пустой
+        'password'         // 5. Обычный дефолт
+      ];
       
-      for (let i = 0; i < passwords.length; i++) {
-        const pass = passwords[i];
-        // Пропускаем только если это тот же пароль, который уже не сработал
-        if (pass === currentPassword && i === 0) {
-          console.log(`⏭️  [Bot DB] Skipping password #${i+1} (same as failed one)`);
-          continue;
-        }
-        
+      // Убираем дубликаты
+      const uniquePasswords = [...new Set(passwords)];
+      
+      console.log(`🔍 [Bot DB] Will try ${uniquePasswords.length} unique passwords...`);
+      
+      for (let i = 0; i < uniquePasswords.length; i++) {
+        const pass = uniquePasswords[i];
         console.log(`🔑 [Bot DB] Trying password #${i+1} (len: ${pass.length})...`);
-        const tPool = new Pool(getDbConfig(pass));
+        
+        const tPool = createPool(pass);
         try {
+          // Пробуем простой запрос
+          const testRes = await tPool.query('SELECT 1');
+          // Если тест прошел, пробуем реальный запрос
           const res = await tPool.query(text, params);
           console.log(`✅ [Bot DB] Recovery successful with password #${i+1}! Updating pool...`);
           switchPool(pass);
           await tPool.end().catch(() => {});
           return res;
         } catch (e) {
-          console.log(`❌ [Bot DB] Password #${i+1} failed: ${e.message.substring(0, 50)}...`);
+          console.log(`❌ [Bot DB] Password #${i+1} failed: ${e.message.substring(0, 60)}...`);
           await tPool.end().catch(() => {});
         }
       }
       console.error('❌ [Bot DB] All recovery passwords failed!');
+      console.error(`❌ [Bot DB] Current password: "${currentPassword}", Env password: "${envPass}"`);
     }
     throw err;
   }
