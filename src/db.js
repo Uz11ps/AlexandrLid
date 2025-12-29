@@ -131,31 +131,28 @@ const safeQuery = async (text, params) => {
       console.log(`🔍 [Bot DB] Raw process.env.DB_PASSWORD: "${rawEnvValue}" (type: ${typeof rawEnvValue}, len: ${rawEnvValue ? rawEnvValue.length : 'undefined'})`);
       console.log(`🔍 [Bot DB] Match: ${currentPassword === envPass}`);
       
-      // ПРИНУДИТЕЛЬНО пересоздаем пул перед попытками восстановления
-      // Это исключает проблему с кэшированными соединениями
-      console.log(`🔄 [Bot DB] Recreating pool before recovery attempts...`);
-      const oldPool = pool;
-      // Используем СВЕЖИЙ пароль из окружения, а не кэшированный
-      pool = createPool(envPass);
-      currentPassword = envPass; // Обновляем кэш
-      setTimeout(() => oldPool.end().catch(() => {}), 1000);
+      // ЗАКРЫВАЕМ старый пул ПЕРЕД созданием нового
+      console.log(`🔄 [Bot DB] Closing old pool and recreating with fresh password...`);
+      try {
+        await pool.end();
+      } catch (e) {
+        // Игнорируем ошибки при закрытии
+      }
       
-      // Пробуем ВСЕ возможные пароли
-      // Важно: currentPassword уже обновлен на envPass выше, поэтому не добавляем его отдельно
+      // Пробуем ВСЕ возможные пароли, начиная с пароля из .env
       const passwords = [
         envPass,           // 1. Пароль из .env (приоритет)
         'postgres',        // 2. Стандартный PostgreSQL пароль
-        '',                // 3. Пустой пароль
-        'password',        // 4. Обычный дефолт
-        'admin',           // 5. Еще один возможный дефолт
-        'root'             // 6. Еще один возможный дефолт
+        'password',        // 3. Обычный дефолт
+        'admin',           // 4. Еще один возможный дефолт
+        'root'             // 5. Еще один возможный дефолт
       ];
       
       // Убираем дубликаты, но сохраняем порядок приоритета
       const uniquePasswords = [];
       const seen = new Set();
       for (const pass of passwords) {
-        if (!seen.has(pass)) {
+        if (!seen.has(pass) && pass.length > 0) { // Пропускаем пустые пароли
           seen.add(pass);
           uniquePasswords.push(pass);
         }
@@ -163,27 +160,56 @@ const safeQuery = async (text, params) => {
       
       console.log(`🔍 [Bot DB] Will try ${uniquePasswords.length} unique passwords...`);
       
+      let workingPassword = null;
+      let workingPool = null;
+      
       for (let i = 0; i < uniquePasswords.length; i++) {
         const pass = uniquePasswords[i];
         console.log(`🔑 [Bot DB] Trying password #${i+1} (len: ${pass.length})...`);
         
         const tPool = createPool(pass);
         try {
-          // Пробуем простой запрос
-          const testRes = await tPool.query('SELECT 1');
+          // Пробуем простой запрос с таймаутом
+          const testRes = await Promise.race([
+            tPool.query('SELECT 1'),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+          ]);
+          
           // Если тест прошел, пробуем реальный запрос
-          const res = await tPool.query(text, params);
+          console.log(`✅ [Bot DB] Password #${i+1} works! Testing actual query...`);
+          const res = await Promise.race([
+            tPool.query(text, params),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+          ]);
+          
           console.log(`✅ [Bot DB] Recovery successful with password #${i+1}! Updating pool...`);
-          switchPool(pass);
-          await tPool.end().catch(() => {});
-          return res;
+          workingPassword = pass;
+          workingPool = tPool;
+          
+          // Обновляем глобальный пул ПЕРЕД возвратом результата
+          currentPassword = pass;
+          pool = tPool;
+          
+          return res; // Возвращаем реальный результат запроса
         } catch (e) {
           console.log(`❌ [Bot DB] Password #${i+1} failed: ${e.message.substring(0, 60)}...`);
-          await tPool.end().catch(() => {});
+          try {
+            await tPool.end();
+          } catch (e2) {
+            // Игнорируем ошибки при закрытии
+          }
         }
       }
+      
+      // Если мы дошли сюда, значит ни один пароль не сработал
+      // (если бы сработал, мы бы уже вернули результат выше)
+      
       console.error('❌ [Bot DB] All recovery passwords failed!');
       console.error(`❌ [Bot DB] Current password: "${currentPassword}", Env password: "${envPass}"`);
+      
+      // Создаем новый пул с паролем из окружения на всякий случай
+      pool = createPool(envPass);
+      currentPassword = envPass;
     }
     throw err;
   }

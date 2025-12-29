@@ -117,21 +117,21 @@ export const query = async (text, params) => {
       console.log(`🔍 [Backend DB] Raw process.env.DB_PASSWORD: "${rawDbPassword}" (type: ${typeof rawDbPassword}, len: ${rawDbPassword ? rawDbPassword.length : 'undefined'})`);
       console.log(`🔍 [Backend DB] Match: ${currentPassword === envPass}`);
       
-      // ПРИНУДИТЕЛЬНО пересоздаем пул перед попытками восстановления
-      console.log(`🔄 [Backend DB] Recreating pool before recovery attempts...`);
-      const oldPool = pool;
-      // Используем СВЕЖИЙ пароль из окружения, а не кэшированный
-      pool = createPool(envPass);
-      currentPassword = envPass; // Обновляем кэш
-      setTimeout(() => oldPool.end().catch(() => {}), 1000);
+      // ЗАКРЫВАЕМ старый пул ПЕРЕД созданием нового
+      console.log(`🔄 [Backend DB] Closing old pool and recreating with fresh password...`);
+      try {
+        await pool.end();
+      } catch (e) {
+        // Игнорируем ошибки при закрытии
+      }
       
-      const passwords = [envPass, 'postgres', '', 'password', 'admin', 'root'];
+      const passwords = [envPass, 'postgres', 'password', 'admin', 'root'];
       
       // Убираем дубликаты, но сохраняем порядок приоритета
       const uniquePasswords = [];
       const seen = new Set();
       for (const pass of passwords) {
-        if (!seen.has(pass)) {
+        if (!seen.has(pass) && pass.length > 0) { // Пропускаем пустые пароли
           seen.add(pass);
           uniquePasswords.push(pass);
         }
@@ -144,22 +144,41 @@ export const query = async (text, params) => {
         console.log(`🔑 [Backend DB] Trying password #${i+1} (len: ${pass.length})...`);
         const testPool = createPool(pass);
         try {
-          const testRes = await testPool.query('SELECT 1');
-          const res = await testPool.query(text, params);
-          console.log(`✅ [Backend DB] Recovery successful with password #${i+1}! Updating main pool...`);
-          // ПЕРЕКЛЮЧАЕМ основной пул ДО закрытия временного
-          switchPool(pass);
-          // Даем время на переключение пула
-          await new Promise(resolve => setTimeout(resolve, 200));
-          await testPool.end().catch(() => {});
-          return res;
+          // Пробуем простой запрос с таймаутом
+          const testRes = await Promise.race([
+            testPool.query('SELECT 1'),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+          ]);
+          
+          // Если тест прошел, пробуем реальный запрос
+          console.log(`✅ [Backend DB] Password #${i+1} works! Testing actual query...`);
+          const res = await Promise.race([
+            testPool.query(text, params),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+          ]);
+          
+          console.log(`✅ [Backend DB] Recovery successful with password #${i+1}! Updating pool...`);
+          
+          // Обновляем глобальный пул ПЕРЕД возвратом результата
+          currentPassword = pass;
+          pool = testPool;
+          
+          return res; // Возвращаем реальный результат запроса
         } catch (e) {
           console.log(`❌ [Backend DB] Password #${i+1} failed: ${e.message.substring(0, 60)}...`);
-          await testPool.end().catch(() => {});
+          try {
+            await testPool.end();
+          } catch (e2) {
+            // Игнорируем ошибки при закрытии
+          }
         }
       }
       console.error('❌ [Backend DB] All recovery passwords failed!');
       console.error(`❌ [Backend DB] Current password: "${currentPassword}", Env password: "${envPass}"`);
+      
+      // Создаем новый пул с паролем из окружения на всякий случай
+      pool = createPool(envPass);
+      currentPassword = envPass;
     }
     throw err;
   }
@@ -182,12 +201,19 @@ export const connect = async () => {
       const envPass = getEnv('DB_PASSWORD', 'postgres');
       console.log(`⚠️ [Backend DB] Connect failed, trying recovery...`);
       
+      // ЗАКРЫВАЕМ старый пул ПЕРЕД созданием нового
+      try {
+        await pool.end();
+      } catch (e) {
+        // Игнорируем ошибки при закрытии
+      }
+      
       // Пробуем все пароли
-      const passwords = [envPass, 'postgres', '', 'password'];
+      const passwords = [envPass, 'postgres', 'password', 'admin', 'root'];
       const uniquePasswords = [];
       const seen = new Set();
       for (const pass of passwords) {
-        if (!seen.has(pass)) {
+        if (!seen.has(pass) && pass.length > 0) { // Пропускаем пустые пароли
           seen.add(pass);
           uniquePasswords.push(pass);
         }
@@ -199,19 +225,37 @@ export const connect = async () => {
         
         const tPool = createPool(pass);
         try {
-          const testClient = await tPool.connect();
-          await testClient.query('SELECT 1');
+          const testClient = await Promise.race([
+            tPool.connect(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+          ]);
+          await Promise.race([
+            testClient.query('SELECT 1'),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+          ]);
           testClient.release();
           console.log(`✅ [Backend DB] Connect recovery successful with password #${i+1}!`);
-          switchPool(pass);
-          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // Обновляем глобальный пул
+          currentPassword = pass;
+          pool = tPool;
+          
+          // Получаем клиент из обновленного пула
           return await pool.connect();
         } catch (e) {
           console.log(`❌ [Backend DB] Connect password #${i+1} failed: ${e.message.substring(0, 60)}...`);
-          await tPool.end().catch(() => {});
+          try {
+            await tPool.end();
+          } catch (e2) {
+            // Игнорируем ошибки при закрытии
+          }
         }
       }
       console.error('❌ [Backend DB] All connect recovery passwords failed!');
+      
+      // Создаем новый пул с паролем из окружения на всякий случай
+      pool = createPool(envPass);
+      currentPassword = envPass;
     }
     throw err;
   }
