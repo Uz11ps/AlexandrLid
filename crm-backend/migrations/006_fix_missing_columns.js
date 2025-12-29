@@ -35,6 +35,7 @@ export async function up() {
         await ensureColumn('students', 'contract_number', "VARCHAR(100)");
         await ensureColumn('students', 'start_date', "DATE");
         await ensureColumn('students', 'payment_amount', "DECIMAL(10, 2)");
+        await ensureColumn('students', 'payment_currency', "VARCHAR(10) DEFAULT 'RUB'");
         await ensureColumn('students', 'payment_status', "VARCHAR(50) DEFAULT 'pending'");
         await ensureColumn('students', 'progress_percent', "INTEGER DEFAULT 0");
         await ensureColumn('students', 'curator_id', "INTEGER");
@@ -59,6 +60,24 @@ export async function up() {
         // 5. PAYMENTS
         await ensureColumn('payments', 'status', "VARCHAR(50) DEFAULT 'completed'");
         await ensureColumn('payments', 'payment_date', "DATE DEFAULT CURRENT_DATE");
+
+        // 6. MESSAGE_TEMPLATES
+        await ensureColumn('message_templates', 'is_active', "BOOLEAN DEFAULT TRUE");
+
+        // 7. DOCUMENTS
+        await ensureColumn('documents', 'created_by', "INTEGER");
+
+        // 8. TICKET_MESSAGES
+        await query(`
+            CREATE TABLE IF NOT EXISTS ticket_messages (
+                id SERIAL PRIMARY KEY,
+                ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
+                manager_id INTEGER REFERENCES managers(id) ON DELETE SET NULL,
+                message TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log('   ✅ Table ensured: ticket_messages');
 
         console.log('✅ [Migration 006] SCHEMA SYNC COMPLETED SUCCESSFULLY');
     } catch (error) {
