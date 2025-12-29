@@ -191,8 +191,6 @@ export async function handleStart(ctx) {
     }
     
     const { getMainMenu } = await import('./menu.js');
-    const { getCurrentStage } = await import('./contest.js');
-    const stage = getCurrentStage();
     
     // Формируем условия - для всех этапов одинаковые
     const conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
@@ -200,7 +198,7 @@ export async function handleStart(ctx) {
     return ctx.reply(
       `🔥 Добро пожаловать БОЛЬШОЙ РОЗЫГРЫШ от MOMENTUM TRADING!\n\n` +
       `3 недели. 3 этапа. Много призов.\n\n` +
-      `Сейчас идёт ${stage.name} (${stage.period})\n\n` +
+      `Сейчас идёт ЭТАП 1 (29.12 - 04.01)\n\n` +
       `Что дальше:\n` +
       `${conditionsText}\n\n` +
       `Баллы с каждого этапа копятся и работают на тебя в финале!\n\n` +
