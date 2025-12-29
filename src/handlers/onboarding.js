@@ -267,11 +267,14 @@ export async function handleStart(ctx) {
   // Формируем условия в зависимости от этапа
   let conditionsText = '';
   if (stage.id === 1) {
+    // ЭТАП 1: стандартные условия
     conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
   } else if (stage.id === 2) {
+    // ЭТАП 2: добавляем викторину
     conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в викторине\n→ Участвуй в розыгрыше призов`;
   } else {
-    conditionsText = `→ Новые задания каждый день\n→ Баллы с этапов 1-2 учитываются\n→ Активность в сообществе`;
+    // ФИНАЛ: используем условия из stage.conditions, но форматируем их
+    conditionsText = stage.conditions.replace(/^- /gm, '→ ').replace(/\n/g, '\n');
   }
   
   const welcomeMessage = 
