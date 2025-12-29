@@ -20,8 +20,8 @@ const getDbConfig = (password) => ({
   user: getEnv('DB_USER', 'postgres'),
   password: password,
   max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  idleTimeoutMillis: 300000, // 5 минут вместо 30 секунд
+  connectionTimeoutMillis: 10000,
   // Отключаем автоматическое переподключение при ошибках - будем обрабатывать вручную
   allowExitOnIdle: false,
 });
@@ -38,13 +38,26 @@ function createPool(password) {
   
   // Обработчик подключения - логируем создание нового соединения
   newPool.on('connect', (client) => {
-    console.log(`🔌 [Bot DB] New connection established with password len=${password.length}`);
+    const actualPassword = getEnv('DB_PASSWORD', 'postgres');
+    console.log(`🔌 [Bot DB] New connection established with password len=${password.length}, env password len=${actualPassword.length}`);
+    if (password !== actualPassword) {
+      console.log(`⚠️ [Bot DB] WARNING: Pool password (len=${password.length}) differs from env password (len=${actualPassword.length})!`);
+    }
+  });
+  
+  // Обработчик получения клиента из пула
+  newPool.on('acquire', (client) => {
+    const actualPassword = getEnv('DB_PASSWORD', 'postgres');
+    if (password !== actualPassword) {
+      console.log(`⚠️ [Bot DB] Acquiring client with outdated password (len=${password.length}), env has len=${actualPassword.length}`);
+    }
   });
   
   // Обработчик ошибок пула
   newPool.on('error', (err, client) => {
+    const actualPassword = getEnv('DB_PASSWORD', 'postgres');
     if (err.message.includes('password authentication failed')) {
-      console.log(`⚠️ [Bot DB] Pool error: auth failed (password len=${password.length}). Connection will be retried...`);
+      console.log(`⚠️ [Bot DB] Pool error: auth failed (pool password len=${password.length}, env password len=${actualPassword.length})`);
     } else {
       console.error(`❌ [Bot DB] Pool error:`, err.message);
     }
@@ -75,25 +88,35 @@ const safeQuery = async (text, params) => {
     return await pool.query(text, params);
   } catch (err) {
     if (err.message.includes('password authentication failed') || err.code === '28P01') {
+      // Получаем СВЕЖИЙ пароль из окружения ПЕРЕД логированием
+      const envPass = getEnv('DB_PASSWORD', 'postgres');
+      
+      // Логируем РАВОЕ значение из process.env для диагностики
+      const rawEnvValue = process.env.DB_PASSWORD;
       console.log(`⚠️ [Bot DB] Auth failed with current password (len: ${currentPassword.length}). Starting recovery...`);
+      console.log(`🔍 [Bot DB] Current password: "${currentPassword}"`);
+      console.log(`🔍 [Bot DB] Env password (getEnv): "${envPass}"`);
+      console.log(`🔍 [Bot DB] Raw process.env.DB_PASSWORD: "${rawEnvValue}" (type: ${typeof rawEnvValue}, len: ${rawEnvValue ? rawEnvValue.length : 'undefined'})`);
+      console.log(`🔍 [Bot DB] Match: ${currentPassword === envPass}`);
       
       // ПРИНУДИТЕЛЬНО пересоздаем пул перед попытками восстановления
       // Это исключает проблему с кэшированными соединениями
       console.log(`🔄 [Bot DB] Recreating pool before recovery attempts...`);
       const oldPool = pool;
-      pool = createPool(currentPassword);
+      // Используем СВЕЖИЙ пароль из окружения, а не кэшированный
+      pool = createPool(envPass);
+      currentPassword = envPass; // Обновляем кэш
       setTimeout(() => oldPool.end().catch(() => {}), 1000);
       
-      // Получаем свежий пароль из окружения (на случай, если он изменился)
-      const envPass = getEnv('DB_PASSWORD', 'postgres');
-      
-      // Пробуем ВСЕ пароли, включая текущий (на случай, если проблема в пуле)
+      // Пробуем ВСЕ возможные пароли
+      // Важно: currentPassword уже обновлен на envPass выше, поэтому не добавляем его отдельно
       const passwords = [
         envPass,           // 1. Пароль из .env (приоритет)
-        'postgres',        // 2. Стандартный
-        currentPassword,   // 3. Текущий пароль (может быть проблема в пуле)
-        '',                // 4. Пустой
-        'password'         // 5. Обычный дефолт
+        'postgres',        // 2. Стандартный PostgreSQL пароль
+        '',                // 3. Пустой пароль
+        'password',        // 4. Обычный дефолт
+        'admin',           // 5. Еще один возможный дефолт
+        'root'             // 6. Еще один возможный дефолт
       ];
       
       // Убираем дубликаты, но сохраняем порядок приоритета
