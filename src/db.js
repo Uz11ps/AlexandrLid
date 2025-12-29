@@ -1,27 +1,27 @@
 import pg from 'pg';
-import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config();
-dotenv.config({ path: path.join(__dirname, '../.env') });
-
 const { Pool } = pg;
 
+// Принудительная очистка переменных окружения от пробелов и \r
 const getEnv = (key, defaultValue) => {
   const value = process.env[key];
   if (!value) return defaultValue;
   return String(value).trim().replace(/\r/g, '');
 };
 
-const pool = new Pool({
+const dbConfig = {
   host: getEnv('DB_HOST', 'postgres'),
   port: parseInt(getEnv('DB_PORT', '5432')),
   database: getEnv('DB_NAME', 'telegram_bot_db'),
   user: getEnv('DB_USER', 'postgres'),
   password: getEnv('DB_PASSWORD', 'postgres'),
-});
+};
+
+console.log(`🔍 [Bot DB] Connecting to ${dbConfig.host} as ${dbConfig.user} (pass length: ${dbConfig.password.length})`);
+
+const pool = new Pool(dbConfig);
 
 pool.on('connect', async (client) => {
   await client.query("SET timezone = 'Europe/Moscow'");
