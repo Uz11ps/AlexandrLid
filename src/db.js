@@ -1,14 +1,33 @@
 import pg from 'pg';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const envPath = path.join(__dirname, '../.env');
+
+// Загружаем .env принудительно
+if (fs.existsSync(envPath)) {
+  dotenv.config({ path: envPath });
+} else {
+  console.warn('⚠️ [Bot DB] .env file not found at:', envPath);
+}
 
 const { Pool } = pg;
 
-// В Docker-среде переменные окружения доступны напрямую через process.env
+const getEnv = (key, defaultValue) => {
+  let value = process.env[key];
+  if (value === undefined || value === '') return defaultValue;
+  return String(value).split('#')[0].trim().replace(/\r/g, '');
+};
+
 const dbConfig = {
-  host: process.env.DB_HOST || 'postgres',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME || 'telegram_bot_db',
-  user: process.env.DB_USER || 'postgres',
-  password: (process.env.DB_PASSWORD || '').split('#')[0].trim().replace(/\r/g, ''),
+  host: getEnv('DB_HOST', 'postgres'),
+  port: parseInt(getEnv('DB_PORT', '5432')),
+  database: getEnv('DB_NAME', 'telegram_bot_db'),
+  user: getEnv('DB_USER', 'postgres'),
+  password: getEnv('DB_PASSWORD', 'postgres'),
 };
 
 const maskPassword = (pass) => {
@@ -22,15 +41,20 @@ console.log(`🔍 [Bot DB] Connecting to ${dbConfig.host} as ${dbConfig.user} (p
 
 const pool = new Pool(dbConfig);
 
-// Проверка подключения при старте
-pool.connect((err, client, release) => {
-  if (err) {
-    console.error('❌ [Bot DB] Connection error:', err.message);
-  } else {
-    console.log('✅ [Bot DB] Connected successfully');
-    release();
-  }
+pool.on('error', (err) => {
+  console.error('❌ [Bot DB] Unexpected pool error:', err.message);
 });
+
+// Проверка подключения
+(async () => {
+  try {
+    const client = await pool.connect();
+    console.log('✅ [Bot DB] Connected successfully');
+    client.release();
+  } catch (err) {
+    console.error('❌ [Bot DB] Connection error:', err.message);
+  }
+})();
 
 export { pool };
 
