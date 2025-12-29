@@ -184,6 +184,11 @@ BOT_DB_PASS=$(docker compose exec -T bot printenv DB_PASSWORD 2>/dev/null | tr -
 BOT_DB_HOST=$(docker compose exec -T bot printenv DB_HOST 2>/dev/null | tr -d '\r' || echo "")
 if [ -n "$BOT_DB_PASS" ]; then
     info "Бот видит DB_PASSWORD: [${#BOT_DB_PASS} символов]"
+    if [ "$BOT_DB_PASS" != "$DB_PASS_FROM_ENV" ]; then
+        warning "НЕСООТВЕТСТВИЕ: Бот видит пароль длиной ${#BOT_DB_PASS}, а в .env пароль длиной ${#DB_PASS_FROM_ENV}!"
+    else
+        success "Пароль в контейнере бота совпадает с .env!"
+    fi
 else
     warning "Бот НЕ видит DB_PASSWORD в окружении!"
 fi
@@ -191,6 +196,25 @@ if [ -n "$BOT_DB_HOST" ]; then
     info "Бот видит DB_HOST: $BOT_DB_HOST"
 else
     warning "Бот НЕ видит DB_HOST в окружении!"
+fi
+
+# 7.6. Проверка фактического пароля в базе данных
+info "Проверка фактического пароля в базе данных..."
+# Пробуем подключиться с паролем из .env и проверить, можем ли мы выполнить запрос
+if docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d postgres -c "SELECT 1;" > /dev/null 2>&1; then
+    success "Фактический пароль в БД совпадает с .env!"
+else
+    warning "Фактический пароль в БД НЕ совпадает с .env!"
+    info "Пробуем подключиться с паролем 'postgres'..."
+    if docker compose exec -T -e PGPASSWORD="postgres" telegram_db_alex psql -U postgres -d postgres -c "SELECT 1;" > /dev/null 2>&1; then
+        warning "База использует пароль 'postgres', а не пароль из .env!"
+        info "Повторная синхронизация пароля..."
+        docker compose exec -T -e PGPASSWORD="postgres" telegram_db_alex psql -U postgres -d postgres -c "ALTER USER postgres WITH PASSWORD '$DB_PASS_FROM_ENV';" > /dev/null 2>&1
+        sleep 2
+        if docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d postgres -c "SELECT 1;" > /dev/null 2>&1; then
+            success "Пароль синхронизирован повторно!"
+        fi
+    fi
 fi
 
 # 7.6. Перезапуск бота и бэкенда для применения правильного пароля
