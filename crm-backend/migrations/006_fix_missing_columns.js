@@ -6,10 +6,22 @@ export async function up() {
 
         const ensureColumn = async (table, column, typeDef) => {
             try {
-                await query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${column} ${typeDef}`);
-                console.log(`   ✅ Column ensured: ${table}.${column}`);
+                // Проверяем, существует ли колонка
+                const checkResult = await query(`
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = $1 AND column_name = $2
+                `, [table, column]);
+                
+                if (checkResult.rows.length === 0) {
+                    await query(`ALTER TABLE ${table} ADD COLUMN ${column} ${typeDef}`);
+                    console.log(`   ✅ Column added: ${table}.${column}`);
+                } else {
+                    console.log(`   ⏭️  Column already exists: ${table}.${column}`);
+                }
             } catch (err) {
                 console.error(`   ❌ Error adding ${column} to ${table}:`, err.message);
+                throw err; // Пробрасываем ошибку дальше
             }
         };
 
@@ -68,16 +80,31 @@ export async function up() {
         await ensureColumn('documents', 'created_by', "INTEGER");
 
         // 8. TICKET_MESSAGES
-        await query(`
-            CREATE TABLE IF NOT EXISTS ticket_messages (
-                id SERIAL PRIMARY KEY,
-                ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
-                manager_id INTEGER REFERENCES managers(id) ON DELETE SET NULL,
-                message TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-        console.log('   ✅ Table ensured: ticket_messages');
+        try {
+            const checkTable = await query(`
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_name = 'ticket_messages'
+            `);
+            
+            if (checkTable.rows.length === 0) {
+                await query(`
+                    CREATE TABLE ticket_messages (
+                        id SERIAL PRIMARY KEY,
+                        ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
+                        manager_id INTEGER REFERENCES managers(id) ON DELETE SET NULL,
+                        message TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                `);
+                console.log('   ✅ Table created: ticket_messages');
+            } else {
+                console.log('   ⏭️  Table already exists: ticket_messages');
+            }
+        } catch (err) {
+            console.error('   ❌ Error creating ticket_messages:', err.message);
+            throw err;
+        }
 
         console.log('✅ [Migration 006] SCHEMA SYNC COMPLETED SUCCESSFULLY');
     } catch (error) {
