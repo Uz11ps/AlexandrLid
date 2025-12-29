@@ -37,9 +37,24 @@ export const CONTEST_STAGES = {
 
 export const getCurrentStage = () => {
   const now = new Date();
-  if (now < CONTEST_STAGES.STAGE_1.startDate) return CONTEST_STAGES.STAGE_1;
-  if (now <= CONTEST_STAGES.STAGE_1.endDate) return CONTEST_STAGES.STAGE_1;
-  if (now <= CONTEST_STAGES.STAGE_2.endDate) return CONTEST_STAGES.STAGE_2;
+  
+  // Проверяем этапы по порядку
+  if (now >= CONTEST_STAGES.STAGE_1.startDate && now <= CONTEST_STAGES.STAGE_1.endDate) {
+    return CONTEST_STAGES.STAGE_1;
+  }
+  if (now >= CONTEST_STAGES.STAGE_2.startDate && now <= CONTEST_STAGES.STAGE_2.endDate) {
+    return CONTEST_STAGES.STAGE_2;
+  }
+  if (now >= CONTEST_STAGES.STAGE_3.startDate && now <= CONTEST_STAGES.STAGE_3.endDate) {
+    return CONTEST_STAGES.STAGE_3;
+  }
+  
+  // Если до начала первого этапа - возвращаем первый этап
+  if (now < CONTEST_STAGES.STAGE_1.startDate) {
+    return CONTEST_STAGES.STAGE_1;
+  }
+  
+  // Если после окончания всех этапов - возвращаем последний этап
   return CONTEST_STAGES.STAGE_3;
 };
 
