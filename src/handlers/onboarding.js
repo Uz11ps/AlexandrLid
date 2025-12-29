@@ -2,6 +2,7 @@ import db from '../db.js';
 
 // Обработчик команды /start
 export async function handleStart(ctx) {
+  console.log('[START HANDLER] Команда /start получена от пользователя:', ctx.from?.id, ctx.from?.username);
   const userId = ctx.from.id;
   const username = ctx.from.username;
   const firstName = ctx.from.first_name;
