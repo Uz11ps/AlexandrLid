@@ -306,9 +306,40 @@ bot.on('callback_query', async (ctx) => {
       switch (data) {
       case 'menu_main':
         try {
-          await ctx.editMessageText('📋 ГЛАВНОЕ МЕНЮ\n\nВыберите действие:', getMainMenu());
+          const { getCurrentStage } = await import('./handlers/contest.js');
+          const stage = getCurrentStage();
+          
+          // Формируем условия - для всех этапов одинаковые
+          const conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
+          
+          const welcomeMessage = 
+            `🔥 Добро пожаловать БОЛЬШОЙ РОЗЫГРЫШ от MOMENTUM TRADING!\n\n` +
+            `3 недели. 3 этапа. Много призов.\n\n` +
+            `Сейчас идёт ${stage.name} (${stage.period})\n\n` +
+            `Что дальше:\n` +
+            `${conditionsText}\n\n` +
+            `Баллы с каждого этапа копятся и работают на тебя в финале!\n\n` +
+            `Начнём? 👇`;
+          
+          await ctx.editMessageText(welcomeMessage, getMainMenu());
         } catch (error) {
-          await ctx.reply('📋 ГЛАВНОЕ МЕНЮ\n\nВыберите действие:', getMainMenu());
+          // Fallback на случай ошибки
+          try {
+            const { getCurrentStage } = await import('./handlers/contest.js');
+            const stage = getCurrentStage();
+            const conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
+            const welcomeMessage = 
+              `🔥 Добро пожаловать БОЛЬШОЙ РОЗЫГРЫШ от MOMENTUM TRADING!\n\n` +
+              `3 недели. 3 этапа. Много призов.\n\n` +
+              `Сейчас идёт ${stage.name} (${stage.period})\n\n` +
+              `Что дальше:\n` +
+              `${conditionsText}\n\n` +
+              `Баллы с каждого этапа копятся и работают на тебя в финале!\n\n` +
+              `Начнём? 👇`;
+            await ctx.reply(welcomeMessage, getMainMenu());
+          } catch (fallbackError) {
+            await ctx.reply('📋 ГЛАВНОЕ МЕНЮ\n\nВыберите действие:', getMainMenu());
+          }
         }
         break;
       case 'menu_contest':
