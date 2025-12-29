@@ -98,6 +98,7 @@ export async function up() {
                 package_id INTEGER REFERENCES packages(id),
                 group_id INTEGER REFERENCES study_groups(id),
                 payment_status VARCHAR(50) DEFAULT 'pending',
+                payment_currency VARCHAR(10) DEFAULT 'RUB',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
@@ -157,6 +158,7 @@ export async function up() {
                 name VARCHAR(255) NOT NULL,
                 content TEXT NOT NULL,
                 type VARCHAR(50),
+                is_active BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
 
@@ -166,6 +168,7 @@ export async function up() {
                 name VARCHAR(255) NOT NULL,
                 file_url TEXT,
                 type VARCHAR(50),
+                created_by INTEGER REFERENCES managers(id) ON DELETE SET NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
 
@@ -228,6 +231,17 @@ export async function up() {
                 status VARCHAR(50) DEFAULT 'open',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        // 10. Сообщения тикетов
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS ticket_messages (
+                id SERIAL PRIMARY KEY,
+                ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
+                manager_id INTEGER REFERENCES managers(id) ON DELETE SET NULL,
+                message TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
 
