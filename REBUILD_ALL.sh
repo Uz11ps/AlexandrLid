@@ -228,13 +228,43 @@ else
     fi
 fi
 
-# 7.7. Проверка подключения из контейнера бота
+# 7.7. Проверка и исправление pg_hba.conf
+info "Проверка pg_hba.conf для разрешения подключений из Docker сети..."
+# Проверяем, есть ли правила для подключений из сети Docker
+PG_HBA_CHECK=$(docker compose exec -T telegram_db_alex cat /var/lib/postgresql/data/pg_hba.conf 2>/dev/null | grep -E "host.*all.*all.*0\.0\.0\.0/0|host.*all.*all.*::/0" || echo "")
+if [ -z "$PG_HBA_CHECK" ]; then
+    warning "pg_hba.conf не содержит правил для подключений из Docker сети. Добавляем..."
+    # Добавляем правила в pg_hba.conf
+    docker compose exec -T telegram_db_alex sh -c "echo 'host    all             all             0.0.0.0/0               scram-sha-256' >> /var/lib/postgresql/data/pg_hba.conf"
+    docker compose exec -T telegram_db_alex sh -c "echo 'host    all             all             ::/0                    scram-sha-256' >> /var/lib/postgresql/data/pg_hba.conf"
+    # Перезагружаем конфигурацию PostgreSQL
+    docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d postgres -c "SELECT pg_reload_conf();" > /dev/null 2>&1 || docker compose exec -T -e PGPASSWORD="postgres" telegram_db_alex psql -U postgres -d postgres -c "SELECT pg_reload_conf();" > /dev/null 2>&1
+    success "pg_hba.conf обновлен!"
+    sleep 2
+else
+    success "pg_hba.conf уже настроен правильно"
+fi
+
+# 7.8. Проверка подключения из контейнера бота
 info "Проверка подключения к БД из контейнера бота..."
 # Устанавливаем psql в контейнер бота (если его нет) и проверяем подключение
 BOT_CONNECTION_TEST=$(docker compose exec -T bot sh -c "command -v psql > /dev/null 2>&1 || apk add --no-cache postgresql-client > /dev/null 2>&1; PGPASSWORD=\"$DB_PASS_FROM_ENV\" psql -h telegram_db_alex -U postgres -d telegram_bot_db -c 'SELECT 1;' 2>&1" 2>&1)
 if echo "$BOT_CONNECTION_TEST" | grep -q "password authentication failed"; then
     warning "Бот НЕ может подключиться с паролем из .env!"
     info "Ошибка подключения: $(echo "$BOT_CONNECTION_TEST" | head -n 1)"
+    info "Проверяем сетевую доступность..."
+    # Проверяем, может ли контейнер бота достичь контейнера базы данных
+    if docker compose exec -T bot ping -c 1 telegram_db_alex > /dev/null 2>&1; then
+        success "Сетевая доступность: OK (ping работает)"
+    else
+        warning "Сетевая доступность: ПРОБЛЕМА (ping не работает)"
+    fi
+    # Проверяем, может ли контейнер бота подключиться к порту 5432
+    if docker compose exec -T bot nc -z telegram_db_alex 5432 > /dev/null 2>&1; then
+        success "Порт 5432 доступен из контейнера бота"
+    else
+        warning "Порт 5432 НЕ доступен из контейнера бота!"
+    fi
     info "Пробуем с паролем 'postgres'..."
     BOT_CONNECTION_TEST_POSTGRES=$(docker compose exec -T bot sh -c "PGPASSWORD=\"postgres\" psql -h telegram_db_alex -U postgres -d telegram_bot_db -c 'SELECT 1;' 2>&1" 2>&1)
     if echo "$BOT_CONNECTION_TEST_POSTGRES" | grep -q "password authentication failed"; then
@@ -243,7 +273,8 @@ if echo "$BOT_CONNECTION_TEST" | grep -q "password authentication failed"; then
     else
         warning "Бот может подключиться только с паролем 'postgres'!"
         info "Синхронизируем пароль в базе данных..."
-        docker compose exec -T -e PGPASSWORD="postgres" telegram_db_alex psql -U postgres -d postgres -c "ALTER USER postgres WITH PASSWORD '$DB_PASS_FROM_ENV';" > /dev/null 2>&1
+        SQL_PASSWORD=$(echo "$DB_PASS_FROM_ENV" | sed "s/'/''/g")
+        docker compose exec -T -e PGPASSWORD="postgres" telegram_db_alex psql -U postgres -d postgres -c "ALTER USER postgres WITH PASSWORD '$SQL_PASSWORD';" > /dev/null 2>&1
         sleep 2
         if docker compose exec -T bot sh -c "PGPASSWORD=\"$DB_PASS_FROM_ENV\" psql -h telegram_db_alex -U postgres -d telegram_bot_db -c 'SELECT 1;' > /dev/null 2>&1" 2>/dev/null; then
             success "После синхронизации: бот может подключиться!"
@@ -252,7 +283,7 @@ if echo "$BOT_CONNECTION_TEST" | grep -q "password authentication failed"; then
 elif echo "$BOT_CONNECTION_TEST" | grep -q "1"; then
     success "Бот может подключиться к БД из своего контейнера!"
 else
-    warning "Неожиданный результат проверки подключения бота"
+    warning "Неожиданный результат проверки подключения бота: $BOT_CONNECTION_TEST"
 fi
 
 # 7.6. Перезапуск бота и бэкенда для применения правильного пароля
