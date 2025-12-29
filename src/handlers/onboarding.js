@@ -327,11 +327,19 @@ export async function handleStart(ctx) {
   } catch (error) {
     // Общий обработчик ошибок - гарантируем отправку приветственного сообщения
     console.error('[START HANDLER] Критическая ошибка в handleStart:', error.message);
+    console.error('[START HANDLER] Stack:', error.stack);
     
     // Отправляем приветственное сообщение даже при ошибках БД
     try {
+      console.log('[START HANDLER] [FALLBACK] ========== НАЧАЛО ФОРМИРОВАНИЯ СООБЩЕНИЯ (FALLBACK) ==========');
+      console.log('[START HANDLER] [FALLBACK] Импортируем getCurrentStage...');
       const { getCurrentStage } = await import('./contest.js');
+      console.log('[START HANDLER] [FALLBACK] getCurrentStage импортирован, вызываем...');
       const stage = getCurrentStage();
+      
+      console.log('[START HANDLER] [FALLBACK] getCurrentStage вызван, этап:', stage.name, stage.period);
+      console.log('[START HANDLER] [FALLBACK] Текущая дата:', new Date().toISOString());
+      console.log('[START HANDLER] [FALLBACK] stage object:', JSON.stringify(stage, null, 2));
       
       // Формируем условия - для всех этапов одинаковые
       const conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
@@ -344,6 +352,8 @@ export async function handleStart(ctx) {
         `${conditionsText}\n\n` +
         `Баллы с каждого этапа копятся и работают на тебя в финале!\n\n` +
         `Начнём? 👇`;
+
+      console.log('[START HANDLER] [FALLBACK] Формируем сообщение:', welcomeMessage);
 
       const { getMainMenu } = await import('./menu.js');
       await ctx.reply(welcomeMessage, getMainMenu());
