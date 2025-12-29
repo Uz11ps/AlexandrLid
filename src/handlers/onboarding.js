@@ -193,8 +193,10 @@ export async function handleStart(ctx) {
     const { getMainMenu } = await import('./menu.js');
     
     // Формируем условия - для всех этапов одинаковые
+    // ВЕРСИЯ КОДА: FIXED_STAGE_1_V2
     const conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
 
+    console.log('[START HANDLER] ВЕРСИЯ КОДА: FIXED_STAGE_1_V2 (existing user)');
     return ctx.reply(
       `🔥 Добро пожаловать БОЛЬШОЙ РОЗЫГРЫШ от MOMENTUM TRADING!\n\n` +
       `3 недели. 3 этапа. Много призов.\n\n` +
@@ -291,6 +293,7 @@ export async function handleStart(ctx) {
   // Формируем условия - для всех этапов одинаковые
   const conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
   
+  // ВЕРСИЯ КОДА: FIXED_STAGE_1_V2
   const welcomeMessage = 
     `🔥 Добро пожаловать БОЛЬШОЙ РОЗЫГРЫШ от MOMENTUM TRADING!\n\n` +
     `3 недели. 3 этапа. Много призов.\n\n` +
@@ -300,6 +303,7 @@ export async function handleStart(ctx) {
     `Баллы с каждого этапа копятся и работают на тебя в финале!\n\n` +
     `Начнём? 👇`;
   
+  console.log('[START HANDLER] ВЕРСИЯ КОДА: FIXED_STAGE_1_V2');
   console.log('[START HANDLER] Отправляем сообщение с ЭТАП 1:', welcomeMessage);
   
   const { getMainMenu } = await import('./menu.js');
@@ -320,8 +324,10 @@ export async function handleStart(ctx) {
     // Отправляем приветственное сообщение даже при ошибках БД
     try {
       // Формируем условия - для всех этапов одинаковые
+      // ВЕРСИЯ КОДА: FIXED_STAGE_1_V2
       const conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
       
+      console.log('[START HANDLER] ВЕРСИЯ КОДА: FIXED_STAGE_1_V2 (fallback)');
       const welcomeMessage = 
         `🔥 Добро пожаловать БОЛЬШОЙ РОЗЫГРЫШ от MOMENTUM TRADING!\n\n` +
         `3 недели. 3 этапа. Много призов.\n\n` +
