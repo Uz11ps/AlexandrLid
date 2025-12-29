@@ -1,5 +1,5 @@
 import express from 'express';
-import pool from '../db.js';
+import { query } from '../db.js';
 import cors from 'cors';
 
 const router = express.Router();
@@ -37,7 +37,7 @@ router.post('/lead', async (req, res) => {
     }
 
     // Create lead
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO leads (
         fio, phone, email, telegram_username, country, city, age,
         source, utm_source, utm_medium, utm_campaign,

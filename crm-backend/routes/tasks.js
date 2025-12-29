@@ -1,5 +1,5 @@
 import express from 'express';
-import pool from '../db.js';
+import { query } from '../db.js';
 import { authenticateToken } from './auth.js';
 
 const router = express.Router();
@@ -105,7 +105,7 @@ router.get('/', async (req, res) => {
 
     query += ` ORDER BY t.due_date ASC, t.priority DESC`;
 
-    const result = await pool.query(query, params);
+    const result = await query(query, params);
 
     res.json({ tasks: result.rows });
   } catch (error) {
@@ -136,7 +136,7 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
+    const result = await query(
       `SELECT t.*, 
               l.fio as lead_name, l.phone as lead_phone, l.id as lead_id,
               m.name as manager_name
@@ -214,13 +214,13 @@ router.post('/', async (req, res) => {
     let assignedManagerId = req.user.id;
     if (manager_id && req.user.role === 'admin') {
       // Проверяем, что указанный менеджер существует
-      const managerCheck = await pool.query('SELECT id FROM managers WHERE id = $1 AND is_active = TRUE', [manager_id]);
+      const managerCheck = await query('SELECT id FROM managers WHERE id = $1 AND is_active = TRUE', [manager_id]);
       if (managerCheck.rows.length > 0) {
         assignedManagerId = parseInt(manager_id);
       }
     }
 
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO tasks (
         lead_id, manager_id, title, description, task_type,
         due_date, due_time, priority, status, created_at, updated_at
@@ -311,7 +311,7 @@ router.put('/:id', async (req, res) => {
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
     values.push(parseInt(id));
 
-    const result = await pool.query(
+    const result = await query(
       `UPDATE tasks SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
       values
     );
@@ -349,7 +349,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
+    const result = await query(
       'DELETE FROM tasks WHERE id = $1 RETURNING *',
       [id]
     );

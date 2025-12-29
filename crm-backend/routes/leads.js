@@ -1,5 +1,5 @@
 import express from 'express';
-import pool from '../db.js';
+import { query } from '../db.js';
 import { authenticateToken } from './auth.js';
 import { Telegraf } from 'telegraf';
 import dotenv from 'dotenv';
@@ -127,7 +127,7 @@ router.get('/', async (req, res) => {
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     // Get total count
-    const countResult = await pool.query(
+    const countResult = await query(
       `SELECT COUNT(*) FROM leads ${whereClause}`,
       params
     );
@@ -135,7 +135,7 @@ router.get('/', async (req, res) => {
 
     // Get leads
     params.push(parseInt(limit), offset);
-    const result = await pool.query(
+    const result = await query(
       `SELECT * FROM leads 
        ${whereClause}
        ORDER BY created_at DESC 
@@ -187,7 +187,7 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
+    const result = await query(
       `SELECT l.*, 
               u.first_name, u.last_name, u.username as telegram_username_from_users,
               m.name as manager_name
@@ -203,7 +203,7 @@ router.get('/:id', async (req, res) => {
     }
 
     // Get comments for this lead
-    const commentsResult = await pool.query(
+    const commentsResult = await query(
       `SELECT c.*, m.name as manager_name, m.email as manager_email
        FROM lead_comments c
        LEFT JOIN managers m ON c.manager_id = m.id
@@ -213,7 +213,7 @@ router.get('/:id', async (req, res) => {
     );
 
     // Get interactions for this lead
-    const interactionsResult = await pool.query(
+    const interactionsResult = await query(
       `SELECT 
         li.*,
         m.name as manager_name
@@ -287,7 +287,7 @@ router.post('/', async (req, res) => {
       notes
     } = req.body;
 
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO leads (
         fio, phone, email, telegram_username, country, city,
         source, utm_source, utm_medium, utm_campaign, notes,
@@ -385,7 +385,7 @@ router.put('/:id', async (req, res) => {
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
     values.push(parseInt(id));
 
-    const result = await pool.query(
+    const result = await query(
       `UPDATE leads SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
       values
     );
@@ -396,7 +396,7 @@ router.put('/:id', async (req, res) => {
 
     // Log interaction if status or stage changed
     if (updateFields.status || updateFields.funnel_stage) {
-      await pool.query(
+      await query(
         `INSERT INTO lead_interactions (lead_id, manager_id, interaction_type, notes)
          VALUES ($1, $2, $3, $4)`,
         [
@@ -437,7 +437,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
+    const result = await query(
       'DELETE FROM leads WHERE id = $1 RETURNING *',
       [id]
     );
@@ -510,7 +510,7 @@ router.get('/export/excel', async (req, res) => {
 
     query += ' ORDER BY l.created_at DESC';
 
-    const result = await pool.query(query, params);
+    const result = await query(query, params);
     const leads = result.rows;
 
     // Используем динамический импорт для exceljs
@@ -582,7 +582,7 @@ router.post('/:id/comments', async (req, res) => {
       return res.status(400).json({ error: 'Comment text is required' });
     }
 
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO lead_comments (lead_id, manager_id, comment_text, created_at)
        VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
        RETURNING *`,
@@ -607,7 +607,7 @@ router.post('/:id/message', async (req, res) => {
     }
 
     // Get lead with user_id
-    const leadResult = await pool.query(
+    const leadResult = await query(
       'SELECT user_id, fio FROM leads WHERE id = $1',
       [id]
     );
@@ -630,7 +630,7 @@ router.post('/:id/message', async (req, res) => {
     await botInstance.telegram.sendMessage(lead.user_id, message_text);
 
     // Log interaction
-    await pool.query(
+    await query(
       `INSERT INTO lead_interactions (lead_id, manager_id, interaction_type, interaction_data, notes)
        VALUES ($1, $2, $3, $4, $5)`,
       [

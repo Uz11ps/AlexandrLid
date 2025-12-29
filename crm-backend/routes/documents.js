@@ -1,5 +1,5 @@
 import express from 'express';
-import pool from '../db.js';
+import { query } from '../db.js';
 import { authenticateToken } from './auth.js';
 
 const router = express.Router();
@@ -35,7 +35,7 @@ router.get('/templates', async (req, res) => {
 
     query += ' ORDER BY created_at DESC';
 
-    const result = await pool.query(query, params);
+    const result = await query(query, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching document templates:', error);
@@ -48,7 +48,7 @@ router.post('/templates', async (req, res) => {
   try {
     const { name, document_type, template_content, variables, format } = req.body;
 
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO document_templates (name, document_type, template_content, variables, format)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
@@ -127,7 +127,7 @@ router.get('/', async (req, res) => {
 
     query += ' ORDER BY d.created_at DESC';
 
-    const result = await pool.query(query, params);
+    const result = await query(query, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching documents:', error);
@@ -154,21 +154,21 @@ router.post('/', async (req, res) => {
 
     // Validate that referenced entities exist
     if (lead_id) {
-      const leadCheck = await pool.query('SELECT id FROM leads WHERE id = $1', [lead_id]);
+      const leadCheck = await query('SELECT id FROM leads WHERE id = $1', [lead_id]);
       if (leadCheck.rows.length === 0) {
         return res.status(400).json({ error: `Lead with id ${lead_id} not found` });
       }
     }
 
     if (student_id) {
-      const studentCheck = await pool.query('SELECT id FROM students WHERE id = $1', [student_id]);
+      const studentCheck = await query('SELECT id FROM students WHERE id = $1', [student_id]);
       if (studentCheck.rows.length === 0) {
         return res.status(400).json({ error: `Student with id ${student_id} not found` });
       }
     }
 
     if (deal_id) {
-      const dealCheck = await pool.query('SELECT id FROM deals WHERE id = $1', [deal_id]);
+      const dealCheck = await query('SELECT id FROM deals WHERE id = $1', [deal_id]);
       if (dealCheck.rows.length === 0) {
         return res.status(400).json({ error: `Deal with id ${deal_id} not found` });
       }
@@ -191,7 +191,7 @@ router.post('/', async (req, res) => {
       generatedFileName = `${typeLabel}_${entityId}_${date}.pdf`;
     }
 
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO documents (
         document_type, lead_id, student_id, deal_id,
         template_id, file_name, file_path, file_size, mime_type, created_by
@@ -223,7 +223,7 @@ router.post('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query(
+    const result = await query(
       `SELECT d.*, 
               m.name as created_by_name,
               l.fio as lead_name, l.phone as lead_phone, l.email as lead_email
@@ -249,7 +249,7 @@ router.get('/:id', async (req, res) => {
 router.get('/:id/download', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('SELECT file_path, file_name, mime_type, document_type FROM documents WHERE id = $1', [id]);
+    const result = await query('SELECT file_path, file_name, mime_type, document_type FROM documents WHERE id = $1', [id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Document not found' });
@@ -295,7 +295,7 @@ router.post('/:id/upload', async (req, res) => {
     const { id } = req.params;
     
     // Проверяем существование документа
-    const docCheck = await pool.query('SELECT id FROM documents WHERE id = $1', [id]);
+    const docCheck = await query('SELECT id FROM documents WHERE id = $1', [id]);
     if (docCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Document not found' });
     }
@@ -309,7 +309,7 @@ router.post('/:id/upload', async (req, res) => {
     }
 
     // Обновляем документ с информацией о файле
-    const result = await pool.query(
+    const result = await query(
       `UPDATE documents 
        SET file_path = $1, 
            file_name = $2, 
@@ -340,7 +340,7 @@ router.post('/:id/generate', async (req, res) => {
     const { id } = req.params;
     
     // Получаем документ с шаблоном
-    const docResult = await pool.query(
+    const docResult = await query(
       `SELECT d.*, dt.template_content, dt.variables, l.*
        FROM documents d
        LEFT JOIN document_templates dt ON d.template_id = dt.id
@@ -369,7 +369,7 @@ router.post('/:id/generate', async (req, res) => {
     const filePath = `/uploads/documents/${fileName}`;
 
     // Обновляем документ с информацией о сгенерированном файле
-    const result = await pool.query(
+    const result = await query(
       `UPDATE documents 
        SET file_path = $1, 
            file_name = $2, 
@@ -444,7 +444,7 @@ router.put('/:id', async (req, res) => {
     updates.push('updated_at = CURRENT_TIMESTAMP');
     values.push(parseInt(id));
 
-    const result = await pool.query(
+    const result = await query(
       `UPDATE documents SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
       values
     );
@@ -466,13 +466,13 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     
     // Проверяем существование документа
-    const docCheck = await pool.query('SELECT id FROM documents WHERE id = $1', [id]);
+    const docCheck = await query('SELECT id FROM documents WHERE id = $1', [id]);
     if (docCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Document not found' });
     }
 
     // Удаляем документ
-    await pool.query('DELETE FROM documents WHERE id = $1', [id]);
+    await query('DELETE FROM documents WHERE id = $1', [id]);
 
     res.json({ message: 'Document deleted successfully' });
   } catch (error) {

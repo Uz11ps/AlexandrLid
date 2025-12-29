@@ -1,5 +1,5 @@
 import express from 'express';
-import pool from '../db.js';
+import { query } from '../db.js';
 import { authenticateToken } from './auth.js';
 
 const router = express.Router();
@@ -20,7 +20,7 @@ router.use(authenticateToken);
 router.get('/', async (req, res) => {
   try {
     // Проверяем, существует ли таблица roles
-    const tableExists = await pool.query(`
+    const tableExists = await query(`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
         WHERE table_schema = 'public' 
@@ -35,7 +35,7 @@ router.get('/', async (req, res) => {
       });
     }
 
-    const result = await pool.query(
+    const result = await query(
       'SELECT id, name, description, is_system, created_at FROM roles ORDER BY name'
     );
     res.json(result.rows);
@@ -89,7 +89,7 @@ router.post('/', async (req, res) => {
     }
 
     // Проверка существования роли
-    const existingRole = await pool.query(
+    const existingRole = await query(
       'SELECT id FROM roles WHERE name = $1',
       [name]
     );
@@ -99,7 +99,7 @@ router.post('/', async (req, res) => {
     }
 
     // Создание роли
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO roles (name, description, is_system)
        VALUES ($1, $2, FALSE)
        RETURNING id, name, description, is_system, created_at`,
@@ -153,7 +153,7 @@ router.put('/:id', async (req, res) => {
     const { name, description } = req.body;
 
     // Проверка, что роль не системная
-    const roleCheck = await pool.query(
+    const roleCheck = await query(
       'SELECT is_system FROM roles WHERE id = $1',
       [id]
     );
@@ -187,7 +187,7 @@ router.put('/:id', async (req, res) => {
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
     values.push(parseInt(id));
 
-    const result = await pool.query(
+    const result = await query(
       `UPDATE roles SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING id, name, description, is_system, created_at`,
       values
     );
@@ -227,7 +227,7 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
 
     // Проверка, что роль не системная
-    const roleCheck = await pool.query(
+    const roleCheck = await query(
       'SELECT is_system FROM roles WHERE id = $1',
       [id]
     );
@@ -241,7 +241,7 @@ router.delete('/:id', async (req, res) => {
     }
 
     // Проверка, что роль не используется
-    const usageCheck = await pool.query(
+    const usageCheck = await query(
       'SELECT COUNT(*) as count FROM managers WHERE role = (SELECT name FROM roles WHERE id = $1)',
       [id]
     );
@@ -250,7 +250,7 @@ router.delete('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Cannot delete role that is in use' });
     }
 
-    await pool.query('DELETE FROM roles WHERE id = $1', [id]);
+    await query('DELETE FROM roles WHERE id = $1', [id]);
 
     res.json({ success: true });
   } catch (error) {

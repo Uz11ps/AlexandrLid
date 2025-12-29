@@ -1,5 +1,5 @@
 import express from 'express';
-import pool from '../db.js';
+import { query } from '../db.js';
 import { authenticateToken } from './auth.js';
 
 const router = express.Router();
@@ -68,7 +68,7 @@ router.get('/', async (req, res) => {
 
     query += ` ORDER BY t.updated_at DESC`;
 
-    const result = await pool.query(query, params);
+    const result = await query(query, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching tickets:', error);
@@ -98,7 +98,7 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const ticketResult = await pool.query(
+    const ticketResult = await query(
       `SELECT t.*, 
               u.username as user_username, u.first_name as user_first_name,
               m.name as manager_name
@@ -121,7 +121,7 @@ router.get('/:id', async (req, res) => {
     }
 
     // Получить сообщения
-    const messagesResult = await pool.query(
+    const messagesResult = await query(
       `SELECT tm.*,
               CASE 
                 WHEN tm.sender_type = 'user' THEN u.first_name
@@ -180,7 +180,7 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'user_id is required' });
     }
 
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO tickets (user_id, manager_id, subject, priority, status)
        VALUES ($1, $2, $3, $4, 'open')
        RETURNING *`,
@@ -238,7 +238,7 @@ router.post('/:id/messages', async (req, res) => {
     }
 
     // Проверить существование тикета
-    const ticketResult = await pool.query('SELECT * FROM tickets WHERE id = $1', [id]);
+    const ticketResult = await query('SELECT * FROM tickets WHERE id = $1', [id]);
     if (ticketResult.rows.length === 0) {
       return res.status(404).json({ error: 'Ticket not found' });
     }
@@ -254,7 +254,7 @@ router.post('/:id/messages', async (req, res) => {
     const senderType = req.user.role === 'admin' ? 'admin' : 'manager';
 
     // Создать сообщение
-    const messageResult = await pool.query(
+    const messageResult = await query(
       `INSERT INTO ticket_messages (ticket_id, sender_type, sender_id, message_text)
        VALUES ($1, $2, $3, $4)
        RETURNING *`,
@@ -263,7 +263,7 @@ router.post('/:id/messages', async (req, res) => {
 
     // Обновить статус тикета и время обновления
     // Если тикет закрыт, переоткрыть его
-    const updateResult = await pool.query(
+    const updateResult = await query(
       `UPDATE tickets 
        SET status = CASE WHEN status IN ('closed', 'resolved') THEN 'open' ELSE status END,
            updated_at = CURRENT_TIMESTAMP,
@@ -332,7 +332,7 @@ router.put('/:id', async (req, res) => {
     const { status, manager_id, priority } = req.body;
 
     // Проверить существование тикета
-    const ticketResult = await pool.query('SELECT * FROM tickets WHERE id = $1', [id]);
+    const ticketResult = await query('SELECT * FROM tickets WHERE id = $1', [id]);
     if (ticketResult.rows.length === 0) {
       return res.status(404).json({ error: 'Ticket not found' });
     }
@@ -371,7 +371,7 @@ router.put('/:id', async (req, res) => {
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
     values.push(parseInt(id));
 
-    const result = await pool.query(
+    const result = await query(
       `UPDATE tickets SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
       values
     );

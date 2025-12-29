@@ -1,5 +1,5 @@
 import express from 'express';
-import pool from '../db.js';
+import { query } from '../db.js';
 import bcrypt from 'bcrypt';
 import { authenticateToken } from './auth.js';
 
@@ -20,7 +20,7 @@ router.use(authenticateToken);
  */
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query(
+    const result = await query(
       'SELECT id, email, name, role, is_active, created_at FROM managers ORDER BY name'
     );
     res.json(result.rows);
@@ -38,7 +38,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query(
+    const result = await query(
       'SELECT id, email, name, role, is_active, created_at FROM managers WHERE id = $1',
       [id]
     );
@@ -93,7 +93,7 @@ router.put('/:id', async (req, res) => {
     }
 
     values.push(parseInt(id));
-    const result = await pool.query(
+    const result = await query(
       `UPDATE managers SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $${paramIndex} RETURNING id, email, name, role, is_active, created_at`,
       values
     );
@@ -124,7 +124,7 @@ router.delete('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Cannot delete yourself' });
     }
 
-    const result = await pool.query(
+    const result = await query(
       'DELETE FROM managers WHERE id = $1 RETURNING id',
       [id]
     );

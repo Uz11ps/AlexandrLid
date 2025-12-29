@@ -1,7 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import pool from '../db.js';
+import { query } from '../db.js';
 
 const router = express.Router();
 
@@ -74,7 +74,7 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    const result = await pool.query(
+    const result = await query(
       'SELECT * FROM managers WHERE email = $1 AND is_active = TRUE',
       [email]
     );
@@ -101,7 +101,7 @@ router.post('/login', async (req, res) => {
 
     // Update last login
     console.log('[Auth DEBUG] Updating last login...');
-    await pool.query(
+    await query(
       'UPDATE managers SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
       [manager.id]
     );
@@ -184,7 +184,7 @@ router.post('/register', authenticateToken, async (req, res) => {
     }
 
     // Проверка существования пользователя
-    const existingUser = await pool.query(
+    const existingUser = await query(
       'SELECT id FROM managers WHERE email = $1',
       [email]
     );
@@ -202,14 +202,14 @@ router.post('/register', authenticateToken, async (req, res) => {
     }
     
     // Проверяем существование роли в базе данных
-    const roleCheck = await pool.query(
+    const roleCheck = await query(
       'SELECT id, name FROM roles WHERE name = $1',
       [userRole]
     );
 
     if (roleCheck.rows.length === 0) {
       // Получаем список доступных ролей для сообщения об ошибке
-      const availableRoles = await pool.query('SELECT name FROM roles ORDER BY name');
+      const availableRoles = await query('SELECT name FROM roles ORDER BY name');
       const roleNames = availableRoles.rows.map(r => r.name);
       
       // Если таблица roles пуста или не существует, возвращаем стандартные роли
@@ -229,7 +229,7 @@ router.post('/register', authenticateToken, async (req, res) => {
 
     // Создание пользователя
     console.log('Attempting to create user with role:', userRole);
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO managers (email, password_hash, name, role, is_active)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id, email, name, role, is_active, created_at`,

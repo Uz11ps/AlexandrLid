@@ -1,5 +1,5 @@
 import express from 'express';
-import pool from '../db.js';
+import { query } from '../db.js';
 import { authenticateToken } from './auth.js';
 
 const router = express.Router();
@@ -19,7 +19,7 @@ router.get('/messages', async (req, res) => {
 
     query += ' ORDER BY created_at DESC';
 
-    const result = await pool.query(query, params);
+    const result = await query(query, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching message templates:', error);
@@ -32,7 +32,7 @@ router.post('/messages', async (req, res) => {
   try {
     const { name, category, template_text, variables } = req.body;
 
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO message_templates (name, category, template_text, variables, created_by)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
@@ -90,7 +90,7 @@ router.put('/messages/:id', async (req, res) => {
     updates.push('updated_at = CURRENT_TIMESTAMP');
     values.push(parseInt(id));
 
-    const result = await pool.query(
+    const result = await query(
       `UPDATE message_templates SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
       values
     );
@@ -120,7 +120,7 @@ router.get('/objections', async (req, res) => {
 
     query += ' ORDER BY effectiveness_rating DESC, usage_count DESC';
 
-    const result = await pool.query(query, params);
+    const result = await query(query, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching objection responses:', error);
@@ -133,7 +133,7 @@ router.post('/objections', async (req, res) => {
   try {
     const { objection_type, response_text, category, effectiveness_rating } = req.body;
 
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO objection_responses (objection_type, response_text, category, effectiveness_rating)
        VALUES ($1, $2, $3, $4)
        RETURNING *`,

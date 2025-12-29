@@ -1,5 +1,5 @@
 import express from 'express';
-import pool from '../db.js';
+import { query } from '../db.js';
 import { authenticateToken } from './auth.js';
 import { Telegraf } from 'telegraf';
 import dotenv from 'dotenv';
@@ -55,9 +55,9 @@ if (process.env.BOT_TOKEN) {
 router.get('/stats', async (req, res) => {
   try {
     const [usersResult, referralsResult, broadcastsResult] = await Promise.all([
-      pool.query('SELECT COUNT(*) as total FROM users'),
-      pool.query('SELECT COUNT(*) as total FROM referrals'),
-      pool.query('SELECT COUNT(*) as total FROM broadcasts WHERE status = $1', ['sent'])
+      query('SELECT COUNT(*) as total FROM users'),
+      query('SELECT COUNT(*) as total FROM referrals'),
+      query('SELECT COUNT(*) as total FROM broadcasts WHERE status = $1', ['sent'])
     ]);
 
     res.json({
@@ -90,10 +90,10 @@ router.get('/users', async (req, res) => {
     query += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(parseInt(limit), offset);
 
-    const result = await pool.query(query, params);
+    const result = await query(query, params);
     
     // Get total count
-    const countResult = await pool.query('SELECT COUNT(*) FROM users' + (search ? ` WHERE username ILIKE $1 OR first_name ILIKE $1 OR CAST(user_id AS TEXT) LIKE $1` : ''), search ? [`%${search}%`] : []);
+    const countResult = await query('SELECT COUNT(*) FROM users' + (search ? ` WHERE username ILIKE $1 OR first_name ILIKE $1 OR CAST(user_id AS TEXT) LIKE $1` : ''), search ? [`%${search}%`] : []);
 
     res.json({
       users: result.rows,
@@ -113,17 +113,17 @@ router.get('/users/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     
-    const userResult = await pool.query('SELECT * FROM users WHERE user_id = $1', [userId]);
+    const userResult = await query('SELECT * FROM users WHERE user_id = $1', [userId]);
     if (userResult.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const referralCountResult = await pool.query(
+    const referralCountResult = await query(
       'SELECT COUNT(*) as count FROM referrals WHERE referrer_id = $1',
       [userId]
     );
 
-    const isBlacklistedResult = await pool.query(
+    const isBlacklistedResult = await query(
       'SELECT * FROM blacklist WHERE user_id = $1',
       [userId]
     );
@@ -145,7 +145,7 @@ router.post('/users/:userId/ban', async (req, res) => {
     const { userId } = req.params;
     const { reason } = req.body;
 
-    await pool.query(
+    await query(
       'INSERT INTO blacklist (user_id, reason) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET reason = $2',
       [userId, reason || 'Заблокирован администратором']
     );
@@ -161,7 +161,7 @@ router.post('/users/:userId/unban', async (req, res) => {
   try {
     const { userId } = req.params;
 
-    await pool.query('DELETE FROM blacklist WHERE user_id = $1', [userId]);
+    await query('DELETE FROM blacklist WHERE user_id = $1', [userId]);
 
     res.json({ success: true });
   } catch (error) {
@@ -176,7 +176,7 @@ router.get('/broadcasts', async (req, res) => {
     // scheduled_at хранится как TIMESTAMP без timezone, но мы сохраняем UTC значения
     // PostgreSQL интерпретирует TIMESTAMP как локальное время (MSK)
     // Но мы сохраняем время уже как UTC через ::timestamptz, поэтому просто читаем как есть
-    const result = await pool.query(
+    const result = await query(
       `SELECT 
         id, title, message_text, message_type, file_id, buttons, segment, 
         status, sent_at, sent_count, error_count, created_by, created_at,
@@ -257,7 +257,7 @@ router.post('/broadcasts', async (req, res) => {
 
     // Сохраняем scheduled_at с явным указанием UTC
     // Используем $4::timestamptz для правильной интерпретации времени как UTC
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO broadcasts (title, message_text, buttons, scheduled_at, segment, status)
        VALUES ($1, $2, $3, $4::timestamptz, $5, $6)
        RETURNING *`,
@@ -332,7 +332,7 @@ router.put('/broadcasts/:id', async (req, res) => {
     }
 
     values.push(parseInt(id));
-    const result = await pool.query(
+    const result = await query(
       `UPDATE broadcasts SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
       values
     );
@@ -351,7 +351,7 @@ router.put('/broadcasts/:id', async (req, res) => {
 router.post('/broadcasts/:id/send', async (req, res) => {
   try {
     const { id } = req.params;
-    const broadcastResult = await pool.query('SELECT * FROM broadcasts WHERE id = $1', [id]);
+    const broadcastResult = await query('SELECT * FROM broadcasts WHERE id = $1', [id]);
     
     if (broadcastResult.rows.length === 0) {
       return res.status(404).json({ error: 'Broadcast not found' });
@@ -384,7 +384,7 @@ router.post('/broadcasts/:id/send', async (req, res) => {
       usersQuery += ' WHERE user_id NOT IN (SELECT user_id FROM blacklist)';
     }
     
-    const usersResult = await pool.query(usersQuery, usersParams);
+    const usersResult = await query(usersQuery, usersParams);
     const users = usersResult.rows;
 
     if (users.length === 0) {
@@ -449,7 +449,7 @@ router.post('/broadcasts/:id/send', async (req, res) => {
     }
 
     // Обновить статус рассылки
-    await pool.query(
+    await query(
       `UPDATE broadcasts 
        SET status = $1, 
            sent_at = CURRENT_TIMESTAMP, 
@@ -476,7 +476,7 @@ router.post('/broadcasts/:id/send', async (req, res) => {
 router.delete('/broadcasts/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM broadcasts WHERE id = $1 RETURNING id', [id]);
+    const result = await query('DELETE FROM broadcasts WHERE id = $1 RETURNING id', [id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Broadcast not found' });
@@ -492,7 +492,7 @@ router.delete('/broadcasts/:id', async (req, res) => {
 // Autofunnels
 router.get('/autofunnels', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM autofunnels ORDER BY created_at DESC');
+    const result = await query('SELECT * FROM autofunnels ORDER BY created_at DESC');
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching autofunnels:', error);
@@ -508,7 +508,7 @@ router.post('/autofunnels', async (req, res) => {
       return res.status(400).json({ error: 'Name, trigger_event, and message_text are required' });
     }
 
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO autofunnels (name, trigger_event, delay_hours, message_text, is_active)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
@@ -557,7 +557,7 @@ router.put('/autofunnels/:id', async (req, res) => {
     }
 
     values.push(parseInt(id));
-    const result = await pool.query(
+    const result = await query(
       `UPDATE autofunnels SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
       values
     );
@@ -576,7 +576,7 @@ router.put('/autofunnels/:id', async (req, res) => {
 router.delete('/autofunnels/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM autofunnels WHERE id = $1 RETURNING id', [id]);
+    const result = await query('DELETE FROM autofunnels WHERE id = $1 RETURNING id', [id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Autofunnel not found' });
@@ -592,8 +592,8 @@ router.delete('/autofunnels/:id', async (req, res) => {
 // Lead Magnets
 router.get('/lead-magnets', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM lead_magnets ORDER BY created_at DESC');
-    const activeResult = await pool.query('SELECT * FROM lead_magnets WHERE is_active = TRUE LIMIT 1');
+    const result = await query('SELECT * FROM lead_magnets ORDER BY created_at DESC');
+    const activeResult = await query('SELECT * FROM lead_magnets WHERE is_active = TRUE LIMIT 1');
     
     res.json({
       lead_magnets: result.rows,
@@ -623,7 +623,7 @@ router.post('/lead-magnets', async (req, res) => {
       return res.status(400).json({ error: 'file_id and file_type are required for file type' });
     }
 
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO lead_magnets (title, type, text_content, link_url, file_id, file_type)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
@@ -677,7 +677,7 @@ router.put('/lead-magnets/:id', async (req, res) => {
 
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
     values.push(parseInt(id));
-    const result = await pool.query(
+    const result = await query(
       `UPDATE lead_magnets SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
       values
     );
@@ -698,10 +698,10 @@ router.post('/lead-magnets/:id/activate', async (req, res) => {
     const { id } = req.params;
 
     // Deactivate all
-    await pool.query('UPDATE lead_magnets SET is_active = FALSE');
+    await query('UPDATE lead_magnets SET is_active = FALSE');
     
     // Activate this one
-    const result = await pool.query(
+    const result = await query(
       'UPDATE lead_magnets SET is_active = TRUE WHERE id = $1 RETURNING *',
       [id]
     );
@@ -720,7 +720,7 @@ router.post('/lead-magnets/:id/activate', async (req, res) => {
 router.delete('/lead-magnets/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM lead_magnets WHERE id = $1 RETURNING id', [id]);
+    const result = await query('DELETE FROM lead_magnets WHERE id = $1 RETURNING id', [id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Lead magnet not found' });
@@ -736,7 +736,7 @@ router.delete('/lead-magnets/:id', async (req, res) => {
 // Giveaways
 router.get('/giveaways', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM giveaways ORDER BY created_at DESC');
+    const result = await query('SELECT * FROM giveaways ORDER BY created_at DESC');
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching giveaways:', error);
@@ -752,7 +752,7 @@ router.post('/giveaways', async (req, res) => {
       return res.status(400).json({ error: 'Title and end_date are required' });
     }
 
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO giveaways (title, description, prize_description, start_date, end_date, status)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
@@ -815,7 +815,7 @@ router.put('/giveaways/:id', async (req, res) => {
     }
 
     values.push(parseInt(id));
-    const result = await pool.query(
+    const result = await query(
       `UPDATE giveaways SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
       values
     );
@@ -834,7 +834,7 @@ router.put('/giveaways/:id', async (req, res) => {
 router.delete('/giveaways/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM giveaways WHERE id = $1 RETURNING id', [id]);
+    const result = await query('DELETE FROM giveaways WHERE id = $1 RETURNING id', [id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Giveaway not found' });
@@ -855,17 +855,17 @@ router.get('/export/:type/:format', async (req, res) => {
 
     switch (type) {
       case 'all':
-        const allResult = await pool.query('SELECT * FROM users');
+        const allResult = await query('SELECT * FROM users');
         users = allResult.rows;
         break;
       case 'active':
-        const activeResult = await pool.query(
+        const activeResult = await query(
           `SELECT * FROM users WHERE created_at >= NOW() - INTERVAL '30 days'`
         );
         users = activeResult.rows;
         break;
       case 'refs':
-        const refsResult = await pool.query(`
+        const refsResult = await query(`
           SELECT u.*, COUNT(r.id) as referral_count
           FROM users u
           LEFT JOIN referrals r ON u.user_id = r.referrer_id
@@ -935,7 +935,7 @@ router.get('/export/:type/:format', async (req, res) => {
 // Settings
 router.get('/settings', async (req, res) => {
   try {
-    const settingsResult = await pool.query("SELECT key, value FROM bot_settings WHERE key IN ('channel_id', 'channel_username', 'user_rate_limit', 'user_rate_window', 'admin_rate_limit', 'admin_rate_window', 'timezone')");
+    const settingsResult = await query("SELECT key, value FROM bot_settings WHERE key IN ('channel_id', 'channel_username', 'user_rate_limit', 'user_rate_window', 'admin_rate_limit', 'admin_rate_window', 'timezone')");
     
     const settings = {};
     settingsResult.rows.forEach(row => {
@@ -970,7 +970,7 @@ router.put('/settings/channel', async (req, res) => {
     const { channel_id, channel_username } = req.body;
 
     if (channel_id !== undefined) {
-      await pool.query(
+      await query(
         `INSERT INTO bot_settings (key, value) VALUES ('channel_id', $1)
          ON CONFLICT (key) DO UPDATE SET value = $1`,
         [channel_id]
@@ -978,7 +978,7 @@ router.put('/settings/channel', async (req, res) => {
     }
 
     if (channel_username !== undefined) {
-      await pool.query(
+      await query(
         `INSERT INTO bot_settings (key, value) VALUES ('channel_username', $1)
          ON CONFLICT (key) DO UPDATE SET value = $1`,
         [channel_username]
@@ -997,7 +997,7 @@ router.put('/settings/rate-limits', async (req, res) => {
     const { user_rate_limit, user_rate_window, admin_rate_limit, admin_rate_window } = req.body;
 
     if (user_rate_limit !== undefined) {
-      await pool.query(
+      await query(
         `INSERT INTO bot_settings (key, value) VALUES ('user_rate_limit', $1)
          ON CONFLICT (key) DO UPDATE SET value = $1`,
         [user_rate_limit.toString()]
@@ -1005,7 +1005,7 @@ router.put('/settings/rate-limits', async (req, res) => {
     }
 
     if (user_rate_window !== undefined) {
-      await pool.query(
+      await query(
         `INSERT INTO bot_settings (key, value) VALUES ('user_rate_window', $1)
          ON CONFLICT (key) DO UPDATE SET value = $1`,
         [user_rate_window.toString()]
@@ -1013,7 +1013,7 @@ router.put('/settings/rate-limits', async (req, res) => {
     }
 
     if (admin_rate_limit !== undefined) {
-      await pool.query(
+      await query(
         `INSERT INTO bot_settings (key, value) VALUES ('admin_rate_limit', $1)
          ON CONFLICT (key) DO UPDATE SET value = $1`,
         [admin_rate_limit.toString()]
@@ -1021,7 +1021,7 @@ router.put('/settings/rate-limits', async (req, res) => {
     }
 
     if (admin_rate_window !== undefined) {
-      await pool.query(
+      await query(
         `INSERT INTO bot_settings (key, value) VALUES ('admin_rate_window', $1)
          ON CONFLICT (key) DO UPDATE SET value = $1`,
         [admin_rate_window.toString()]
@@ -1039,7 +1039,7 @@ router.put('/settings/rate-limits', async (req, res) => {
 router.get('/giveaways/:id/participants', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query(
+    const result = await query(
       `SELECT gp.*, u.username, u.first_name, u.last_name
        FROM giveaway_participants gp
        LEFT JOIN users u ON gp.user_id = u.user_id
@@ -1061,7 +1061,7 @@ router.post('/giveaways/:id/winners', async (req, res) => {
     const { selection_type } = req.body; // 'top', 'random', 'combined'
 
     // Get giveaway
-    const giveawayResult = await pool.query('SELECT * FROM giveaways WHERE id = $1', [id]);
+    const giveawayResult = await query('SELECT * FROM giveaways WHERE id = $1', [id]);
     if (giveawayResult.rows.length === 0) {
       return res.status(404).json({ error: 'Giveaway not found' });
     }
@@ -1073,7 +1073,7 @@ router.post('/giveaways/:id/winners', async (req, res) => {
     }
 
     // Get participants
-    const participantsResult = await pool.query(
+    const participantsResult = await query(
       `SELECT gp.*, u.username, u.first_name, u.last_name
        FROM giveaway_participants gp
        LEFT JOIN users u ON gp.user_id = u.user_id
@@ -1110,7 +1110,7 @@ router.post('/giveaways/:id/winners', async (req, res) => {
     }
 
     // Update giveaway status
-    await pool.query(
+    await query(
       'UPDATE giveaways SET status = $1, ended_at = CURRENT_TIMESTAMP WHERE id = $2',
       ['ended', id]
     );
@@ -1162,7 +1162,7 @@ router.get('/activity/stats', async (req, res) => {
     const daysNum = parseInt(days);
 
     // Общая статистика по типам активности
-    const activityByType = await pool.query(
+    const activityByType = await query(
       `SELECT 
          activity_type,
          COUNT(*) as total_count,
@@ -1174,7 +1174,7 @@ router.get('/activity/stats', async (req, res) => {
     );
 
     // Статистика по дням
-    const activityByDay = await pool.query(
+    const activityByDay = await query(
       `SELECT 
          DATE(created_at) as activity_date,
          COUNT(*) as total_count,
@@ -1186,7 +1186,7 @@ router.get('/activity/stats', async (req, res) => {
     );
 
     // Топ активных пользователей
-    const topUsers = await pool.query(
+    const topUsers = await query(
       `SELECT 
          u.user_id,
          u.username,
@@ -1224,7 +1224,7 @@ router.get('/activity/user/:userId', async (req, res) => {
     const limitNum = parseInt(limit);
 
     // Активность пользователя
-    const activities = await pool.query(
+    const activities = await query(
       `SELECT * FROM user_activity 
        WHERE user_id = $1 
          AND created_at >= NOW() - INTERVAL '${daysNum} days'
@@ -1234,7 +1234,7 @@ router.get('/activity/user/:userId', async (req, res) => {
     );
 
     // Статистика по типам активности
-    const statsByType = await pool.query(
+    const statsByType = await query(
       `SELECT 
          activity_type,
          COUNT(*) as count,
@@ -1268,7 +1268,7 @@ router.get('/activity/users', async (req, res) => {
     const limitNum = parseInt(limit);
     const offset = (pageNum - 1) * limitNum;
 
-    const users = await pool.query(
+    const users = await query(
       `SELECT 
          u.user_id,
          u.username,
@@ -1292,7 +1292,7 @@ router.get('/activity/users', async (req, res) => {
       [limitNum, offset]
     );
 
-    const totalResult = await pool.query(
+    const totalResult = await query(
       `SELECT COUNT(DISTINCT u.user_id) as total
        FROM users u
        LEFT JOIN user_activity ua ON u.user_id = ua.user_id 
@@ -1321,7 +1321,7 @@ router.get('/activity/heatmap', async (req, res) => {
     const daysNum = parseInt(days);
 
     // Активность по часам (0-23)
-    const activityByHour = await pool.query(
+    const activityByHour = await query(
       `SELECT 
          EXTRACT(HOUR FROM created_at AT TIME ZONE 'Europe/Moscow')::INTEGER as hour,
          COUNT(*) as count,
@@ -1333,7 +1333,7 @@ router.get('/activity/heatmap', async (req, res) => {
     );
 
     // Активность по дням недели (0=воскресенье, 6=суббота)
-    const activityByDayOfWeek = await pool.query(
+    const activityByDayOfWeek = await query(
       `SELECT 
          EXTRACT(DOW FROM created_at AT TIME ZONE 'Europe/Moscow')::INTEGER as day_of_week,
          COUNT(*) as count,
@@ -1345,7 +1345,7 @@ router.get('/activity/heatmap', async (req, res) => {
     );
 
     // Комбинированная тепловая карта: час × день недели
-    const heatmapData = await pool.query(
+    const heatmapData = await query(
       `SELECT 
          EXTRACT(DOW FROM created_at AT TIME ZONE 'Europe/Moscow')::INTEGER as day_of_week,
          EXTRACT(HOUR FROM created_at AT TIME ZONE 'Europe/Moscow')::INTEGER as hour,
@@ -1377,7 +1377,7 @@ router.get('/activity/popular-actions', async (req, res) => {
     const limitNum = parseInt(limit);
 
     // Извлекаем callback_data из activity_data для типа 'callback'
-    const popularActions = await pool.query(
+    const popularActions = await query(
       `SELECT 
          activity_data->>'data' as action_id,
          COUNT(*) as count,
@@ -1411,7 +1411,7 @@ router.get('/activity/popular-commands', async (req, res) => {
     const limitNum = parseInt(limit);
 
     // Извлекаем команду из activity_data для типа 'command'
-    const popularCommands = await pool.query(
+    const popularCommands = await query(
       `SELECT 
          activity_data->>'command' as command,
          COUNT(*) as count,
@@ -1444,7 +1444,7 @@ router.get('/activity/popular-commands', async (req, res) => {
 // Получить все пригласительные ссылки
 router.get('/channel-invites', async (req, res) => {
   try {
-    const result = await pool.query(
+    const result = await query(
       `SELECT ci.*, 
          COUNT(DISTINCT ucs.user_id) as subscribers_count
        FROM channel_invites ci
@@ -1468,7 +1468,7 @@ router.post('/channel-invites', async (req, res) => {
       return res.status(400).json({ error: 'channel_id, channel_type, and invite_link are required' });
     }
 
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO channel_invites (channel_id, channel_username, channel_type, invite_link)
        VALUES ($1, $2, $3, $4)
        RETURNING *`,
@@ -1512,7 +1512,7 @@ router.put('/channel-invites/:id', async (req, res) => {
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
     values.push(id);
 
-    const result = await pool.query(
+    const result = await query(
       `UPDATE channel_invites 
        SET ${updates.join(', ')}
        WHERE id = $${paramIndex}

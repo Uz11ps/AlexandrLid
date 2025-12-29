@@ -1,5 +1,5 @@
 import express from 'express';
-import pool from '../db.js';
+import { query } from '../db.js';
 import { authenticateToken } from './auth.js';
 
 const router = express.Router();
@@ -113,7 +113,7 @@ router.get('/', async (req, res) => {
 
     query += ' ORDER BY s.created_at DESC';
 
-    const result = await pool.query(query, params);
+    const result = await query(query, params);
     console.log(`[Students API] List endpoint: Found ${result.rows.length} students. IDs: ${result.rows.map(r => r.id).join(', ')}`);
     res.json(result.rows);
   } catch (error) {
@@ -183,7 +183,7 @@ router.get('/export/excel', async (req, res) => {
 
     query += ' ORDER BY s.created_at DESC';
 
-    const result = await pool.query(query, params);
+    const result = await query(query, params);
     const students = result.rows;
 
     // Используем динамический импорт для exceljs
@@ -272,7 +272,7 @@ router.get('/:id', async (req, res) => {
     console.log(`[Students API] Fetching student with ID: ${studentId} (original: ${id})`);
 
     // Сначала проверяем существование студента без JOIN
-    const checkResult = await pool.query('SELECT id, lead_id FROM students WHERE id = $1', [studentId]);
+    const checkResult = await query('SELECT id, lead_id FROM students WHERE id = $1', [studentId]);
     if (checkResult.rows.length === 0) {
       console.log(`[Students API] Student ${studentId} not found in database`);
       return res.status(404).json({ error: 'Student not found' });
@@ -283,7 +283,7 @@ router.get('/:id', async (req, res) => {
     console.log(`[Students API] Student ${studentId} exists, lead_id: ${leadId}`);
 
     // Получаем данные студента отдельно
-    const studentDataResult = await pool.query('SELECT * FROM students WHERE id = $1', [studentId]);
+    const studentDataResult = await query('SELECT * FROM students WHERE id = $1', [studentId]);
     if (studentDataResult.rows.length === 0) {
       console.log(`[Students API] Student ${studentId} disappeared between checks`);
       return res.status(404).json({ error: 'Student not found' });
@@ -295,7 +295,7 @@ router.get('/:id', async (req, res) => {
     let leadData = null;
     if (leadId) {
       try {
-        const leadResult = await pool.query('SELECT * FROM leads WHERE id = $1', [leadId]);
+        const leadResult = await query('SELECT * FROM leads WHERE id = $1', [leadId]);
         if (leadResult.rows.length > 0) {
           leadData = leadResult.rows[0];
           console.log(`[Students API] Lead ${leadId} found for student ${studentId}`);
@@ -311,7 +311,7 @@ router.get('/:id', async (req, res) => {
     let courseName = null;
     if (student.course_id) {
       try {
-        const courseResult = await pool.query('SELECT name FROM courses WHERE id = $1', [student.course_id]);
+        const courseResult = await query('SELECT name FROM courses WHERE id = $1', [student.course_id]);
         if (courseResult.rows.length > 0) {
           courseName = courseResult.rows[0].name;
         }
@@ -323,7 +323,7 @@ router.get('/:id', async (req, res) => {
     let packageName = null;
     if (student.package_id) {
       try {
-        const packageResult = await pool.query('SELECT name FROM packages WHERE id = $1', [student.package_id]);
+        const packageResult = await query('SELECT name FROM packages WHERE id = $1', [student.package_id]);
         if (packageResult.rows.length > 0) {
           packageName = packageResult.rows[0].name;
         }
@@ -335,7 +335,7 @@ router.get('/:id', async (req, res) => {
     let groupName = null;
     if (student.group_id) {
       try {
-        const groupResult = await pool.query('SELECT name FROM study_groups WHERE id = $1', [student.group_id]);
+        const groupResult = await query('SELECT name FROM study_groups WHERE id = $1', [student.group_id]);
         if (groupResult.rows.length > 0) {
           groupName = groupResult.rows[0].name;
         }
@@ -348,7 +348,7 @@ router.get('/:id', async (req, res) => {
     let curatorId = null;
     if (student.curator_id) {
       try {
-        const curatorResult = await pool.query('SELECT id, name FROM managers WHERE id = $1', [student.curator_id]);
+        const curatorResult = await query('SELECT id, name FROM managers WHERE id = $1', [student.curator_id]);
         if (curatorResult.rows.length > 0) {
           curatorName = curatorResult.rows[0].name;
           curatorId = curatorResult.rows[0].id;
@@ -411,7 +411,7 @@ router.get('/:id', async (req, res) => {
     console.log(`[Students API] Loading additional data for student ${studentId}, lead_id: ${finalLeadId}`);
 
     // Get payments
-    const paymentsResult = await pool.query(
+    const paymentsResult = await query(
       `SELECT p.*, m.name as created_by_name
        FROM payments p
        LEFT JOIN managers m ON p.created_by = m.id
@@ -421,13 +421,13 @@ router.get('/:id', async (req, res) => {
     );
 
     // Get debts
-    const debtsResult = await pool.query(
+    const debtsResult = await query(
       'SELECT * FROM debts WHERE student_id = $1 AND status = $2 ORDER BY due_date',
       [studentId, 'active']
     );
 
     // Get tasks related to lead
-    const tasksResult = finalLeadId ? await pool.query(
+    const tasksResult = finalLeadId ? await query(
       `SELECT t.*, m.name as manager_name
        FROM tasks t
        LEFT JOIN managers m ON t.manager_id = m.id
@@ -438,7 +438,7 @@ router.get('/:id', async (req, res) => {
     ) : { rows: [] };
 
     // Get interactions related to lead
-    const interactionsResult = finalLeadId ? await pool.query(
+    const interactionsResult = finalLeadId ? await query(
       `SELECT li.*, m.name as manager_name
        FROM lead_interactions li
        LEFT JOIN managers m ON li.manager_id = m.id
@@ -449,7 +449,7 @@ router.get('/:id', async (req, res) => {
     ) : { rows: [] };
 
     // Get comments related to lead
-    const commentsResult = finalLeadId ? await pool.query(
+    const commentsResult = finalLeadId ? await query(
       `SELECT c.*, m.name as manager_name, m.email as manager_email
        FROM lead_comments c
        LEFT JOIN managers m ON c.manager_id = m.id
@@ -460,7 +460,7 @@ router.get('/:id', async (req, res) => {
     ) : { rows: [] };
 
     // Get documents related to student or lead
-    const documentsResult = await pool.query(
+    const documentsResult = await query(
       `SELECT d.*, m.name as created_by_name
        FROM documents d
        LEFT JOIN managers m ON d.created_by = m.id
@@ -500,11 +500,11 @@ router.post('/convert', async (req, res) => {
     }
 
     // Start transaction
-    await pool.query('BEGIN');
+    await query('BEGIN');
 
     try {
       // Create student record
-      const studentResult = await pool.query(
+      const studentResult = await query(
         `INSERT INTO students (
           lead_id, course_id, package_id, payment_amount,
           payment_currency, payment_method, contract_number,
@@ -525,7 +525,7 @@ router.post('/convert', async (req, res) => {
       );
 
       // Update lead
-      await pool.query(
+      await query(
         `UPDATE leads 
          SET is_student = TRUE, 
              converted_to_student_at = CURRENT_TIMESTAMP,
@@ -535,14 +535,14 @@ router.post('/convert', async (req, res) => {
         [lead_id]
       );
 
-      await pool.query('COMMIT');
+      await query('COMMIT');
 
       const createdStudent = studentResult.rows[0];
       console.log(`[Students API] Student created successfully with ID: ${createdStudent.id}`);
       
       res.status(201).json(createdStudent);
     } catch (error) {
-      await pool.query('ROLLBACK');
+      await query('ROLLBACK');
       throw error;
     }
   } catch (error) {
@@ -580,7 +580,7 @@ router.put('/:id', async (req, res) => {
     updates.push('updated_at = CURRENT_TIMESTAMP');
     values.push(parseInt(id));
 
-    const result = await pool.query(
+    const result = await query(
       `UPDATE students SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
       values
     );
@@ -605,7 +605,7 @@ router.post('/:id/payments', async (req, res) => {
       payment_type, installment_number, transaction_id, notes
     } = req.body;
 
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO payments (
         student_id, amount, currency, payment_method, payment_date,
         payment_type, installment_number, transaction_id, notes, created_by

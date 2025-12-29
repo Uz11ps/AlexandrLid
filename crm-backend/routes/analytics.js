@@ -1,5 +1,5 @@
 import express from 'express';
-import pool from '../db.js';
+import { query } from '../db.js';
 import { authenticateToken } from './auth.js';
 
 const router = express.Router();
@@ -50,7 +50,7 @@ router.get('/funnel', async (req, res) => {
       params.push(start_date, end_date);
     }
 
-    const result = await pool.query(
+    const result = await query(
       `SELECT 
         l.funnel_stage,
         COUNT(*) as count,
@@ -124,7 +124,7 @@ router.get('/financial', async (req, res) => {
     }
 
     // Total revenue
-    const revenueResult = await pool.query(
+    const revenueResult = await query(
       `SELECT 
         COALESCE(SUM(amount), 0) as total_revenue,
         COUNT(*) as transaction_count,
@@ -134,7 +134,7 @@ router.get('/financial', async (req, res) => {
     );
 
     // Revenue by source
-    const sourceResult = await pool.query(
+    const sourceResult = await query(
       `SELECT 
         COALESCE(l.source, 'Не указан') as source,
         COALESCE(SUM(p.amount), 0) as revenue,
@@ -148,7 +148,7 @@ router.get('/financial', async (req, res) => {
     );
 
     // Active students count
-    const studentsResult = await pool.query(
+    const studentsResult = await query(
       `SELECT COUNT(*) as active_students
        FROM students s
        JOIN leads l ON s.lead_id = l.id
@@ -158,7 +158,7 @@ router.get('/financial', async (req, res) => {
     // Revenue trend (daily/monthly)
     let trendResult = { rows: [] };
     if (dateGroupBy) {
-      trendResult = await pool.query(
+      trendResult = await query(
         `SELECT 
           DATE(payment_date) as date,
           COALESCE(SUM(amount), 0) as revenue,
@@ -185,7 +185,7 @@ router.get('/financial', async (req, res) => {
 // Get manager performance
 router.get('/managers', async (req, res) => {
   try {
-    const result = await pool.query(
+    const result = await query(
       `SELECT 
         m.id,
         m.name,
@@ -215,7 +215,7 @@ router.get('/managers', async (req, res) => {
 // Get manager efficiency (detailed)
 router.get('/manager-efficiency', async (req, res) => {
   try {
-    const result = await pool.query(
+    const result = await query(
       `SELECT 
         m.id,
         m.name,
@@ -266,7 +266,7 @@ router.get('/sources', async (req, res) => {
       }
     }
     
-    const result = await pool.query(
+    const result = await query(
       `SELECT 
         COALESCE(l.source, 'Не указан') as source,
         COUNT(*) as leads_count,
@@ -309,7 +309,7 @@ router.get('/user-activity', async (req, res) => {
         break;
     }
     
-    const result = await pool.query(
+    const result = await query(
       `SELECT 
         DATE(u.created_at) as date,
         COUNT(*) as users_count,
@@ -344,15 +344,15 @@ router.get('/user-activity', async (req, res) => {
 router.get('/dashboard', async (req, res) => {
   try {
     // Total leads
-    const leadsResult = await pool.query('SELECT COUNT(*) as total FROM leads');
+    const leadsResult = await query('SELECT COUNT(*) as total FROM leads');
     
     // Active students
-    const studentsResult = await pool.query(
+    const studentsResult = await query(
       "SELECT COUNT(*) as total FROM students WHERE payment_status IN ('paid', 'partial')"
     );
 
     // Total revenue (this month)
-    const revenueResult = await pool.query(
+    const revenueResult = await query(
       `SELECT COALESCE(SUM(amount), 0) as total
        FROM payments
        WHERE payment_date >= DATE_TRUNC('month', CURRENT_DATE)
@@ -360,12 +360,12 @@ router.get('/dashboard', async (req, res) => {
     );
 
     // Pending tasks
-    const tasksResult = await pool.query(
+    const tasksResult = await query(
       "SELECT COUNT(*) as total FROM tasks WHERE status IN ('new', 'in_progress')"
     );
 
     // Recent conversions
-    const conversionsResult = await pool.query(
+    const conversionsResult = await query(
       `SELECT COUNT(*) as total
        FROM leads
        WHERE converted_to_student_at >= CURRENT_DATE - INTERVAL '7 days'`

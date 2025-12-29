@@ -1,5 +1,5 @@
 import express from 'express';
-import pool from '../db.js';
+import { query } from '../db.js';
 import { authenticateToken } from './auth.js';
 
 const router = express.Router();
@@ -19,7 +19,7 @@ router.use(authenticateToken);
  */
 router.get('/stages', async (req, res) => {
   try {
-    const result = await pool.query(
+    const result = await query(
       'SELECT * FROM funnel_stages WHERE is_active = TRUE ORDER BY order_index'
     );
     res.json(result.rows);
@@ -34,7 +34,7 @@ router.post('/stages', async (req, res) => {
   try {
     const { name, order_index, color } = req.body;
 
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO funnel_stages (name, order_index, color)
        VALUES ($1, $2, $3)
        RETURNING *`,
@@ -81,7 +81,7 @@ router.put('/stages/:id', async (req, res) => {
 
     values.push(parseInt(id));
 
-    const result = await pool.query(
+    const result = await query(
       `UPDATE funnel_stages SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
       values
     );
@@ -102,7 +102,7 @@ router.delete('/stages/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
+    const result = await query(
       'UPDATE funnel_stages SET is_active = FALSE WHERE id = $1 RETURNING *',
       [id]
     );
@@ -128,7 +128,7 @@ router.put('/leads/:id/stage', async (req, res) => {
       return res.status(400).json({ error: 'funnel_stage is required' });
     }
 
-    const result = await pool.query(
+    const result = await query(
       `UPDATE leads 
        SET funnel_stage = $1, updated_at = CURRENT_TIMESTAMP
        WHERE id = $2
@@ -141,7 +141,7 @@ router.put('/leads/:id/stage', async (req, res) => {
     }
 
     // Log interaction
-    await pool.query(
+    await query(
       `INSERT INTO lead_interactions (lead_id, manager_id, interaction_type, notes)
        VALUES ($1, $2, $3, $4)`,
       [parseInt(id), req.user.id, 'stage_change', `Changed stage to ${funnel_stage}`]

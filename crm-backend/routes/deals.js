@@ -1,5 +1,5 @@
 import express from 'express';
-import pool from '../db.js';
+import { query } from '../db.js';
 import { authenticateToken } from './auth.js';
 
 const router = express.Router();
@@ -40,7 +40,7 @@ router.get('/', async (req, res) => {
 
     query += ' ORDER BY d.created_at DESC';
 
-    const result = await pool.query(query, params);
+    const result = await query(query, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching deals:', error);
@@ -52,7 +52,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query(
+    const result = await query(
       `SELECT d.*, 
               l.*,
               s.*,
@@ -85,7 +85,7 @@ router.post('/', async (req, res) => {
       expected_close_date, source, payment_method
     } = req.body;
 
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO deals (
         lead_id, student_id, product_id, product_type,
         amount, currency, stage, probability_percent,
@@ -136,7 +136,7 @@ router.put('/:id', async (req, res) => {
     updates.push('updated_at = CURRENT_TIMESTAMP');
     values.push(parseInt(id));
 
-    const result = await pool.query(
+    const result = await query(
       `UPDATE deals SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
       values
     );

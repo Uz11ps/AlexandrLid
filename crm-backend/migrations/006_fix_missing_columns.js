@@ -20,6 +20,7 @@ export async function up() {
         await ensureColumn('courses', 'base_price', "DECIMAL(10, 2)");
         await ensureColumn('courses', 'currency', "VARCHAR(10) DEFAULT 'RUB'");
         await ensureColumn('courses', 'status', "VARCHAR(50) DEFAULT 'active'");
+        await ensureColumn('courses', 'updated_at', "TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
 
         // 2. LEADS
         await ensureColumn('leads', 'fio', "VARCHAR(255)");
@@ -28,6 +29,7 @@ export async function up() {
         await ensureColumn('leads', 'manager_id', "INTEGER");
         await ensureColumn('leads', 'is_student', "BOOLEAN DEFAULT FALSE");
         await ensureColumn('leads', 'source', "VARCHAR(100)");
+        await ensureColumn('leads', 'converted_to_student_at', "TIMESTAMP");
 
         // 3. STUDENTS
         await ensureColumn('students', 'course_id', "INTEGER");
@@ -36,6 +38,7 @@ export async function up() {
         await ensureColumn('students', 'payment_amount', "DECIMAL(10, 2)");
         await ensureColumn('students', 'payment_status', "VARCHAR(50) DEFAULT 'pending'");
         await ensureColumn('students', 'progress_percent', "INTEGER DEFAULT 0");
+        await ensureColumn('students', 'curator_id', "INTEGER");
 
         // 4. DEALS
         await client.query(`

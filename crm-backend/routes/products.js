@@ -1,5 +1,5 @@
 import express from 'express';
-import pool from '../db.js';
+import { query } from '../db.js';
 import { authenticateToken } from './auth.js';
 
 const router = express.Router();
@@ -19,7 +19,7 @@ router.use(authenticateToken);
  */
 router.get('/courses', async (req, res) => {
   try {
-    const result = await pool.query(
+    const result = await query(
       'SELECT id, name, description, format, duration_weeks, status, created_at, updated_at FROM courses ORDER BY created_at DESC'
     );
     res.json(result.rows);
@@ -57,7 +57,7 @@ router.get('/courses/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid course ID' });
     }
     
-    const courseResult = await pool.query(
+    const courseResult = await query(
       'SELECT * FROM courses WHERE id = $1',
       [courseId]
     );
@@ -73,7 +73,7 @@ router.get('/courses/:id', async (req, res) => {
     // Используем безопасный запрос с проверкой существования таблицы
     let tariffsResult;
     try {
-      tariffsResult = await pool.query(
+      tariffsResult = await query(
         'SELECT * FROM course_tariffs WHERE course_id = $1 AND is_active = TRUE ORDER BY order_index, id',
         [courseId]
       );
@@ -119,7 +119,7 @@ router.post('/courses', async (req, res) => {
       program_structure, base_price, currency, status
     } = req.body;
 
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO courses (name, description, format, duration_weeks, program_structure, base_price, currency, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
@@ -163,7 +163,7 @@ router.put('/courses/:id', async (req, res) => {
     updates.push('updated_at = CURRENT_TIMESTAMP');
     values.push(parseInt(id));
 
-    const result = await pool.query(
+    const result = await query(
       `UPDATE courses SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
       values
     );
@@ -182,7 +182,7 @@ router.put('/courses/:id', async (req, res) => {
 // Вспомогательная функция для безопасной работы с course_tariffs
 async function safeQuery(query, params, errorMessage) {
   try {
-    return await pool.query(query, params);
+    return await query(query, params);
   } catch (error) {
     if (error.message.includes('does not exist')) {
       console.error(`Table course_tariffs does not exist. Please run create_course_tariffs_table.sql`);
@@ -367,7 +367,7 @@ router.get('/packages', async (req, res) => {
 
     query += ' ORDER BY p.created_at DESC';
 
-    const result = await pool.query(query, params);
+    const result = await query(query, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching packages:', error);
@@ -383,7 +383,7 @@ router.post('/packages', async (req, res) => {
       duration_days, features, additional_services, installment_available, status
     } = req.body;
 
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO packages (course_id, name, description, price, currency, duration_days, features, additional_services, installment_available, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
@@ -403,7 +403,7 @@ router.post('/packages', async (req, res) => {
 // Get additional services
 router.get('/services', async (req, res) => {
   try {
-    const result = await pool.query(
+    const result = await query(
       'SELECT * FROM additional_services WHERE status = $1 ORDER BY created_at DESC',
       ['active']
     );
@@ -419,7 +419,7 @@ router.post('/services', async (req, res) => {
   try {
     const { name, description, price, currency, duration_hours, service_type, status } = req.body;
 
-    const result = await pool.query(
+    const result = await query(
       `INSERT INTO additional_services (name, description, price, currency, duration_hours, service_type, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
