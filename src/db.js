@@ -110,6 +110,8 @@ const switchPool = (newPassword) => {
 
 // Функция для тестирования подключения с паролем через прямой Client
 const testConnection = async (password) => {
+  console.log(`🔍🔍🔍 [Bot DB] testConnection CALLED with password len=${password ? password.length : 'null'}`);
+  
   const { Client } = pg;
   const config = {
     host: getEnv('DB_HOST', 'telegram_db_alex'),
@@ -120,9 +122,11 @@ const testConnection = async (password) => {
     connectionTimeoutMillis: 5000,
   };
   
-  console.log(`🔍 [Bot DB] Testing Client connection with: host=${config.host}, port=${config.port}, db=${config.database}, user=${config.user}, passLen=${password.length}`);
+  console.log(`🔍 [Bot DB] Testing Client connection with: host=${config.host}, port=${config.port}, db=${config.database}, user=${config.user}, passLen=${password ? password.length : 'null'}`);
+  console.log(`🔍 [Bot DB] Password value: "${password}"`);
   
   const client = new Client(config);
+  console.log(`🔍 [Bot DB] Client created, attempting connect...`);
   
   try {
     await client.connect();
