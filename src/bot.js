@@ -307,37 +307,28 @@ bot.on('callback_query', async (ctx) => {
       
       switch (data) {
       case 'menu_main':
-        console.log('[MENU_MAIN] Обработчик menu_main вызван!');
         try {
-          const { getCurrentStage } = await import('./handlers/contest.js');
-          const stage = getCurrentStage();
-          
           // Формируем условия - для всех этапов одинаковые
           const conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
           
           const welcomeMessage = 
             `🔥 Добро пожаловать БОЛЬШОЙ РОЗЫГРЫШ от MOMENTUM TRADING!\n\n` +
             `3 недели. 3 этапа. Много призов.\n\n` +
-            `Сейчас идёт ${stage.name} (${stage.period})\n\n` +
+            `Сейчас идёт ЭТАП 1 (29.12 - 04.01)\n\n` +
             `Что дальше:\n` +
             `${conditionsText}\n\n` +
             `Баллы с каждого этапа копятся и работают на тебя в финале!\n\n` +
             `Начнём? 👇`;
           
-          console.log('[MENU_MAIN] Формируем сообщение:', welcomeMessage);
-          console.log('[MENU_MAIN] Этап:', stage.name, stage.period);
-          
           await ctx.editMessageText(welcomeMessage, getMainMenu());
         } catch (error) {
           // Fallback на случай ошибки
           try {
-            const { getCurrentStage } = await import('./handlers/contest.js');
-            const stage = getCurrentStage();
             const conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
             const welcomeMessage = 
               `🔥 Добро пожаловать БОЛЬШОЙ РОЗЫГРЫШ от MOMENTUM TRADING!\n\n` +
               `3 недели. 3 этапа. Много призов.\n\n` +
-              `Сейчас идёт ${stage.name} (${stage.period})\n\n` +
+              `Сейчас идёт ЭТАП 1 (29.12 - 04.01)\n\n` +
               `Что дальше:\n` +
               `${conditionsText}\n\n` +
               `Баллы с каждого этапа копятся и работают на тебя в финале!\n\n` +
