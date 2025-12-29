@@ -208,6 +208,7 @@ async function startServer() {
     }
   }
   
+  console.log('📡 [Server] About to start listening on port', PORT);
   app.listen(PORT, () => {
     console.log(`🚀 CRM Backend server running on port ${PORT}`);
     console.log('⏳ [Post-startup] Scheduling column ensuring...');

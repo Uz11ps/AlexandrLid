@@ -291,6 +291,40 @@ info "Перезапуск бота и бэкенда для применени�
 docker compose restart bot crm-backend
 sleep 3
 
+# 7.7. Добавление недостающих колонок напрямую через psql
+info "Добавление недостающих колонок напрямую через psql..."
+# Пробуем подключиться с паролем из .env
+if docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d telegram_bot_db -c "ALTER TABLE students ADD COLUMN IF NOT EXISTS payment_currency VARCHAR(10) DEFAULT 'RUB';" > /dev/null 2>&1; then
+    success "Колонка students.payment_currency добавлена"
+else
+    warning "Не удалось добавить students.payment_currency (возможно, уже существует)"
+fi
+
+if docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d telegram_bot_db -c "ALTER TABLE message_templates ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;" > /dev/null 2>&1; then
+    success "Колонка message_templates.is_active добавлена"
+else
+    warning "Не удалось добавить message_templates.is_active (возможно, уже существует)"
+fi
+
+if docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d telegram_bot_db -c "ALTER TABLE documents ADD COLUMN IF NOT EXISTS created_by INTEGER;" > /dev/null 2>&1; then
+    success "Колонка documents.created_by добавлена"
+else
+    warning "Не удалось добавить documents.created_by (возможно, уже существует)"
+fi
+
+if docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d telegram_bot_db -c "ALTER TABLE courses ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;" > /dev/null 2>&1; then
+    success "Колонка courses.updated_at добавлена"
+else
+    warning "Не удалось добавить courses.updated_at (возможно, уже существует)"
+fi
+
+# Создаем таблицу ticket_messages, если она не существует
+if docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d telegram_bot_db -c "CREATE TABLE IF NOT EXISTS ticket_messages (id SERIAL PRIMARY KEY, ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE, manager_id INTEGER REFERENCES managers(id) ON DELETE SET NULL, message TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);" > /dev/null 2>&1; then
+    success "Таблица ticket_messages создана/проверена"
+else
+    warning "Не удалось создать ticket_messages (возможно, уже существует или есть ошибки зависимостей)"
+fi
+
 # 8. Создание администратора
 info "Создание администратора..."
 # Даем время на окончательный старт бэкенда
