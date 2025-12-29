@@ -57,9 +57,25 @@ export const query = async (text, params) => {
   } catch (err) {
     if (err.message.includes('password authentication failed') || err.code === '28P01') {
       console.log(`⚠️ [Backend DB] Auth failed with current password (len: ${currentPassword.length}). Starting recovery...`);
+      
+      // ПРИНУДИТЕЛЬНО пересоздаем пул перед попытками восстановления
+      console.log(`🔄 [Backend DB] Recreating pool before recovery attempts...`);
+      const oldPool = pool;
+      pool = createPool(currentPassword);
+      setTimeout(() => oldPool.end().catch(() => {}), 1000);
+      
       const envPass = getEnv('DB_PASSWORD', 'postgres');
-      const passwords = [envPass, currentPassword, 'postgres', '', 'password'];
-      const uniquePasswords = [...new Set(passwords)];
+      const passwords = [envPass, 'postgres', currentPassword, '', 'password'];
+      
+      // Убираем дубликаты, но сохраняем порядок приоритета
+      const uniquePasswords = [];
+      const seen = new Set();
+      for (const pass of passwords) {
+        if (!seen.has(pass)) {
+          seen.add(pass);
+          uniquePasswords.push(pass);
+        }
+      }
       
       console.log(`🔍 [Backend DB] Will try ${uniquePasswords.length} unique passwords...`);
       

@@ -60,13 +60,22 @@ set -a
 [ -f .env ] && . ./.env
 set +a
 
+# Извлекаем DB_PASSWORD из .env для использования в docker-compose.yml
+DB_PASS_FOR_COMPOSE=$(grep "^DB_PASSWORD=" .env | head -n 1 | cut -d'=' -f2- | tr -d '\r' | tr -d '\"' | tr -d "'" | tr -d ' ')
+if [ -z "$DB_PASS_FOR_COMPOSE" ]; then
+    DB_PASS_FOR_COMPOSE="postgres"
+fi
+
 # Проверяем, что DB_PASSWORD установлен
 if [ -z "$DB_PASSWORD" ]; then
     info "DB_PASSWORD не найден в .env, используем 'postgres'"
-    export DB_PASSWORD="postgres"
+    export DB_PASSWORD="$DB_PASS_FOR_COMPOSE"
 else
     info "DB_PASSWORD найден: [${#DB_PASSWORD} символов]"
 fi
+
+# Явно экспортируем DB_PASSWORD для docker-compose.yml
+export DB_PASSWORD="$DB_PASS_FOR_COMPOSE"
 
 if ! docker compose up -d; then
     error "Не удалось запустить сервисы"
@@ -93,26 +102,38 @@ if [ -z "$DB_PASS_FROM_ENV" ]; then
 fi
 info "Пароль из .env: [${#DB_PASS_FROM_ENV} символов]"
 
-# Проверяем, можем ли подключиться с паролем из .env
+# Пробуем подключиться с паролем из .env
 if docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d telegram_bot_db -c "SELECT 1;" > /dev/null 2>&1; then
     success "Пароль из .env работает!"
-    # Проверяем реальный пароль в базе (для диагностики)
-    REAL_PASS_LEN=$(docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d postgres -t -c "SELECT length(rolpassword::text) FROM pg_authid WHERE rolname='postgres';" 2>/dev/null | tr -d ' ' || echo "unknown")
-    info "Реальный пароль в БД имеет длину: $REAL_PASS_LEN"
 else
     info "Пароль из .env не работает, пробуем стандартный 'postgres'..."
     if docker compose exec -T -e PGPASSWORD="postgres" telegram_db_alex psql -U postgres -d telegram_bot_db -c "SELECT 1;" > /dev/null 2>&1; then
         info "Стандартный пароль 'postgres' работает. Синхронизируем пароль из .env..."
-        # Устанавливаем пароль из .env в базу данных
-        docker compose exec -T -e PGPASSWORD="postgres" telegram_db_alex psql -U postgres -d postgres -c "ALTER USER postgres WITH PASSWORD '$DB_PASS_FROM_ENV';" > /dev/null 2>&1
-        success "Пароль синхронизирован!"
-        # Перезапускаем базу для применения изменений
-        info "Перезапуск базы данных для применения пароля..."
-        docker compose restart telegram_db_alex
-        sleep 5
+        WORKING_PASSWORD="postgres"
     else
         error "Не удалось подключиться ни с одним паролем!"
     fi
+fi
+
+# ПРИНУДИТЕЛЬНАЯ синхронизация пароля из .env в базу данных
+# Это гарантирует, что база использует тот же пароль, что и приложение
+info "Принудительная синхронизация пароля в базе данных..."
+WORKING_PASSWORD="${WORKING_PASSWORD:-$DB_PASS_FROM_ENV}"
+if docker compose exec -T -e PGPASSWORD="$WORKING_PASSWORD" telegram_db_alex psql -U postgres -d postgres -c "ALTER USER postgres WITH PASSWORD '$DB_PASS_FROM_ENV';" > /dev/null 2>&1; then
+    success "Пароль синхронизирован в базе данных!"
+    # Перезапускаем базу для применения изменений
+    info "Перезапуск базы данных для применения пароля..."
+    docker compose restart telegram_db_alex
+    sleep 5
+    # Проверяем, что новый пароль работает
+    if docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d telegram_bot_db -c "SELECT 1;" > /dev/null 2>&1; then
+        success "Проверка: новый пароль работает!"
+    else
+        warning "Проверка: новый пароль не работает сразу после установки. Возможно, нужна дополнительная задержка."
+        sleep 3
+    fi
+else
+    warning "Не удалось установить пароль через ALTER USER. Возможно, база уже использует правильный пароль."
 fi
 
 # 7. Проверка прав доступа

@@ -61,20 +61,34 @@ const safeQuery = async (text, params) => {
     if (err.message.includes('password authentication failed') || err.code === '28P01') {
       console.log(`⚠️ [Bot DB] Auth failed with current password (len: ${currentPassword.length}). Starting recovery...`);
       
+      // ПРИНУДИТЕЛЬНО пересоздаем пул перед попытками восстановления
+      // Это исключает проблему с кэшированными соединениями
+      console.log(`🔄 [Bot DB] Recreating pool before recovery attempts...`);
+      const oldPool = pool;
+      pool = createPool(currentPassword);
+      setTimeout(() => oldPool.end().catch(() => {}), 1000);
+      
       // Получаем свежий пароль из окружения (на случай, если он изменился)
       const envPass = getEnv('DB_PASSWORD', 'postgres');
       
       // Пробуем ВСЕ пароли, включая текущий (на случай, если проблема в пуле)
       const passwords = [
-        envPass,           // 1. Пароль из .env
-        currentPassword,   // 2. Текущий пароль (может быть проблема в пуле)
-        'postgres',        // 3. Стандартный
+        envPass,           // 1. Пароль из .env (приоритет)
+        'postgres',        // 2. Стандартный
+        currentPassword,   // 3. Текущий пароль (может быть проблема в пуле)
         '',                // 4. Пустой
         'password'         // 5. Обычный дефолт
       ];
       
-      // Убираем дубликаты
-      const uniquePasswords = [...new Set(passwords)];
+      // Убираем дубликаты, но сохраняем порядок приоритета
+      const uniquePasswords = [];
+      const seen = new Set();
+      for (const pass of passwords) {
+        if (!seen.has(pass)) {
+          seen.add(pass);
+          uniquePasswords.push(pass);
+        }
+      }
       
       console.log(`🔍 [Bot DB] Will try ${uniquePasswords.length} unique passwords...`);
       
