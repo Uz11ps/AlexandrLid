@@ -19,6 +19,11 @@ const getDbConfig = (password) => ({
   database: getEnv('DB_NAME', 'telegram_bot_db'),
   user: getEnv('DB_USER', 'postgres'),
   password: password,
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+  // Отключаем автоматическое переподключение при ошибках - будем обрабатывать вручную
+  allowExitOnIdle: false,
 });
 
 // Глобальное состояние
@@ -28,14 +33,18 @@ let pool = createPool(currentPassword);
 
 // Функция создания пула с обработчиками ошибок
 function createPool(password) {
-  const newPool = new Pool(getDbConfig(password));
+  const config = getDbConfig(password);
+  const newPool = new Pool(config);
   
-  // Обработчик ошибок пула - пересоздаем при ошибке авторизации
-  newPool.on('error', (err) => {
+  // Обработчик подключения - логируем создание нового соединения
+  newPool.on('connect', (client) => {
+    console.log(`🔌 [Bot DB] New connection established with password len=${password.length}`);
+  });
+  
+  // Обработчик ошибок пула
+  newPool.on('error', (err, client) => {
     if (err.message.includes('password authentication failed')) {
-      console.log(`⚠️ [Bot DB] Pool error: auth failed. Recreating pool...`);
-      // Не пересоздаем здесь, так как это может вызвать рекурсию
-      // Вместо этого полагаемся на safeQuery
+      console.log(`⚠️ [Bot DB] Pool error: auth failed (password len=${password.length}). Connection will be retried...`);
     } else {
       console.error(`❌ [Bot DB] Pool error:`, err.message);
     }
@@ -56,6 +65,13 @@ const switchPool = (newPassword) => {
 // Глобальный перехватчик запросов с авто-восстановлением
 const safeQuery = async (text, params) => {
   try {
+    // ПЕРЕД каждым запросом проверяем, что пул использует актуальный пароль из окружения
+    const envPass = getEnv('DB_PASSWORD', 'postgres');
+    if (envPass !== currentPassword) {
+      console.log(`🔄 [Bot DB] Password changed in env (${currentPassword.length} -> ${envPass.length}), updating pool...`);
+      switchPool(envPass);
+    }
+    
     return await pool.query(text, params);
   } catch (err) {
     if (err.message.includes('password authentication failed') || err.code === '28P01') {

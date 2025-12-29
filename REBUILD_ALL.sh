@@ -217,6 +217,19 @@ else
     fi
 fi
 
+# 7.7. Проверка подключения из контейнера бота
+info "Проверка подключения к БД из контейнера бота..."
+# Устанавливаем psql в контейнер бота (если его нет) и проверяем подключение
+if docker compose exec -T bot sh -c "command -v psql > /dev/null 2>&1 || apk add --no-cache postgresql-client > /dev/null 2>&1; PGPASSWORD=\"$DB_PASS_FROM_ENV\" psql -h telegram_db_alex -U postgres -d telegram_bot_db -c 'SELECT 1;' > /dev/null 2>&1" 2>/dev/null; then
+    success "Бот может подключиться к БД из своего контейнера!"
+else
+    warning "Бот НЕ может подключиться к БД из своего контейнера!"
+    info "Пробуем с паролем 'postgres'..."
+    if docker compose exec -T bot sh -c "PGPASSWORD=\"postgres\" psql -h telegram_db_alex -U postgres -d telegram_bot_db -c 'SELECT 1;' > /dev/null 2>&1" 2>/dev/null; then
+        warning "Бот может подключиться только с паролем 'postgres'!"
+    fi
+fi
+
 # 7.6. Перезапуск бота и бэкенда для применения правильного пароля
 info "Перезапуск бота и бэкенда для применения настроек..."
 docker compose restart bot crm-backend
