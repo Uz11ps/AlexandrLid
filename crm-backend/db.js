@@ -7,7 +7,6 @@ import fs from 'fs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const envPath = path.join(__dirname, '../.env');
 
-// Загружаем .env принудительно
 if (fs.existsSync(envPath)) {
   dotenv.config({ path: envPath });
 }
@@ -31,22 +30,34 @@ const dbConfig = {
 const maskPassword = (pass) => {
   if (!pass) return 'EMPTY';
   if (pass === 'postgres') return 'default (postgres)';
-  if (pass.length <= 2) return '*'.repeat(pass.length);
   return pass[0] + '*'.repeat(pass.length - 2) + pass[pass.length - 1];
 };
 
-console.log(`🔍 [DB] Connecting to ${dbConfig.host} as ${dbConfig.user} (pass: ${maskPassword(dbConfig.password)}, len: ${dbConfig.password.length})`);
+let pool = new pg.Pool(dbConfig);
 
-const pool = new pg.Pool(dbConfig);
-
-pool.connect((err, client, release) => {
-  if (err) {
-    console.error('❌ [DB] Connection error:', err.message);
-  } else {
+(async () => {
+  console.log(`🔍 [DB] Connecting... (pass: ${maskPassword(dbConfig.password)}, len: ${dbConfig.password.length})`);
+  try {
+    const client = await pool.connect();
+    client.release();
     console.log('✅ [DB] Connected successfully');
-    release();
+  } catch (err) {
+    if (dbConfig.password !== 'postgres') {
+      console.log('⚠️ [DB] Primary failed, trying fallback "postgres"...');
+      try {
+        const fallbackPool = new pg.Pool({ ...dbConfig, password: 'postgres' });
+        const client = await fallbackPool.connect();
+        client.release();
+        pool = fallbackPool;
+        console.log('✅ [DB] Connected using fallback');
+      } catch (e) {
+        console.error('❌ [DB] ALL CONNECTION ATTEMPTS FAILED');
+      }
+    }
   }
-});
+})();
+
+export default pool;
 
 export default pool;
 

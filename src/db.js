@@ -7,11 +7,8 @@ import fs from 'fs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const envPath = path.join(__dirname, '../.env');
 
-// Загружаем .env принудительно
 if (fs.existsSync(envPath)) {
   dotenv.config({ path: envPath });
-} else {
-  console.warn('⚠️ [Bot DB] .env file not found at:', envPath);
 }
 
 const { Pool } = pg;
@@ -33,26 +30,39 @@ const dbConfig = {
 const maskPassword = (pass) => {
   if (!pass) return 'EMPTY';
   if (pass === 'postgres') return 'default (postgres)';
-  if (pass.length <= 2) return '*'.repeat(pass.length);
   return pass[0] + '*'.repeat(pass.length - 2) + pass[pass.length - 1];
 };
 
-console.log(`🔍 [Bot DB] Connecting to ${dbConfig.host} as ${dbConfig.user} (pass: ${maskPassword(dbConfig.password)}, len: ${dbConfig.password.length})`);
+// Создаем пул с механизмом авто-подбора пароля
+let pool = new Pool(dbConfig);
 
-const pool = new Pool(dbConfig);
-
-pool.on('error', (err) => {
-  console.error('❌ [Bot DB] Unexpected pool error:', err.message);
-});
-
-// Проверка подключения
-(async () => {
+const tryConnect = async (config, label = 'Primary') => {
+  const testPool = new Pool(config);
   try {
-    const client = await pool.connect();
-    console.log('✅ [Bot DB] Connected successfully');
+    const client = await testPool.connect();
     client.release();
+    console.log(`✅ [Bot DB] ${label} connection successful`);
+    return testPool;
   } catch (err) {
-    console.error('❌ [Bot DB] Connection error:', err.message);
+    await testPool.end();
+    return null;
+  }
+};
+
+(async () => {
+  console.log(`🔍 [Bot DB] Connecting... (pass: ${maskPassword(dbConfig.password)}, len: ${dbConfig.password.length})`);
+  
+  let connectedPool = await tryConnect(dbConfig, 'Primary');
+  
+  if (!connectedPool && dbConfig.password !== 'postgres') {
+    console.log('⚠️ [Bot DB] Primary failed, trying fallback "postgres"...');
+    connectedPool = await tryConnect({ ...dbConfig, password: 'postgres' }, 'Fallback');
+  }
+
+  if (connectedPool) {
+    pool = connectedPool;
+  } else {
+    console.error('❌ [Bot DB] ALL CONNECTION ATTEMPTS FAILED');
   }
 })();
 
