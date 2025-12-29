@@ -9,17 +9,17 @@ router.use(authenticateToken);
 router.get('/messages', async (req, res) => {
   try {
     const { category } = req.query;
-    let query = 'SELECT * FROM message_templates WHERE is_active = TRUE';
+    let sqlQuery = 'SELECT * FROM message_templates WHERE is_active = TRUE';
     const params = [];
 
     if (category) {
-      query += ' AND category = $1';
+      sqlQuery += ' AND category = $1';
       params.push(category);
     }
 
-    query += ' ORDER BY created_at DESC';
+    sqlQuery += ' ORDER BY created_at DESC';
 
-    const result = await query(query, params);
+    const result = await query(sqlQuery, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching message templates:', error);
@@ -110,17 +110,17 @@ router.put('/messages/:id', async (req, res) => {
 router.get('/objections', async (req, res) => {
   try {
     const { objection_type } = req.query;
-    let query = 'SELECT * FROM objection_responses';
+    let sqlQuery = 'SELECT * FROM objection_responses';
     const params = [];
 
     if (objection_type) {
-      query += ' WHERE objection_type = $1';
+      sqlQuery += ' WHERE objection_type = $1';
       params.push(objection_type);
     }
 
-    query += ' ORDER BY effectiveness_rating DESC, usage_count DESC';
+    sqlQuery += ' ORDER BY effectiveness_rating DESC, usage_count DESC';
 
-    const result = await query(query, params);
+    const result = await query(sqlQuery, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching objection responses:', error);

@@ -9,7 +9,7 @@ router.use(authenticateToken);
 router.get('/', async (req, res) => {
   try {
     const { stage, manager_id, lead_id } = req.query;
-    let query = `
+    let sqlQuery = `
       SELECT d.*, 
              l.fio as lead_name, l.phone as lead_phone,
              s.contract_number,
@@ -24,23 +24,23 @@ router.get('/', async (req, res) => {
     let paramIndex = 1;
 
     if (stage) {
-      query += ` AND d.stage = $${paramIndex++}`;
+      sqlQuery += ` AND d.stage = $${paramIndex++}`;
       params.push(stage);
     }
 
     if (manager_id) {
-      query += ` AND d.manager_id = $${paramIndex++}`;
+      sqlQuery += ` AND d.manager_id = $${paramIndex++}`;
       params.push(parseInt(manager_id));
     }
 
     if (lead_id) {
-      query += ` AND d.lead_id = $${paramIndex++}`;
+      sqlQuery += ` AND d.lead_id = $${paramIndex++}`;
       params.push(parseInt(lead_id));
     }
 
-    query += ' ORDER BY d.created_at DESC';
+    sqlQuery += ' ORDER BY d.created_at DESC';
 
-    const result = await query(query, params);
+    const result = await query(sqlQuery, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching deals:', error);

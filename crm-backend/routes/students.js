@@ -29,7 +29,7 @@ router.use(authenticateToken);
 router.get('/', async (req, res) => {
   try {
     const { course_id, group_id, payment_status } = req.query;
-    let query = `
+    let sqlQuery = `
       SELECT 
         s.id,
         s.lead_id,
@@ -97,23 +97,23 @@ router.get('/', async (req, res) => {
     let paramIndex = 1;
 
     if (course_id) {
-      query += ` AND s.course_id = $${paramIndex++}`;
+      sqlQuery += ` AND s.course_id = $${paramIndex++}`;
       params.push(parseInt(course_id));
     }
 
     if (group_id) {
-      query += ` AND s.group_id = $${paramIndex++}`;
+      sqlQuery += ` AND s.group_id = $${paramIndex++}`;
       params.push(parseInt(group_id));
     }
 
     if (payment_status) {
-      query += ` AND s.payment_status = $${paramIndex++}`;
+      sqlQuery += ` AND s.payment_status = $${paramIndex++}`;
       params.push(payment_status);
     }
 
-    query += ' ORDER BY s.created_at DESC';
+    sqlQuery += ' ORDER BY s.created_at DESC';
 
-    const result = await query(query, params);
+    const result = await query(sqlQuery, params);
     console.log(`[Students API] List endpoint: Found ${result.rows.length} students. IDs: ${result.rows.map(r => r.id).join(', ')}`);
     res.json(result.rows);
   } catch (error) {
@@ -138,7 +138,7 @@ router.get('/export/excel', async (req, res) => {
   try {
     const { course_id, group_id, payment_status } = req.query;
     
-    let query = `
+    let sqlQuery = `
       SELECT 
         s.id,
         s.contract_number,
@@ -169,21 +169,21 @@ router.get('/export/excel', async (req, res) => {
     let paramIndex = 1;
 
     if (course_id) {
-      query += ` AND s.course_id = $${paramIndex++}`;
+      sqlQuery += ` AND s.course_id = $${paramIndex++}`;
       params.push(parseInt(course_id));
     }
     if (group_id) {
-      query += ` AND s.group_id = $${paramIndex++}`;
+      sqlQuery += ` AND s.group_id = $${paramIndex++}`;
       params.push(parseInt(group_id));
     }
     if (payment_status) {
-      query += ` AND s.payment_status = $${paramIndex++}`;
+      sqlQuery += ` AND s.payment_status = $${paramIndex++}`;
       params.push(payment_status);
     }
 
-    query += ' ORDER BY s.created_at DESC';
+    sqlQuery += ' ORDER BY s.created_at DESC';
 
-    const result = await query(query, params);
+    const result = await query(sqlQuery, params);
     const students = result.rows;
 
     // Используем динамический импорт для exceljs

@@ -48,7 +48,7 @@ router.get('/', async (req, res) => {
       date_filter // 'today', 'tomorrow', 'upcoming'
     } = req.query;
 
-    let query = `
+    let sqlQuery = `
       SELECT t.*, 
              l.fio as lead_name, l.phone as lead_phone,
              m.name as manager_name
@@ -63,49 +63,49 @@ router.get('/', async (req, res) => {
     // Filter by manager (default to current user if not admin)
     const managerFilter = manager_id || (req.user.role !== 'admin' ? req.user.id : null);
     if (managerFilter) {
-      query += ` AND t.manager_id = $${paramIndex++}`;
+      sqlQuery += ` AND t.manager_id = $${paramIndex++}`;
       params.push(parseInt(managerFilter));
     }
 
     if (lead_id) {
-      query += ` AND t.lead_id = $${paramIndex++}`;
+      sqlQuery += ` AND t.lead_id = $${paramIndex++}`;
       params.push(parseInt(lead_id));
     }
 
     if (status) {
-      query += ` AND t.status = $${paramIndex++}`;
+      sqlQuery += ` AND t.status = $${paramIndex++}`;
       params.push(status);
     }
 
     if (task_type) {
-      query += ` AND t.task_type = $${paramIndex++}`;
+      sqlQuery += ` AND t.task_type = $${paramIndex++}`;
       params.push(task_type);
     }
 
     // Date filtering
     if (date_filter === 'today') {
-      query += ` AND DATE(t.due_date) = CURRENT_DATE`;
+      sqlQuery += ` AND DATE(t.due_date) = CURRENT_DATE`;
     } else if (date_filter === 'tomorrow') {
-      query += ` AND DATE(t.due_date) = CURRENT_DATE + INTERVAL '1 day'`;
+      sqlQuery += ` AND DATE(t.due_date) = CURRENT_DATE + INTERVAL '1 day'`;
     } else if (date_filter === 'upcoming') {
       // Показываем все невыполненные задачи (включая просроченные)
       // Это задачи со статусом 'new' или 'in_progress', независимо от даты
-      query += ` AND t.status != 'completed'`;
+      sqlQuery += ` AND t.status != 'completed'`;
     }
 
     if (due_date_from) {
-      query += ` AND t.due_date >= $${paramIndex++}`;
+      sqlQuery += ` AND t.due_date >= $${paramIndex++}`;
       params.push(due_date_from);
     }
 
     if (due_date_to) {
-      query += ` AND t.due_date <= $${paramIndex++}`;
+      sqlQuery += ` AND t.due_date <= $${paramIndex++}`;
       params.push(due_date_to);
     }
 
-    query += ` ORDER BY t.due_date ASC, t.priority DESC`;
+    sqlQuery += ` ORDER BY t.due_date ASC, t.priority DESC`;
 
-    const result = await query(query, params);
+    const result = await query(sqlQuery, params);
 
     res.json({ tasks: result.rows });
   } catch (error) {

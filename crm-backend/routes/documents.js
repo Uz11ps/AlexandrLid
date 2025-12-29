@@ -25,17 +25,17 @@ router.use(authenticateToken);
 router.get('/templates', async (req, res) => {
   try {
     const { document_type } = req.query;
-    let query = 'SELECT * FROM document_templates WHERE is_active = TRUE';
+    let sqlQuery = 'SELECT * FROM document_templates WHERE is_active = TRUE';
     const params = [];
 
     if (document_type) {
-      query += ' AND document_type = $1';
+      sqlQuery += ' AND document_type = $1';
       params.push(document_type);
     }
 
-    query += ' ORDER BY created_at DESC';
+    sqlQuery += ' ORDER BY created_at DESC';
 
-    const result = await query(query, params);
+    const result = await query(sqlQuery, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching document templates:', error);
@@ -93,7 +93,7 @@ router.post('/templates', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const { lead_id, student_id, deal_id, document_type } = req.query;
-    let query = `
+    let sqlQuery = `
       SELECT d.*, 
              m.name as created_by_name,
              l.fio as lead_name
@@ -106,28 +106,28 @@ router.get('/', async (req, res) => {
     let paramIndex = 1;
 
     if (lead_id) {
-      query += ` AND d.lead_id = $${paramIndex++}`;
+      sqlQuery += ` AND d.lead_id = $${paramIndex++}`;
       params.push(parseInt(lead_id));
     }
 
     if (student_id) {
-      query += ` AND d.student_id = $${paramIndex++}`;
+      sqlQuery += ` AND d.student_id = $${paramIndex++}`;
       params.push(parseInt(student_id));
     }
 
     if (deal_id) {
-      query += ` AND d.deal_id = $${paramIndex++}`;
+      sqlQuery += ` AND d.deal_id = $${paramIndex++}`;
       params.push(parseInt(deal_id));
     }
 
     if (document_type) {
-      query += ` AND d.document_type = $${paramIndex++}`;
+      sqlQuery += ` AND d.document_type = $${paramIndex++}`;
       params.push(document_type);
     }
 
-    query += ' ORDER BY d.created_at DESC';
+    sqlQuery += ' ORDER BY d.created_at DESC';
 
-    const result = await query(query, params);
+    const result = await query(sqlQuery, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching documents:', error);

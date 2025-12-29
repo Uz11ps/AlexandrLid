@@ -77,20 +77,20 @@ router.get('/users', async (req, res) => {
     const { page = 1, limit = 50, search } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
     
-    let query = 'SELECT * FROM users';
+    let sqlQuery = 'SELECT * FROM users';
     const params = [];
     let paramIndex = 1;
 
     if (search) {
-      query += ` WHERE username ILIKE $${paramIndex} OR first_name ILIKE $${paramIndex} OR CAST(user_id AS TEXT) LIKE $${paramIndex}`;
+      sqlQuery += ` WHERE username ILIKE $${paramIndex} OR first_name ILIKE $${paramIndex} OR CAST(user_id AS TEXT) LIKE $${paramIndex}`;
       params.push(`%${search}%`);
       paramIndex++;
     }
 
-    query += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    sqlQuery += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(parseInt(limit), offset);
 
-    const result = await query(query, params);
+    const result = await query(sqlQuery, params);
     
     // Get total count
     const countResult = await query('SELECT COUNT(*) FROM users' + (search ? ` WHERE username ILIKE $1 OR first_name ILIKE $1 OR CAST(user_id AS TEXT) LIKE $1` : ''), search ? [`%${search}%`] : []);

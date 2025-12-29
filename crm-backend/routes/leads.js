@@ -474,7 +474,7 @@ router.get('/export/excel', async (req, res) => {
   try {
     const { start_date, end_date, status, funnel_stage } = req.query;
     
-    let query = `
+    let sqlQuery = `
       SELECT 
         l.id,
         l.fio,
@@ -496,21 +496,21 @@ router.get('/export/excel', async (req, res) => {
     let paramIndex = 1;
 
     if (start_date && end_date) {
-      query += ` AND l.created_at BETWEEN $${paramIndex++} AND $${paramIndex++}`;
+      sqlQuery += ` AND l.created_at BETWEEN $${paramIndex++} AND $${paramIndex++}`;
       params.push(start_date, end_date);
     }
     if (status) {
-      query += ` AND l.status = $${paramIndex++}`;
+      sqlQuery += ` AND l.status = $${paramIndex++}`;
       params.push(status);
     }
     if (funnel_stage) {
-      query += ` AND l.funnel_stage = $${paramIndex++}`;
+      sqlQuery += ` AND l.funnel_stage = $${paramIndex++}`;
       params.push(funnel_stage);
     }
 
-    query += ' ORDER BY l.created_at DESC';
+    sqlQuery += ' ORDER BY l.created_at DESC';
 
-    const result = await query(query, params);
+    const result = await query(sqlQuery, params);
     const leads = result.rows;
 
     // Используем динамический импорт для exceljs

@@ -30,7 +30,7 @@ router.get('/', async (req, res) => {
   try {
     const { status, manager_id, user_id } = req.query;
     
-    let query = `
+    let sqlQuery = `
       SELECT t.*, 
              u.username as user_username, u.first_name as user_first_name,
              m.name as manager_name,
@@ -46,29 +46,29 @@ router.get('/', async (req, res) => {
 
     // Фильтр по статусу
     if (status) {
-      query += ` AND t.status = $${paramIndex++}`;
+      sqlQuery += ` AND t.status = $${paramIndex++}`;
       params.push(status);
     }
 
     // Фильтр по менеджеру
     if (manager_id) {
-      query += ` AND t.manager_id = $${paramIndex++}`;
+      sqlQuery += ` AND t.manager_id = $${paramIndex++}`;
       params.push(parseInt(manager_id));
     } else if (req.user.role !== 'admin') {
       // Менеджеры видят только свои тикеты
-      query += ` AND (t.manager_id = $${paramIndex++} OR t.manager_id IS NULL)`;
+      sqlQuery += ` AND (t.manager_id = $${paramIndex++} OR t.manager_id IS NULL)`;
       params.push(req.user.id);
     }
 
     // Фильтр по пользователю
     if (user_id) {
-      query += ` AND t.user_id = $${paramIndex++}`;
+      sqlQuery += ` AND t.user_id = $${paramIndex++}`;
       params.push(parseInt(user_id));
     }
 
-    query += ` ORDER BY t.updated_at DESC`;
+    sqlQuery += ` ORDER BY t.updated_at DESC`;
 
-    const result = await query(query, params);
+    const result = await query(sqlQuery, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching tickets:', error);

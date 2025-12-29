@@ -357,17 +357,17 @@ router.delete('/tariffs/:id', async (req, res) => {
 router.get('/packages', async (req, res) => {
   try {
     const { course_id } = req.query;
-    let query = 'SELECT p.*, c.name as course_name FROM packages p LEFT JOIN courses c ON p.course_id = c.id';
+    let sqlQuery = 'SELECT p.*, c.name as course_name FROM packages p LEFT JOIN courses c ON p.course_id = c.id';
     const params = [];
 
     if (course_id) {
-      query += ' WHERE p.course_id = $1';
+      sqlQuery += ' WHERE p.course_id = $1';
       params.push(course_id);
     }
 
-    query += ' ORDER BY p.created_at DESC';
+    sqlQuery += ' ORDER BY p.created_at DESC';
 
-    const result = await query(query, params);
+    const result = await query(sqlQuery, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching packages:', error);
