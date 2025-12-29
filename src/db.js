@@ -23,6 +23,7 @@ const getDbConfig = (password) => ({
 
 // Глобальное состояние
 let currentPassword = getEnv('DB_PASSWORD', 'postgres');
+console.log(`🔍 [Bot DB] Initial password from env: len=${currentPassword.length}, host=${getEnv('DB_HOST', 'telegram_db_alex')}`);
 let pool = new Pool(getDbConfig(currentPassword));
 
 // Функция смены пула на лету
@@ -40,22 +41,34 @@ const safeQuery = async (text, params) => {
     return await pool.query(text, params);
   } catch (err) {
     if (err.message.includes('password authentication failed')) {
-      console.log('⚠️ [Bot DB] Auth failed. Attempting recovery...');
-      const passwords = [getEnv('DB_PASSWORD', 'postgres'), 'postgres', '', 'password'];
+      console.log(`⚠️ [Bot DB] Auth failed with current password (len: ${currentPassword.length}). Starting recovery...`);
+      const envPass = getEnv('DB_PASSWORD', 'postgres');
+      const passwords = [envPass, 'postgres', '', 'password'];
       
-      for (const pass of passwords) {
-        if (pass === currentPassword && passwords.indexOf(pass) === 0) continue;
+      console.log(`🔍 [Bot DB] Will try ${passwords.length} passwords...`);
+      
+      for (let i = 0; i < passwords.length; i++) {
+        const pass = passwords[i];
+        // Пропускаем только если это тот же пароль, который уже не сработал
+        if (pass === currentPassword && i === 0) {
+          console.log(`⏭️  [Bot DB] Skipping password #${i+1} (same as failed one)`);
+          continue;
+        }
+        
+        console.log(`🔑 [Bot DB] Trying password #${i+1} (len: ${pass.length})...`);
         const tPool = new Pool(getDbConfig(pass));
         try {
           const res = await tPool.query(text, params);
-          console.log('✅ [Bot DB] Recovery successful!');
+          console.log(`✅ [Bot DB] Recovery successful with password #${i+1}! Updating pool...`);
           switchPool(pass);
           await tPool.end().catch(() => {});
           return res;
         } catch (e) {
+          console.log(`❌ [Bot DB] Password #${i+1} failed: ${e.message.substring(0, 50)}...`);
           await tPool.end().catch(() => {});
         }
       }
+      console.error('❌ [Bot DB] All recovery passwords failed!');
     }
     throw err;
   }

@@ -55,6 +55,14 @@ set -a
 [ -f .env ] && . ./.env
 set +a
 
+# Проверяем, что DB_PASSWORD установлен
+if [ -z "$DB_PASSWORD" ]; then
+    info "DB_PASSWORD не найден в .env, используем 'postgres'"
+    export DB_PASSWORD="postgres"
+else
+    info "DB_PASSWORD найден: [${#DB_PASSWORD} символов]"
+fi
+
 if ! docker compose up -d; then
     error "Не удалось запустить сервисы"
 fi
@@ -62,7 +70,7 @@ fi
 # 6. Ожидание готовности PostgreSQL
 info "Ожидание готовности PostgreSQL..."
 for i in {1..30}; do
-    if docker compose exec -T -u postgres postgres pg_isready > /dev/null 2>&1; then
+    if docker compose exec -T telegram_db_alex pg_isready -U postgres > /dev/null 2>&1; then
         success "PostgreSQL готов"
         break
     fi
@@ -72,9 +80,37 @@ for i in {1..30}; do
     sleep 1
 done
 
+# 6.5. Проверка и синхронизация пароля базы данных
+info "Проверка пароля базы данных..."
+DB_PASS_FROM_ENV=$(grep "^DB_PASSWORD=" .env | head -n 1 | cut -d'=' -f2- | tr -d '\r' | tr -d '\"' | tr -d "'" | tr -d ' ')
+if [ -z "$DB_PASS_FROM_ENV" ]; then
+    DB_PASS_FROM_ENV="postgres"
+fi
+info "Пароль из .env: [${#DB_PASS_FROM_ENV} символов]"
+
+# Проверяем, можем ли подключиться с паролем из .env
+if docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d telegram_bot_db -c "SELECT 1;" > /dev/null 2>&1; then
+    success "Пароль из .env работает!"
+else
+    info "Пароль из .env не работает, пробуем стандартный 'postgres'..."
+    if docker compose exec -T -e PGPASSWORD="postgres" telegram_db_alex psql -U postgres -d telegram_bot_db -c "SELECT 1;" > /dev/null 2>&1; then
+        info "Стандартный пароль 'postgres' работает. Синхронизируем пароль из .env..."
+        # Устанавливаем пароль из .env в базу данных
+        docker compose exec -T -e PGPASSWORD="postgres" telegram_db_alex psql -U postgres -d postgres -c "ALTER USER postgres WITH PASSWORD '$DB_PASS_FROM_ENV';" > /dev/null 2>&1
+        success "Пароль синхронизирован!"
+    else
+        error "Не удалось подключиться ни с одним паролем!"
+    fi
+fi
+
 # 7. Проверка прав доступа
 info "Проверка прав доступа..."
-docker compose exec -T -u postgres postgres psql -d telegram_bot_db -c "GRANT ALL PRIVILEGES ON SCHEMA public TO postgres; GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres;" > /dev/null
+docker compose exec -T -e PGPASSWORD="${DB_PASS_FROM_ENV:-postgres}" telegram_db_alex psql -U postgres -d telegram_bot_db -c "GRANT ALL PRIVILEGES ON SCHEMA public TO postgres; GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres;" > /dev/null 2>&1 || true
+
+# 7.5. Перезапуск бота и бэкенда для применения правильного пароля
+info "Перезапуск бота и бэкенда для применения настроек..."
+docker compose restart bot crm-backend
+sleep 3
 
 # 8. Создание администратора
 info "Создание администратора..."
