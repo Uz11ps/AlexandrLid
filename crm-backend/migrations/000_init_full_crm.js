@@ -245,6 +245,24 @@ export async function up() {
             );
         `);
 
+        // Добавляем недостающие колонки, если таблицы уже существуют
+        await client.query(`
+            DO $$ 
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'students' AND column_name = 'payment_currency') THEN
+                    ALTER TABLE students ADD COLUMN payment_currency VARCHAR(10) DEFAULT 'RUB';
+                END IF;
+                
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'message_templates' AND column_name = 'is_active') THEN
+                    ALTER TABLE message_templates ADD COLUMN is_active BOOLEAN DEFAULT TRUE;
+                END IF;
+                
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'documents' AND column_name = 'created_by') THEN
+                    ALTER TABLE documents ADD COLUMN created_by INTEGER REFERENCES managers(id) ON DELETE SET NULL;
+                END IF;
+            END $$;
+        `);
+
         await client.query('COMMIT');
         console.log('✅ [Init CRM] All tables created and initialized');
     } catch (error) {
