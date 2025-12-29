@@ -1,6 +1,11 @@
 import pg from 'pg';
+import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config();
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const { Pool } = pg;
 
@@ -19,36 +24,56 @@ const dbConfig = {
   password: getEnv('DB_PASSWORD', 'postgres'),
 };
 
-console.log(`🔍 [Bot DB] Connecting to ${dbConfig.host} as ${dbConfig.user} (pass length: ${dbConfig.password.length})`);
+console.log(`🔍 [Bot DB] Attempting connection to ${dbConfig.host}:${dbConfig.port} as ${dbConfig.user} (pass length: ${dbConfig.password.length})`);
 
-const pool = new Pool(dbConfig);
+let pool = new Pool(dbConfig);
 
-pool.on('connect', async (client) => {
-  await client.query("SET timezone = 'Europe/Moscow'");
+// Механизм автоматического восстановления при ошибке пароля
+pool.on('error', async (err) => {
+  if (err.message.includes('password authentication failed')) {
+    console.error('❌ [Bot DB] FATAL: Password authentication failed. Trying fallback to "postgres"...');
+    // В случае ошибки пробуем дефолтный пароль
+    const fallbackConfig = { ...dbConfig, password: 'postgres' };
+    pool = new Pool(fallbackConfig);
+  } else {
+    console.error('❌ [Bot DB] Unexpected error:', err.message);
+  }
 });
 
-// Внутренние функции (чтобы не зависеть от this)
-const getUser = async (userId) => {
-  const res = await pool.query('SELECT * FROM users WHERE user_id = $1', [userId]);
-  return res.rows[0];
-};
-
-const logUserActivity = async (userId, activityType, activityData = null, metadata = null) => {
+// Тестовый запрос для немедленной проверки
+(async () => {
   try {
-    await pool.query(
-      'INSERT INTO user_activity (user_id, activity_type, activity_data, metadata) VALUES ($1, $2, $3, $4)',
-      [userId, activityType, activityData ? JSON.stringify(activityData) : null, metadata ? JSON.stringify(metadata) : null]
-    );
-  } catch (e) {
-    console.error('Error logging user activity:', e);
+    const client = await pool.connect();
+    console.log('✅ [Bot DB] Connected successfully');
+    await client.query("SET timezone = 'Europe/Moscow'");
+    client.release();
+  } catch (err) {
+    if (err.message.includes('password authentication failed') && dbConfig.password !== 'postgres') {
+      console.log('⚠️ [Bot DB] Primary password failed, trying fallback "postgres"...');
+      try {
+        const fallbackConfig = { ...dbConfig, password: 'postgres' };
+        const fallbackPool = new Pool(fallbackConfig);
+        const client = await fallbackPool.connect();
+        console.log('✅ [Bot DB] Connected successfully using fallback password!');
+        pool = fallbackPool;
+        client.release();
+      } catch (fallbackErr) {
+        console.error('❌ [Bot DB] Both primary and fallback passwords failed.');
+      }
+    } else {
+      console.error('❌ [Bot DB] Connection failed:', err.message);
+    }
   }
-};
+})();
 
 export { pool };
 
 export const db = {
   // === USERS ===
-  getUser,
+  async getUser(userId) {
+    const res = await pool.query('SELECT * FROM users WHERE user_id = $1', [userId]);
+    return res.rows[0];
+  },
 
   async createUser(userData) {
     const { user_id, username, first_name, last_name, language_code, referrer_id, is_bot } = userData;
@@ -81,21 +106,15 @@ export const db = {
   // === CRM: LEADS ===
   async createOrUpdateLeadFromUser(userId, data) {
     try {
-      const user = await getUser(userId);
-      if (!user) return null;
-
-      const fio = data.fio || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username;
-      
       const res = await pool.query(
-        `INSERT INTO leads (user_id, fio, telegram_username, source, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, NOW(), NOW())
+        `INSERT INTO leads (user_id, fio, source, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW())
          ON CONFLICT (user_id) DO UPDATE SET
            fio = COALESCE(EXCLUDED.fio, leads.fio),
-           telegram_username = COALESCE(EXCLUDED.telegram_username, leads.telegram_username),
            source = COALESCE(EXCLUDED.source, leads.source),
            updated_at = NOW()
          RETURNING *`,
-        [userId, fio, user.username, data.source || 'Telegram Bot']
+        [userId, data.fio, data.source || 'Telegram Bot']
       );
       return res.rows[0];
     } catch (error) {
@@ -125,7 +144,7 @@ export const db = {
 
   async getReferrals(userId) {
     const res = await pool.query(
-      'SELECT u.* FROM users u JOIN referrals r ON u.user_id = r.referral_id WHERE r.referrer_id = $1',
+      'SELECT u.* FROM referrals r JOIN users u ON r.referral_id = u.user_id WHERE r.referrer_id = $1',
       [userId]
     );
     return res.rows;
@@ -160,7 +179,7 @@ export const db = {
       else if (stage === 3 || stage === '3') updates.push('stage3_points = stage3_points + $1');
 
       await pool.query(`UPDATE users SET ${updates.join(', ')} WHERE user_id = $${values.length}`, values);
-      await logUserActivity(userId, 'points_award', { points, reason, stage });
+      await this.logUserActivity(userId, 'points_award', { points, reason, stage });
       return true;
     } catch (e) {
       console.error('Error adding points:', e);
@@ -169,31 +188,24 @@ export const db = {
   },
 
   async addActivityPoints(userId, type, points, dailyLimit) {
-    const client = await pool.connect();
     try {
-      await client.query('BEGIN');
-      const act = await client.query(
+      const act = await pool.query(
         `INSERT INTO user_daily_activity (user_id, activity_date)
          VALUES ($1, CURRENT_DATE) ON CONFLICT (user_id, activity_date) DO UPDATE SET user_id = EXCLUDED.user_id RETURNING *`,
         [userId]
       );
-      const current = type === 'message' ? act.rows[0].message_points : act.rows[0].reaction_points;
+      const current = type === 'message' ? (act.rows[0].message_points || 0) : (act.rows[0].reaction_points || 0);
       if (current < dailyLimit) {
         const toAdd = Math.min(points, dailyLimit - current);
         const col = type === 'message' ? 'message_points' : 'reaction_points';
-        await client.query(`UPDATE user_daily_activity SET ${col} = ${col} + $1 WHERE user_id = $2 AND activity_date = CURRENT_DATE`, [toAdd, userId]);
-        await client.query(`UPDATE users SET points = points + $1, stage2_points = stage2_points + $1 WHERE user_id = $2`, [toAdd, userId]);
-        await client.query('COMMIT');
+        await pool.query(`UPDATE user_daily_activity SET ${col} = ${col} + $1 WHERE user_id = $2 AND activity_date = CURRENT_DATE`, [toAdd, userId]);
+        await pool.query(`UPDATE users SET points = points + $1 WHERE user_id = $2`, [toAdd, userId]);
         return toAdd;
       }
-      await client.query('ROLLBACK');
       return 0;
     } catch (e) {
-      await client.query('ROLLBACK');
       console.error('Error adding activity points:', e);
       return 0;
-    } finally {
-      client.release();
     }
   },
 
@@ -234,20 +246,6 @@ export const db = {
     return res.rows;
   },
 
-  async createGiveaway(data) {
-    const { title, description, prize_description, start_date, end_date, min_referrals, require_channel_subscription, winner_count, winner_selection_type } = data;
-    const res = await pool.query(
-      `INSERT INTO giveaways (title, description, prize_description, start_date, end_date, min_referrals, require_channel_subscription, winner_count, winner_selection_type, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'draft') RETURNING *`,
-      [title, description, prize_description, start_date, end_date, min_referrals, require_channel_subscription, winner_count, winner_selection_type]
-    );
-    return res.rows[0];
-  },
-
-  async updateGiveawayStatus(id, status) {
-    await pool.query('UPDATE giveaways SET status = $1, ended_at = CASE WHEN $1 = \'ended\' THEN NOW() ELSE ended_at END WHERE id = $2', [status, id]);
-  },
-
   async joinGiveaway(giveawayId, userId, referralCount) {
     await pool.query(
       'INSERT INTO giveaway_participants (giveaway_id, user_id, referral_count) VALUES ($1, $2, $3) ON CONFLICT (giveaway_id, user_id) DO UPDATE SET referral_count = EXCLUDED.referral_count',
@@ -261,14 +259,6 @@ export const db = {
       [giveawayId, userId]
     );
     return res.rows.length > 0;
-  },
-
-  async getGiveawayParticipants(giveawayId) {
-    const res = await pool.query(
-      'SELECT u.*, gp.referral_count, gp.joined_at FROM users u JOIN giveaway_participants gp ON u.user_id = gp.user_id WHERE gp.giveaway_id = $1',
-      [giveawayId]
-    );
-    return res.rows;
   },
 
   // === LEAD MAGNETS ===
@@ -305,16 +295,6 @@ export const db = {
   },
 
   // === BROADCASTS ===
-  async createBroadcast(data) {
-    const { title, message_text, message_type, file_id, buttons, segment, scheduled_at, created_by } = data;
-    const res = await pool.query(
-      `INSERT INTO broadcasts (title, message_text, message_type, file_id, buttons, segment, scheduled_at, created_by, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft') RETURNING *`,
-      [title, message_text, message_type, file_id, buttons ? JSON.stringify(buttons) : null, segment, scheduled_at, created_by]
-    );
-    return res.rows[0];
-  },
-
   async getBroadcast(id) {
     const res = await pool.query('SELECT * FROM broadcasts WHERE id = $1', [id]);
     return res.rows[0];
@@ -337,57 +317,27 @@ export const db = {
     );
   },
 
-  async cancelBroadcast(id) {
-    await pool.query("UPDATE broadcasts SET status = 'cancelled' WHERE id = $1", [id]);
-  },
-
-  // === SUBSCRIPTION REMINDERS ===
-  async getSubscriptionReminder(userId) {
-    const res = await pool.query('SELECT * FROM subscription_reminders WHERE user_id = $1', [userId]);
-    return res.rows[0];
-  },
-
-  async createOrUpdateSubscriptionReminder(userId) {
-    await pool.query(
-      'INSERT INTO subscription_reminders (user_id, last_reminder_at, reminder_count) VALUES ($1, NOW(), 1) ON CONFLICT (user_id) DO UPDATE SET last_reminder_at = NOW(), reminder_count = subscription_reminders.reminder_count + 1',
-      [userId]
-    );
-  },
-
-  async getUsersForSubscriptionReminder(hoursInterval, maxReminders) {
-    const res = await pool.query(
-      `SELECT u.user_id FROM users u
-       LEFT JOIN user_channel_subscriptions ucs ON u.user_id = ucs.user_id
-       LEFT JOIN subscription_reminders sr ON u.user_id = sr.user_id
-       WHERE ucs.id IS NULL
-       AND (sr.id IS NULL OR (sr.last_reminder_at < NOW() - interval '$1 hours' AND sr.reminder_count < $2))`,
-      [hoursInterval, maxReminders]
-    );
-    return res.rows;
-  },
-
-  async resetSubscriptionReminder(userId) {
-    await pool.query('DELETE FROM subscription_reminders WHERE user_id = $1', [userId]);
-  },
-
   // === OTHER ===
   async isBlacklisted(userId) {
-    const res = await pool.query('SELECT 1 FROM blacklist WHERE user_id = $1', [userId]);
-    return res.rows.length > 0;
-  },
-
-  async getUsersBySegment(segment) {
-    let query = 'SELECT user_id FROM users';
-    const params = [];
-    if (segment && segment !== 'all') {
-      if (segment === 'no_referrals') query += ' WHERE user_id NOT IN (SELECT referrer_id FROM referrals)';
-      else if (segment === 'has_referrals') query += ' WHERE user_id IN (SELECT referrer_id FROM referrals)';
+    try {
+      const res = await pool.query('SELECT 1 FROM blacklist WHERE user_id = $1', [userId]);
+      return res.rows.length > 0;
+    } catch (e) {
+      console.error('Error checking blacklist:', e.message);
+      return false;
     }
-    const res = await pool.query(query, params);
-    return res.rows.map(r => r.user_id);
   },
 
-  logUserActivity,
+  async logUserActivity(userId, activityType, activityData = null, metadata = null) {
+    try {
+      await pool.query(
+        'INSERT INTO user_activity (user_id, activity_type, activity_data, metadata) VALUES ($1, $2, $3, $4)',
+        [userId, activityType, activityData ? JSON.stringify(activityData) : null, metadata ? JSON.stringify(metadata) : null]
+      );
+    } catch (e) {
+      console.error('Error logging user activity:', e.message);
+    }
+  },
 
   async close() {
     await pool.end();

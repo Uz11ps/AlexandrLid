@@ -26,6 +26,8 @@ services:
         condition: service_healthy
     env_file:
       - .env
+    environment:
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
     restart: unless-stopped
 
   crm-backend:
@@ -37,8 +39,9 @@ services:
     env_file:
       - .env
     environment:
-      PORT: 3001
-      TZ: Europe/Moscow
+      - PORT=3001
+      - TZ=Europe/Moscow
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
     ports:
       - "3001:3001"
     restart: unless-stopped

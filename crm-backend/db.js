@@ -1,4 +1,11 @@
 import pg from 'pg';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config();
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 // Принудительная очистка переменных окружения от пробелов и \r
 const getEnv = (key, defaultValue) => {
@@ -17,14 +24,30 @@ const dbConfig = {
   idleTimeoutMillis: 30000,
 };
 
-console.log(`🔍 [DB] Connecting to ${dbConfig.host} as ${dbConfig.user} (pass length: ${dbConfig.password.length})`);
+console.log(`🔍 [DB] Attempting connection to ${dbConfig.host}:${dbConfig.port} as ${dbConfig.user} (pass length: ${dbConfig.password.length})`);
 
-const pool = new pg.Pool(dbConfig);
+let pool = new pg.Pool(dbConfig);
 
-// Тестовый запрос
-pool.query('SELECT 1', (err) => {
-  if (err) console.error('❌ [DB] Connection Error:', err.message);
-  else console.log('✅ [DB] Connected successfully');
-});
+// Автоматический откат к дефолтному паролю
+(async () => {
+  try {
+    const client = await pool.connect();
+    console.log('✅ [DB] Connected successfully');
+    client.release();
+  } catch (err) {
+    if (err.message.includes('password authentication failed') && dbConfig.password !== 'postgres') {
+      console.log('⚠️ [DB] Primary password failed, trying fallback "postgres"...');
+      try {
+        const fallbackPool = new pg.Pool({ ...dbConfig, password: 'postgres' });
+        const client = await fallbackPool.connect();
+        console.log('✅ [DB] Connected successfully using fallback!');
+        pool = fallbackPool;
+        client.release();
+      } catch (e) {
+        console.error('❌ [DB] All connection attempts failed.');
+      }
+    }
+  }
+})();
 
 export default pool;

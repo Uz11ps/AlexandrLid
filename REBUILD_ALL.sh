@@ -22,13 +22,6 @@ info() {
     echo -e "${YELLOW}ℹ️  $1${NC}"
 }
 
-# Проверка аргументов
-FULL_REBUILD=true
-if [ "$1" == "--quick" ] || [ "$1" == "-q" ]; then
-    FULL_REBUILD=false
-    info "Быстрая пересборка (без удаления образов и очистки кэша)"
-fi
-
 echo "=== Полная пересборка всего проекта ==="
 
 # Проверка директории
@@ -37,67 +30,35 @@ if [ ! -f "docker-compose.yml" ]; then
 fi
 
 # 1. Остановка всех контейнеров
-echo ""
-echo "1. Остановка всех контейнеров и удаление локальных образов..."
-if ! docker compose down --rmi local; then
-    error "Не удалось остановить контейнеры"
-fi
-success "Контейнеры остановлены и образы удалены"
+info "Остановка всех контейнеров и удаление локальных образов..."
+docker compose down --rmi local
 
-# 2. Удаление старых контейнеров (только при полной пересборке)
-if [ "$FULL_REBUILD" = true ]; then
-echo ""
-    echo "2. Удаление старых контейнеров..."
+# 2. Удаление старых контейнеров
+info "Удаление старых контейнеров..."
 docker compose rm -f
-    success "Старые контейнеры удалены"
-fi
 
-# 3. Очистка кэша сборки (только при полной пересборке)
-if [ "$FULL_REBUILD" = true ]; then
-echo ""
-echo "3. Очистка кэша сборки..."
+# 3. Очистка кэша сборки
+info "Очистка кэша сборки..."
 docker builder prune -f
-    success "Кэш сборки очищен"
-fi
 
 # 4. Обновление кода
-echo ""
-echo "4. Обновление кода из репозитория..."
-if ! git pull; then
-    error "Не удалось обновить код из репозитория"
-fi
-success "Код обновлен"
+info "Обновление кода из репозитория..."
+git pull
 
 # 5. Пересборка сервисов
-echo ""
-if [ "$FULL_REBUILD" = true ]; then
-    echo "5. Полная пересборка всех сервисов БЕЗ кэша (это займет время)..."
-    BUILD_ARGS="--no-cache --pull"
-else
-    echo "5. Пересборка всех сервисов (с кэшем)..."
-    BUILD_ARGS="--pull"
-fi
-
-if ! docker compose build $BUILD_ARGS; then
+info "Полная пересборка всех сервисов БЕЗ кэша..."
+if ! docker compose build --no-cache --pull; then
     error "Не удалось пересобрать сервисы"
 fi
-success "Сервисы пересобраны"
 
 # 6. Запуск всех сервисов
-echo ""
-echo "6. Запуск всех сервисов..."
+info "Запуск всех сервисов..."
 if ! docker compose up -d; then
     error "Не удалось запустить сервисы"
 fi
-success "Сервисы запущены"
 
-# 7. Ожидание готовности
-echo ""
-echo "7. Ожидание готовности сервисов..."
-sleep 10
-
-# Проверка готовности PostgreSQL
-echo "Проверка готовности PostgreSQL..."
+# 7. Ожидание готовности PostgreSQL
+info "Ожидание готовности PostgreSQL..."
 for i in {1..30}; do
     if docker compose exec -T -u postgres postgres pg_isready > /dev/null 2>&1; then
         success "PostgreSQL готов"
@@ -109,92 +70,36 @@ for i in {1..30}; do
     sleep 1
 done
 
-# Синхронизация пароля (на случай если в томе старый пароль)
+# 8. Синхронизация пароля (Через переменную окружения для надежности)
 info "Синхронизация пароля PostgreSQL..."
-# Максимально надежное извлечение пароля (без обрезания символов типа #)
 DB_PASS=$(grep "^DB_PASSWORD=" .env | head -n 1 | cut -d'=' -f2- | tr -d '\r' | sed 's/^"//;s/"$//' | sed "s/^'//;s/'$//")
 
 if [ -z "$DB_PASS" ]; then
-    info "⚠️ ВНИМАНИЕ: DB_PASSWORD не найден в .env или пустой! Используем 'postgres'"
+    info "⚠️  DB_PASSWORD не найден в .env, используем 'postgres'"
     DB_PASS="postgres"
 fi
 
 info "Попытка установить пароль для пользователя postgres (длина пароля: ${#DB_PASS})..."
-# Подключаемся именно к системной базе 'postgres' для смены пароля
-if docker compose exec -T -u postgres postgres psql -d postgres -c "ALTER USER postgres WITH PASSWORD '$DB_PASS';" ; then
-    success "Пароль PostgreSQL успешно синхронизирован в базе данных"
+# Передаем пароль через переменную окружения psql, чтобы избежать проблем с кавычками в shell
+if docker compose exec -T -e NEW_PASS="$DB_PASS" -u postgres postgres psql -d postgres -c "ALTER USER postgres WITH PASSWORD '\$NEW_PASS';" ; then
+    success "Пароль PostgreSQL успешно обновлен в базе"
 else
-    info "⚠️ Ошибка при ALTER USER через psql. Попробуем с PGPASSWORD=postgres..."
-    if docker compose exec -T -e PGPASSWORD=postgres -u postgres postgres psql -d postgres -c "ALTER USER postgres WITH PASSWORD '$DB_PASS';" ; then
-        success "Пароль PostgreSQL синхронизирован со второй попытки"
-    else
-        error "Критическая ошибка: Не удалось обновить пароль в базе данных. Попробуйте 'docker compose down -v' для полной очистки БД."
-    fi
+    info "⚠️  Не удалось обновить пароль. Попробуем второй метод..."
+    docker compose exec -T -e NEW_PASS="$DB_PASS" -e PGPASSWORD=postgres -u postgres postgres psql -d postgres -c "ALTER USER postgres WITH PASSWORD '\$NEW_PASS';" || info "Все методы смены пароля исчерпаны."
 fi
-    
-    info "Обновление прав доступа в базе данных..."
-    docker compose exec -T -u postgres postgres psql -d telegram_bot_db -c "GRANT ALL PRIVILEGES ON SCHEMA public TO postgres; GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres;" > /dev/null
-    success "Права доступа обновлены"
 
-    info "Принудительная пересборка и пересоздание сервисов..."
-    docker compose up -d --build --force-recreate bot crm-backend
-    sleep 10
+# 9. Обновление прав
+info "Обновление прав доступа..."
+docker compose exec -T -u postgres postgres psql -d telegram_bot_db -c "GRANT ALL PRIVILEGES ON SCHEMA public TO postgres; GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres;" > /dev/null
 
-    info "Создание администратора по умолчанию (123@mail.ru / 123)..."
-    docker compose exec -T crm-backend node scripts/create-admin.js "123@mail.ru" "123" "Administrator"
-    success "Администратор проверен/создан"
-
-# Дополнительное ожидание для других сервисов
+# 10. Принудительный перезапуск
+info "Принудительное пересоздание сервисов с новым паролем..."
+docker compose up -d --force-recreate bot crm-backend
 sleep 5
 
-# 8. Проверка статуса
-echo ""
-echo "8. Статус контейнеров:"
-docker compose ps
+# 11. Создание администратора
+info "Создание администратора..."
+docker compose exec -T crm-backend node scripts/create-admin.js "123@mail.ru" "123" "Administrator"
 
-# Проверка, что все контейнеры запущены
-FAILED_CONTAINERS=$(docker compose ps --format json | jq -r '.[] | select(.State != "running") | .Name' 2>/dev/null || docker compose ps | grep -v "Up" | grep -v "NAME" | awk '{print $1}' | grep -v "^$")
-if [ ! -z "$FAILED_CONTAINERS" ]; then
-    echo ""
-    error "Некоторые контейнеры не запущены: $FAILED_CONTAINERS"
-fi
-
-# 9. Проверка логов
-echo ""
-echo "9. Проверка логов сервисов..."
-
-echo ""
-echo "Последние логи бота:"
-docker compose logs --tail=20 bot 2>&1
-
-echo ""
-echo "Последние логи backend:"
-docker compose logs --tail=20 crm-backend 2>&1
-
-echo ""
-echo "Последние логи frontend:"
-docker compose logs --tail=20 crm-frontend 2>&1
-
-# 10. Проверка работы API
-echo ""
-echo "10. Проверка работы API..."
-sleep 3
-if curl -s http://localhost:3001/api/health > /dev/null 2>&1; then
-    success "API работает"
-else
-    info "API не отвечает (возможно, еще запускается)"
-fi
-
-echo ""
-success "=== Готово! ==="
-echo ""
-echo "CRM доступна по адресу: http://momentumtrading.ru"
-echo "Админка бота: http://momentumtrading.ru/bot-admin"
-echo ""
-echo "⚠️  Не забудьте обновить страницу с очисткой кэша (Ctrl+F5 или Ctrl+Shift+R)"
-echo ""
-echo "Для просмотра логов используйте:"
-echo "  docker compose logs -f bot"
-echo "  docker compose logs -f crm-backend"
-echo "  docker compose logs -f crm-frontend"
-
+success "=== ГОТОВО! ==="
+echo "Попробуйте написать боту /start"
