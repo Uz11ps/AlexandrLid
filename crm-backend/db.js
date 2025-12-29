@@ -146,8 +146,11 @@ export const query = async (text, params) => {
         try {
           const testRes = await testPool.query('SELECT 1');
           const res = await testPool.query(text, params);
-          console.log(`✅ [Backend DB] Recovery successful with password #${i+1}!`);
+          console.log(`✅ [Backend DB] Recovery successful with password #${i+1}! Updating main pool...`);
+          // ПЕРЕКЛЮЧАЕМ основной пул ДО закрытия временного
           switchPool(pass);
+          // Даем время на переключение пула
+          await new Promise(resolve => setTimeout(resolve, 200));
           await testPool.end().catch(() => {});
           return res;
         } catch (e) {
