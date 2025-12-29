@@ -72,7 +72,8 @@ done
 
 # 8. Синхронизация пароля (Через переменную окружения для надежности)
 info "Синхронизация пароля PostgreSQL..."
-DB_PASS=$(grep "^DB_PASSWORD=" .env | head -n 1 | cut -d'=' -f2- | tr -d '\r' | sed 's/^"//;s/"$//' | sed "s/^'//;s/'$//")
+# Более надежный метод извлечения: убираем комментарии, пробелы и кавычки
+DB_PASS=$(grep "^DB_PASSWORD=" .env | cut -d'=' -f2- | sed 's/[[:space:]]*#.*$//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/^"//;s/"$//' | sed "s/^'//;s/'$//")
 
 if [ -z "$DB_PASS" ]; then
     info "⚠️  DB_PASSWORD не найден в .env, используем 'postgres'"

@@ -35,40 +35,28 @@ console.log(`🔍 [Bot DB] Attempting connection to ${dbConfig.host}:${dbConfig.
 
 let pool = new Pool(dbConfig);
 
-// Механизм автоматического восстановления при ошибке пароля
-pool.on('error', async (err) => {
-  if (err.message.includes('password authentication failed')) {
-    console.error('❌ [Bot DB] FATAL: Password authentication failed. Trying fallback to "postgres"...');
-    // В случае ошибки пробуем дефолтный пароль
-    const fallbackConfig = { ...dbConfig, password: 'postgres' };
-    pool = new Pool(fallbackConfig);
-  } else {
-    console.error('❌ [Bot DB] Unexpected error:', err.message);
-  }
-});
-
-// Тестовый запрос для немедленной проверки
+// Упрощаем логику: просто логируем и пробуем подключиться
 (async () => {
   try {
     const client = await pool.connect();
     console.log('✅ [Bot DB] Connected successfully');
-    await client.query("SET timezone = 'Europe/Moscow'");
     client.release();
   } catch (err) {
-    if (err.message.includes('password authentication failed') && dbConfig.password !== 'postgres') {
-      console.log('⚠️ [Bot DB] Primary password failed, trying fallback "postgres"...');
+    console.error(`❌ [Bot DB] Connection failed with password: ${maskPassword(dbConfig.password)}`);
+    console.error(`❌ [Bot DB] Error details: ${err.message}`);
+    
+    // Если пароль из env не подошел, пробуем дефолтный (только для отладки)
+    if (dbConfig.password !== 'postgres') {
+      console.log('⚠️ [Bot DB] Trying fallback to default "postgres" password...');
       try {
-        const fallbackConfig = { ...dbConfig, password: 'postgres' };
-        const fallbackPool = new Pool(fallbackConfig);
+        const fallbackPool = new Pool({ ...dbConfig, password: 'postgres' });
         const client = await fallbackPool.connect();
-        console.log('✅ [Bot DB] Connected successfully using fallback password!');
+        console.log('✅ [Bot DB] Connected using fallback! (Please update your .env)');
         pool = fallbackPool;
         client.release();
-      } catch (fallbackErr) {
-        console.error('❌ [Bot DB] Both primary and fallback passwords failed.');
+      } catch (e) {
+        console.error('❌ [Bot DB] Fallback also failed.');
       }
-    } else {
-      console.error('❌ [Bot DB] Connection failed:', err.message);
     }
   }
 })();
