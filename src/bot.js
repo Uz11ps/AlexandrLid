@@ -42,7 +42,8 @@ bot.use(checkBlacklist);
 // Обработка ошибок
 bot.catch((err, ctx) => {
   console.error('Ошибка в боте:', err);
-  ctx.reply('❌ Произошла ошибка. Попробуйте позже.');
+  const errorMessage = err.message || 'Неизвестная ошибка';
+  ctx.reply(`❌ Произошла ошибка: ${errorMessage}. Попробуйте позже.`);
 });
 
 // Команда /start

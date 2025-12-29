@@ -97,7 +97,6 @@ export async function handleStart(ctx) {
       if (referralCreated) {
         // Начисление баллов рефереру (10 баллов за активного реферала)
         try {
-          const { addPoints } = (await import('../db.js')).db;
           const { getCurrentStage } = await import('./contest.js');
           const currentStage = getCurrentStage().id;
           await db.addPoints(referrerId, 10, 'За приглашение реферала', currentStage);
