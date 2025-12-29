@@ -233,8 +233,10 @@ async function startServer() {
         };
         
         await ensureColumn('students', 'payment_currency', "VARCHAR(10) DEFAULT 'RUB'");
+        await ensureColumn('students', 'payment_method', "VARCHAR(50)");
         await ensureColumn('message_templates', 'is_active', 'BOOLEAN DEFAULT TRUE');
         await ensureColumn('documents', 'created_by', 'INTEGER');
+        await ensureColumn('documents', 'lead_id', 'INTEGER');
         await ensureColumn('courses', 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
         
         // Создаем таблицу ticket_messages, если она не существует

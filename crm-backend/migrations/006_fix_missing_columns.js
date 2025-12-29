@@ -55,6 +55,7 @@ export async function up() {
         await ensureColumn('students', 'payment_amount', "DECIMAL(10, 2)");
         console.log('   🔍 Checking payment_currency...');
         await ensureColumn('students', 'payment_currency', "VARCHAR(10) DEFAULT 'RUB'");
+        await ensureColumn('students', 'payment_method', "VARCHAR(50)");
         await ensureColumn('students', 'payment_status', "VARCHAR(50) DEFAULT 'pending'");
         await ensureColumn('students', 'progress_percent', "INTEGER DEFAULT 0");
         await ensureColumn('students', 'curator_id', "INTEGER");
@@ -87,6 +88,7 @@ export async function up() {
         // 7. DOCUMENTS
         console.log('   🔍 Checking documents.created_by...');
         await ensureColumn('documents', 'created_by', "INTEGER");
+        await ensureColumn('documents', 'lead_id', "INTEGER");
 
         // 8. TICKET_MESSAGES
         console.log('   🔍 Checking ticket_messages table...');
