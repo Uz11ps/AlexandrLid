@@ -164,13 +164,54 @@ export const query = async (text, params) => {
 
 // Функция для получения клиента из пула (для транзакций в миграциях)
 export const connect = async () => {
-  // Убеждаемся, что пул использует актуальный пароль
-  const envPass = getEnv('DB_PASSWORD', 'postgres');
-  if (envPass !== currentPassword) {
-    console.log(`🔄 [Backend DB] Password changed in env (${currentPassword.length} -> ${envPass.length}), updating pool...`);
-    switchPool(envPass);
+  try {
+    // Убеждаемся, что пул использует актуальный пароль
+    const envPass = getEnv('DB_PASSWORD', 'postgres');
+    if (envPass !== currentPassword) {
+      console.log(`🔄 [Backend DB] Password changed in env (${currentPassword.length} -> ${envPass.length}), updating pool...`);
+      switchPool(envPass);
+      // Даем время на переключение пула
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    return await pool.connect();
+  } catch (err) {
+    if (err.message.includes('password authentication failed') || err.code === '28P01') {
+      const envPass = getEnv('DB_PASSWORD', 'postgres');
+      console.log(`⚠️ [Backend DB] Connect failed, trying recovery...`);
+      
+      // Пробуем все пароли
+      const passwords = [envPass, 'postgres', '', 'password'];
+      const uniquePasswords = [];
+      const seen = new Set();
+      for (const pass of passwords) {
+        if (!seen.has(pass)) {
+          seen.add(pass);
+          uniquePasswords.push(pass);
+        }
+      }
+      
+      for (let i = 0; i < uniquePasswords.length; i++) {
+        const pass = uniquePasswords[i];
+        console.log(`🔑 [Backend DB] Trying connect with password #${i+1} (len: ${pass.length})...`);
+        
+        const tPool = createPool(pass);
+        try {
+          const testClient = await tPool.connect();
+          await testClient.query('SELECT 1');
+          testClient.release();
+          console.log(`✅ [Backend DB] Connect recovery successful with password #${i+1}!`);
+          switchPool(pass);
+          await new Promise(resolve => setTimeout(resolve, 100));
+          return await pool.connect();
+        } catch (e) {
+          console.log(`❌ [Backend DB] Connect password #${i+1} failed: ${e.message.substring(0, 60)}...`);
+          await tPool.end().catch(() => {});
+        }
+      }
+      console.error('❌ [Backend DB] All connect recovery passwords failed!');
+    }
+    throw err;
   }
-  return await pool.connect();
 };
 
 // Проверка подключения
