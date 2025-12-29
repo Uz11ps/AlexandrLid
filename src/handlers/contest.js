@@ -38,23 +38,33 @@ export const CONTEST_STAGES = {
 export const getCurrentStage = () => {
   const now = new Date();
   
+  console.log('[getCurrentStage] Текущая дата:', now.toISOString());
+  console.log('[getCurrentStage] STAGE_1:', CONTEST_STAGES.STAGE_1.startDate.toISOString(), '-', CONTEST_STAGES.STAGE_1.endDate.toISOString());
+  console.log('[getCurrentStage] STAGE_2:', CONTEST_STAGES.STAGE_2.startDate.toISOString(), '-', CONTEST_STAGES.STAGE_2.endDate.toISOString());
+  console.log('[getCurrentStage] STAGE_3:', CONTEST_STAGES.STAGE_3.startDate.toISOString(), '-', CONTEST_STAGES.STAGE_3.endDate.toISOString());
+  
   // Проверяем этапы по порядку
   if (now >= CONTEST_STAGES.STAGE_1.startDate && now <= CONTEST_STAGES.STAGE_1.endDate) {
+    console.log('[getCurrentStage] Возвращаем STAGE_1');
     return CONTEST_STAGES.STAGE_1;
   }
   if (now >= CONTEST_STAGES.STAGE_2.startDate && now <= CONTEST_STAGES.STAGE_2.endDate) {
+    console.log('[getCurrentStage] Возвращаем STAGE_2');
     return CONTEST_STAGES.STAGE_2;
   }
   if (now >= CONTEST_STAGES.STAGE_3.startDate && now <= CONTEST_STAGES.STAGE_3.endDate) {
+    console.log('[getCurrentStage] Возвращаем STAGE_3');
     return CONTEST_STAGES.STAGE_3;
   }
   
   // Если до начала первого этапа - возвращаем первый этап
   if (now < CONTEST_STAGES.STAGE_1.startDate) {
+    console.log('[getCurrentStage] До начала STAGE_1, возвращаем STAGE_1');
     return CONTEST_STAGES.STAGE_1;
   }
   
   // Если после окончания всех этапов - возвращаем последний этап
+  console.log('[getCurrentStage] После окончания всех этапов, возвращаем STAGE_3');
   return CONTEST_STAGES.STAGE_3;
 };
 
