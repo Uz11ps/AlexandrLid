@@ -189,10 +189,13 @@ const safeQuery = async (text, params) => {
   }
 };
 
-// Проверка при старте
+// Проверка при старте (не блокирующая - бот должен запуститься даже при ошибках БД)
 safeQuery('SELECT NOW()')
   .then(() => console.log('✅ [Bot DB] Connected successfully'))
-  .catch(err => console.error('❌ [Bot DB] Initial failure:', err.message));
+  .catch(err => {
+    console.error('❌ [Bot DB] Initial failure:', err.message);
+    console.log('⚠️ [Bot DB] Bot will continue running despite DB connection issues');
+  });
 
 export { pool };
 
