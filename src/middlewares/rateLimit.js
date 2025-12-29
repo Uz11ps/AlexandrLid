@@ -1,4 +1,4 @@
-import { pool } from '../db.js';
+import { query } from '../db.js';
 
 // Простой rate limiting middleware
 const userRequests = new Map();
@@ -14,7 +14,7 @@ let rateLimitSettings = {
 // Загрузка настроек лимитов из БД
 async function loadRateLimitSettings() {
   try {
-    const settingsResult = await pool.query(
+    const settingsResult = await query(
       "SELECT key, value FROM bot_settings WHERE key IN ('user_rate_limit', 'user_rate_window', 'admin_rate_limit', 'admin_rate_window')"
     );
     
@@ -26,6 +26,7 @@ async function loadRateLimitSettings() {
     });
   } catch (error) {
     console.error('Error loading rate limit settings:', error);
+    // Используем значения по умолчанию при ошибке подключения к БД
   }
 }
 
