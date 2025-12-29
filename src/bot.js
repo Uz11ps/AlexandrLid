@@ -303,8 +303,11 @@ bot.on('callback_query', async (ctx) => {
       
       const { getMainMenu } = await import('./handlers/menu.js');
       
+      console.log('[CALLBACK] Обработка menu_ callback:', data);
+      
       switch (data) {
       case 'menu_main':
+        console.log('[MENU_MAIN] Обработчик menu_main вызван!');
         try {
           const { getCurrentStage } = await import('./handlers/contest.js');
           const stage = getCurrentStage();
