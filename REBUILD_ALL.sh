@@ -209,25 +209,50 @@ else
     if docker compose exec -T -e PGPASSWORD="postgres" telegram_db_alex psql -U postgres -d postgres -c "SELECT 1;" > /dev/null 2>&1; then
         warning "База использует пароль 'postgres', а не пароль из .env!"
         info "Повторная синхронизация пароля..."
-        docker compose exec -T -e PGPASSWORD="postgres" telegram_db_alex psql -U postgres -d postgres -c "ALTER USER postgres WITH PASSWORD '$DB_PASS_FROM_ENV';" > /dev/null 2>&1
+        # Экранируем пароль для SQL
+        SQL_PASSWORD=$(echo "$DB_PASS_FROM_ENV" | sed "s/'/''/g")
+        docker compose exec -T -e PGPASSWORD="postgres" telegram_db_alex psql -U postgres -d postgres -c "ALTER USER postgres WITH PASSWORD '$SQL_PASSWORD';" > /dev/null 2>&1
         sleep 2
-        if docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d postgres -c "SELECT 1;" > /dev/null 2>&1; then
-            success "Пароль синхронизирован повторно!"
-        fi
+        # Проверяем несколько раз
+        for i in {1..3}; do
+            if docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d postgres -c "SELECT 1;" > /dev/null 2>&1; then
+                success "Пароль синхронизирован повторно (попытка #$i)!"
+                break
+            else
+                info "Попытка #$i: пароль еще не применился, ждем..."
+                sleep 2
+            fi
+        done
+    else
+        error "Не удалось подключиться даже с паролем 'postgres'!"
     fi
 fi
 
 # 7.7. Проверка подключения из контейнера бота
 info "Проверка подключения к БД из контейнера бота..."
 # Устанавливаем psql в контейнер бота (если его нет) и проверяем подключение
-if docker compose exec -T bot sh -c "command -v psql > /dev/null 2>&1 || apk add --no-cache postgresql-client > /dev/null 2>&1; PGPASSWORD=\"$DB_PASS_FROM_ENV\" psql -h telegram_db_alex -U postgres -d telegram_bot_db -c 'SELECT 1;' > /dev/null 2>&1" 2>/dev/null; then
+BOT_CONNECTION_TEST=$(docker compose exec -T bot sh -c "command -v psql > /dev/null 2>&1 || apk add --no-cache postgresql-client > /dev/null 2>&1; PGPASSWORD=\"$DB_PASS_FROM_ENV\" psql -h telegram_db_alex -U postgres -d telegram_bot_db -c 'SELECT 1;' 2>&1" 2>&1)
+if echo "$BOT_CONNECTION_TEST" | grep -q "password authentication failed"; then
+    warning "Бот НЕ может подключиться с паролем из .env!"
+    info "Ошибка подключения: $(echo "$BOT_CONNECTION_TEST" | head -n 1)"
+    info "Пробуем с паролем 'postgres'..."
+    BOT_CONNECTION_TEST_POSTGRES=$(docker compose exec -T bot sh -c "PGPASSWORD=\"postgres\" psql -h telegram_db_alex -U postgres -d telegram_bot_db -c 'SELECT 1;' 2>&1" 2>&1)
+    if echo "$BOT_CONNECTION_TEST_POSTGRES" | grep -q "password authentication failed"; then
+        error "Бот НЕ может подключиться даже с паролем 'postgres'!"
+        error "Ошибка: $(echo "$BOT_CONNECTION_TEST_POSTGRES" | head -n 1)"
+    else
+        warning "Бот может подключиться только с паролем 'postgres'!"
+        info "Синхронизируем пароль в базе данных..."
+        docker compose exec -T -e PGPASSWORD="postgres" telegram_db_alex psql -U postgres -d postgres -c "ALTER USER postgres WITH PASSWORD '$DB_PASS_FROM_ENV';" > /dev/null 2>&1
+        sleep 2
+        if docker compose exec -T bot sh -c "PGPASSWORD=\"$DB_PASS_FROM_ENV\" psql -h telegram_db_alex -U postgres -d telegram_bot_db -c 'SELECT 1;' > /dev/null 2>&1" 2>/dev/null; then
+            success "После синхронизации: бот может подключиться!"
+        fi
+    fi
+elif echo "$BOT_CONNECTION_TEST" | grep -q "1"; then
     success "Бот может подключиться к БД из своего контейнера!"
 else
-    warning "Бот НЕ может подключиться к БД из своего контейнера!"
-    info "Пробуем с паролем 'postgres'..."
-    if docker compose exec -T bot sh -c "PGPASSWORD=\"postgres\" psql -h telegram_db_alex -U postgres -d telegram_bot_db -c 'SELECT 1;' > /dev/null 2>&1" 2>/dev/null; then
-        warning "Бот может подключиться только с паролем 'postgres'!"
-    fi
+    warning "Неожиданный результат проверки подключения бота"
 fi
 
 # 7.6. Перезапуск бота и бэкенда для применения правильного пароля
