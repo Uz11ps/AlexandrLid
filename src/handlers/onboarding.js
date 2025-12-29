@@ -290,29 +290,17 @@ export async function handleStart(ctx) {
   }
 
   // Приветственное сообщение
-  console.log('[START HANDLER] ========== НАЧАЛО ФОРМИРОВАНИЯ СООБЩЕНИЯ ==========');
-  console.log('[START HANDLER] Импортируем getCurrentStage...');
-  const { getCurrentStage } = await import('./contest.js');
-  console.log('[START HANDLER] getCurrentStage импортирован, вызываем...');
-  const stage = getCurrentStage();
-  
-  console.log('[START HANDLER] getCurrentStage вызван, этап:', stage.name, stage.period);
-  console.log('[START HANDLER] Текущая дата:', new Date().toISOString());
-  console.log('[START HANDLER] stage object:', JSON.stringify(stage, null, 2));
-  
   // Формируем условия - для всех этапов одинаковые
   const conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
   
   const welcomeMessage = 
     `🔥 Добро пожаловать БОЛЬШОЙ РОЗЫГРЫШ от MOMENTUM TRADING!\n\n` +
     `3 недели. 3 этапа. Много призов.\n\n` +
-    `Сейчас идёт ${stage.name} (${stage.period})\n\n` +
+    `Сейчас идёт ЭТАП 1 (29.12 - 04.01)\n\n` +
     `Что дальше:\n` +
     `${conditionsText}\n\n` +
     `Баллы с каждого этапа копятся и работают на тебя в финале!\n\n` +
     `Начнём? 👇`;
-
-  console.log('[START HANDLER] Формируем сообщение:', welcomeMessage);
   
   const { getMainMenu } = await import('./menu.js');
   await ctx.reply(welcomeMessage, getMainMenu());
@@ -331,29 +319,17 @@ export async function handleStart(ctx) {
     
     // Отправляем приветственное сообщение даже при ошибках БД
     try {
-      console.log('[START HANDLER] [FALLBACK] ========== НАЧАЛО ФОРМИРОВАНИЯ СООБЩЕНИЯ (FALLBACK) ==========');
-      console.log('[START HANDLER] [FALLBACK] Импортируем getCurrentStage...');
-      const { getCurrentStage } = await import('./contest.js');
-      console.log('[START HANDLER] [FALLBACK] getCurrentStage импортирован, вызываем...');
-      const stage = getCurrentStage();
-      
-      console.log('[START HANDLER] [FALLBACK] getCurrentStage вызван, этап:', stage.name, stage.period);
-      console.log('[START HANDLER] [FALLBACK] Текущая дата:', new Date().toISOString());
-      console.log('[START HANDLER] [FALLBACK] stage object:', JSON.stringify(stage, null, 2));
-      
       // Формируем условия - для всех этапов одинаковые
       const conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
       
       const welcomeMessage = 
         `🔥 Добро пожаловать БОЛЬШОЙ РОЗЫГРЫШ от MOMENTUM TRADING!\n\n` +
         `3 недели. 3 этапа. Много призов.\n\n` +
-        `Сейчас идёт ${stage.name} (${stage.period})\n\n` +
+        `Сейчас идёт ЭТАП 1 (29.12 - 04.01)\n\n` +
         `Что дальше:\n` +
         `${conditionsText}\n\n` +
         `Баллы с каждого этапа копятся и работают на тебя в финале!\n\n` +
         `Начнём? 👇`;
-
-      console.log('[START HANDLER] [FALLBACK] Формируем сообщение:', welcomeMessage);
 
       const { getMainMenu } = await import('./menu.js');
       await ctx.reply(welcomeMessage, getMainMenu());
