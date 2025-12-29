@@ -187,12 +187,24 @@ async function startServer() {
     } catch (error) {}
     
     // Применяем фикс недостающих колонок
-    await fixMissingColumns();
+    try {
+      await fixMissingColumns();
+    } catch (error) {
+      console.error('❌ Error in migration 006:', error);
+    }
     
     console.log('✅ All migrations completed');
   } catch (error) {
     console.error('❌ Error running migrations:', error);
     console.warn('⚠️ Server will start anyway, but some features may not work');
+    
+    // Пытаемся выполнить миграцию 006 даже если другие миграции упали
+    try {
+      console.log('🔄 Attempting to run migration 006 after error...');
+      await fixMissingColumns();
+    } catch (err) {
+      console.error('❌ Error in migration 006 (retry):', err);
+    }
   }
   
   app.listen(PORT, () => {
