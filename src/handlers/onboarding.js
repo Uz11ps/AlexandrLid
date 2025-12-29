@@ -2,13 +2,14 @@ import db from '../db.js';
 
 // Обработчик команды /start
 export async function handleStart(ctx) {
-  console.log('[START HANDLER] Команда /start получена от пользователя:', ctx.from?.id, ctx.from?.username);
-  const userId = ctx.from.id;
-  const username = ctx.from.username;
-  const firstName = ctx.from.first_name;
-  const lastName = ctx.from.last_name;
-  const languageCode = ctx.from.language_code;
-  const isBot = ctx.from.is_bot || false;
+  try {
+    console.log('[START HANDLER] Команда /start получена от пользователя:', ctx.from?.id, ctx.from?.username);
+    const userId = ctx.from.id;
+    const username = ctx.from.username;
+    const firstName = ctx.from.first_name;
+    const lastName = ctx.from.last_name;
+    const languageCode = ctx.from.language_code;
+    const isBot = ctx.from.is_bot || false;
 
   // Парсинг реферального кода из параметра start
   // Сначала проверяем текст сообщения, так как ctx.startParam может быть некорректным
@@ -322,6 +323,42 @@ export async function handleStart(ctx) {
     await sendLeadMagnet(ctx);
   } catch (error) {
     console.error('Ошибка при отправке лид-магнита:', error);
+  }
+  } catch (error) {
+    // Общий обработчик ошибок - гарантируем отправку приветственного сообщения
+    console.error('[START HANDLER] Критическая ошибка в handleStart:', error.message);
+    
+    // Отправляем приветственное сообщение даже при ошибках БД
+    try {
+      const { getCurrentStage } = await import('./contest.js');
+      const stage = getCurrentStage();
+      
+      // Формируем условия в зависимости от этапа
+      let conditionsText = '';
+      if (stage.id === 1) {
+        conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
+      } else if (stage.id === 2) {
+        conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в викторине\n→ Участвуй в розыгрыше призов`;
+      } else {
+        conditionsText = stage.conditions.replace(/^- /gm, '→ ').replace(/\n/g, '\n');
+      }
+      
+      const welcomeMessage = 
+        `🔥 Добро пожаловать БОЛЬШОЙ РОЗЫГРЫШ от MOMENTUM TRADING!\n\n` +
+        `3 недели. 3 этапа. Много призов.\n\n` +
+        `Сейчас идёт ${stage.name} (${stage.period})\n\n` +
+        `Что дальше:\n` +
+        `${conditionsText}\n\n` +
+        `Баллы с каждого этапа копятся и работают на тебя в финале!\n\n` +
+        `Начнём? 👇`;
+
+      const { getMainMenu } = await import('./menu.js');
+      await ctx.reply(welcomeMessage, getMainMenu());
+    } catch (fallbackError) {
+      console.error('[START HANDLER] Ошибка при отправке fallback сообщения:', fallbackError.message);
+      // Последняя попытка - простое сообщение
+      await ctx.reply('🔥 Добро пожаловать в БОЛЬШОЙ РОЗЫГРЫШ от MOMENTUM TRADING!');
+    }
   }
 }
 
