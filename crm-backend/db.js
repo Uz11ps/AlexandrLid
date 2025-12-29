@@ -24,7 +24,14 @@ const dbConfig = {
   idleTimeoutMillis: 30000,
 };
 
-console.log(`🔍 [DB] Attempting connection to ${dbConfig.host}:${dbConfig.port} as ${dbConfig.user} (pass length: ${dbConfig.password.length})`);
+const maskPassword = (pass) => {
+  if (!pass) return 'none';
+  if (pass === 'postgres') return 'default (postgres)';
+  if (pass.length <= 2) return '*'.repeat(pass.length);
+  return pass[0] + '*'.repeat(pass.length - 2) + pass[pass.length - 1];
+};
+
+console.log(`🔍 [DB] Attempting connection to ${dbConfig.host}:${dbConfig.port} as ${dbConfig.user} (pass: ${maskPassword(dbConfig.password)}, len: ${dbConfig.password.length})`);
 
 let pool = new pg.Pool(dbConfig);
 

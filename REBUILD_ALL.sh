@@ -80,12 +80,13 @@ if [ -z "$DB_PASS" ]; then
 fi
 
 info "Попытка установить пароль для пользователя postgres (длина пароля: ${#DB_PASS})..."
-# Передаем пароль через переменную окружения psql, чтобы избежать проблем с кавычками в shell
-if docker compose exec -T -e NEW_PASS="$DB_PASS" -u postgres postgres psql -d postgres -c "ALTER USER postgres WITH PASSWORD '\$NEW_PASS';" ; then
+# Используем psql для смены пароля. Важно: Host shell расширяет $DB_PASS
+if docker compose exec -T -u postgres postgres psql -d postgres -c "ALTER USER postgres WITH PASSWORD '$DB_PASS';" ; then
     success "Пароль PostgreSQL успешно обновлен в базе"
 else
-    info "⚠️  Не удалось обновить пароль. Попробуем второй метод..."
-    docker compose exec -T -e NEW_PASS="$DB_PASS" -e PGPASSWORD=postgres -u postgres postgres psql -d postgres -c "ALTER USER postgres WITH PASSWORD '\$NEW_PASS';" || info "Все методы смены пароля исчерпаны."
+    info "⚠️  Не удалось обновить пароль первым методом. Пробуем второй..."
+    # Если первый метод не сработал (редко), пробуем через PGPASSWORD
+    docker compose exec -T -e PGPASSWORD=postgres -u postgres postgres psql -d postgres -c "ALTER USER postgres WITH PASSWORD '$DB_PASS';" || info "Все методы смены пароля исчерпаны."
 fi
 
 # 9. Обновление прав
