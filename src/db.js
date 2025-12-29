@@ -200,8 +200,7 @@ safeQuery('SELECT NOW()')
 export { pool };
 
 // Экспортируем safeQuery как query для использования в других модулях
-const query = safeQuery;
-export { query };
+export const query = safeQuery;
 
 export const db = {
   // === USERS ===
