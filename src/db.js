@@ -9,36 +9,54 @@ const getEnv = (key, defaultValue) => {
   return String(value).split('#')[0].trim().replace(/\r/g, '');
 };
 
-const dbConfig = {
+const getDbConfig = (password) => ({
   host: getEnv('DB_HOST', 'postgres'),
   port: parseInt(getEnv('DB_PORT', '5432')),
   database: getEnv('DB_NAME', 'telegram_bot_db'),
   user: getEnv('DB_USER', 'postgres'),
-  password: getEnv('DB_PASSWORD', 'postgres'),
+  password: password,
+});
+
+// Начальный пароль из окружения или дефолтный
+const initialPassword = getEnv('DB_PASSWORD', 'postgres');
+let pool = new Pool(getDbConfig(initialPassword));
+
+// Функция для безопасного выполнения запросов с авто-переподключением
+const smartQuery = async (text, params) => {
+  try {
+    return await pool.query(text, params);
+  } catch (err) {
+    if (err.message.includes('password authentication failed')) {
+      console.log('⚠️ [Bot DB] Auth failed, trying standard "postgres" password...');
+      const fallbackPool = new Pool(getDbConfig('postgres'));
+      try {
+        const res = await fallbackPool.query(text, params);
+        // Если сработало, заменяем основной пул
+        const oldPool = pool;
+        pool = fallbackPool;
+        oldPool.end().catch(() => {});
+        console.log('✅ [Bot DB] Switched to standard password pool');
+        return res;
+      } catch (fallbackErr) {
+        await fallbackPool.end().catch(() => {});
+        throw err; // Прокидываем оригинальную ошибку
+      }
+    }
+    throw err;
+  }
 };
 
-console.log(`🔍 [Bot DB] Connecting to ${dbConfig.host} as ${dbConfig.user} (len: ${dbConfig.password.length})`);
-
-const pool = new Pool(dbConfig);
-
-// Экспортируем функцию запроса, которая всегда использует актуальный пул
-export const query = (text, params) => pool.query(text, params);
-
-// Проверка подключения
-pool.query('SELECT NOW()', (err) => {
-  if (err) {
-    console.error('❌ [Bot DB] Connection error:', err.message);
-  } else {
-    console.log('✅ [Bot DB] Connected successfully');
-  }
-});
+// Проверка подключения при старте
+smartQuery('SELECT NOW()')
+  .then(() => console.log('✅ [Bot DB] Connected successfully'))
+  .catch(err => console.error('❌ [Bot DB] Initial connection failed:', err.message));
 
 export { pool };
 
 export const db = {
   // === USERS ===
   async getUser(userId) {
-    const res = await pool.query('SELECT * FROM users WHERE user_id = $1', [userId]);
+    const res = await smartQuery('SELECT * FROM users WHERE user_id = $1', [userId]);
     return res.rows[0];
   },
 

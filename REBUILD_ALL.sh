@@ -50,7 +50,11 @@ fi
 
 # 5. Запуск всех сервисов
 info "Запуск всех сервисов..."
-# Мы полагаемся на POSTGRES_PASSWORD в docker-compose.yml
+# Принудительно загружаем .env в окружение текущего shell для docker compose
+set -a
+[ -f .env ] && . ./.env
+set +a
+
 if ! docker compose up -d; then
     error "Не удалось запустить сервисы"
 fi

@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: telegram_bot_db
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       TZ: Europe/Moscow
     ports:
       - "5433:5432"
@@ -26,6 +26,8 @@ services:
         condition: service_healthy
     env_file:
       - .env
+    environment:
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
     restart: unless-stopped
 
   crm-backend:
@@ -39,6 +41,7 @@ services:
     environment:
       - PORT=3001
       - TZ=Europe/Moscow
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
     ports:
       - "3001:3001"
     restart: unless-stopped
