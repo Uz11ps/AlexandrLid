@@ -4,14 +4,14 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config();
+
+// Загружаем .env вручную
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
 // Принудительная очистка переменных окружения
 const getEnv = (key, defaultValue) => {
   let value = process.env[key];
   if (value === undefined || value === '') return defaultValue;
-  // Убираем комментарии и лишние пробелы
   return String(value).split('#')[0].trim().replace(/\r/g, '');
 };
 

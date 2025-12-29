@@ -47,8 +47,6 @@ git pull
 
 # 5. Пересборка сервисов
 info "Полная пересборка всех сервисов БЕЗ кэша..."
-# Экспортируем переменные из .env для корректной интерполяции в docker-compose.yml
-export $(grep -v '^#' .env | xargs)
 if ! docker compose build --no-cache --pull; then
     error "Не удалось пересобрать сервисы"
 fi

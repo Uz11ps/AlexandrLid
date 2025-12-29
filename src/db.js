@@ -4,7 +4,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config();
+
+// Загружаем .env вручную для максимальной надежности
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const { Pool } = pg;
@@ -13,7 +14,6 @@ const { Pool } = pg;
 const getEnv = (key, defaultValue) => {
   let value = process.env[key];
   if (value === undefined || value === '') return defaultValue;
-  // Убираем комментарии и лишние пробелы
   return String(value).split('#')[0].trim().replace(/\r/g, '');
 };
 
@@ -22,7 +22,7 @@ const dbConfig = {
   port: parseInt(getEnv('DB_PORT', '5432')),
   database: getEnv('DB_NAME', 'telegram_bot_db'),
   user: getEnv('DB_USER', 'postgres'),
-  password: getEnv('DB_PASSWORD', ''), // Оставляем пустым, если не задано
+  password: getEnv('DB_PASSWORD', ''),
 };
 
 const maskPassword = (pass) => {
