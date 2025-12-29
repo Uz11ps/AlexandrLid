@@ -1,6 +1,6 @@
 import pg from 'pg';
 
-const { Pool } = pg;
+const { Pool, Client } = pg;
 
 // Принудительная очистка переменных окружения
 const getEnv = (key, defaultValue) => {
@@ -107,6 +107,33 @@ const switchPool = (newPassword) => {
   setTimeout(() => oldPool.end().catch(() => {}), 5000);
 };
 
+// Функция для тестирования подключения с паролем через прямой Client
+const testConnection = async (password) => {
+  const { Client } = pg;
+  const client = new Client({
+    host: getEnv('DB_HOST', 'telegram_db_alex'),
+    port: parseInt(getEnv('DB_PORT', '5432')),
+    database: getEnv('DB_NAME', 'telegram_bot_db'),
+    user: getEnv('DB_USER', 'postgres'),
+    password: password,
+    connectionTimeoutMillis: 5000,
+  });
+  
+  try {
+    await client.connect();
+    await client.query('SELECT 1');
+    await client.end();
+    return true;
+  } catch (e) {
+    try {
+      await client.end();
+    } catch (e2) {
+      // Игнорируем ошибки при закрытии
+    }
+    return false;
+  }
+};
+
 // Глобальный перехватчик запросов с авто-восстановлением
 const safeQuery = async (text, params) => {
   try {
@@ -132,14 +159,14 @@ const safeQuery = async (text, params) => {
       console.log(`🔍 [Bot DB] Match: ${currentPassword === envPass}`);
       
       // ЗАКРЫВАЕМ старый пул ПЕРЕД созданием нового
-      console.log(`🔄 [Bot DB] Closing old pool and recreating with fresh password...`);
+      console.log(`🔄 [Bot DB] Closing old pool and testing passwords with direct Client...`);
       try {
         await pool.end();
       } catch (e) {
         // Игнорируем ошибки при закрытии
       }
       
-      // Пробуем ВСЕ возможные пароли, начиная с пароля из .env
+      // Пробуем ВСЕ возможные пароли через прямое подключение Client
       const passwords = [
         envPass,           // 1. Пароль из .env (приоритет)
         'postgres',        // 2. Стандартный PostgreSQL пароль
@@ -158,51 +185,34 @@ const safeQuery = async (text, params) => {
         }
       }
       
-      console.log(`🔍 [Bot DB] Will try ${uniquePasswords.length} unique passwords...`);
+      console.log(`🔍 [Bot DB] Will test ${uniquePasswords.length} unique passwords with direct Client...`);
       
       let workingPassword = null;
-      let workingPool = null;
       
+      // Сначала тестируем через прямой Client
       for (let i = 0; i < uniquePasswords.length; i++) {
         const pass = uniquePasswords[i];
-        console.log(`🔑 [Bot DB] Trying password #${i+1} (len: ${pass.length})...`);
+        console.log(`🔑 [Bot DB] Testing password #${i+1} (len: ${pass.length}) with direct Client...`);
         
-        const tPool = createPool(pass);
-        try {
-          // Пробуем простой запрос с таймаутом
-          const testRes = await Promise.race([
-            tPool.query('SELECT 1'),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-          ]);
-          
-          // Если тест прошел, пробуем реальный запрос
-          console.log(`✅ [Bot DB] Password #${i+1} works! Testing actual query...`);
-          const res = await Promise.race([
-            tPool.query(text, params),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-          ]);
-          
-          console.log(`✅ [Bot DB] Recovery successful with password #${i+1}! Updating pool...`);
+        const works = await testConnection(pass);
+        if (works) {
+          console.log(`✅ [Bot DB] Password #${i+1} works with direct Client! Creating pool...`);
           workingPassword = pass;
-          workingPool = tPool;
-          
-          // Обновляем глобальный пул ПЕРЕД возвратом результата
-          currentPassword = pass;
-          pool = tPool;
-          
-          return res; // Возвращаем реальный результат запроса
-        } catch (e) {
-          console.log(`❌ [Bot DB] Password #${i+1} failed: ${e.message.substring(0, 60)}...`);
-          try {
-            await tPool.end();
-          } catch (e2) {
-            // Игнорируем ошибки при закрытии
-          }
+          break;
+        } else {
+          console.log(`❌ [Bot DB] Password #${i+1} failed with direct Client`);
         }
       }
       
-      // Если мы дошли сюда, значит ни один пароль не сработал
-      // (если бы сработал, мы бы уже вернули результат выше)
+      if (workingPassword) {
+        // Создаем новый пул с рабочим паролем
+        pool = createPool(workingPassword);
+        currentPassword = workingPassword;
+        console.log(`✅ [Bot DB] Pool recreated with working password (len: ${workingPassword.length})`);
+        
+        // Выполняем запрос с новым пулом
+        return await pool.query(text, params);
+      }
       
       console.error('❌ [Bot DB] All recovery passwords failed!');
       console.error(`❌ [Bot DB] Current password: "${currentPassword}", Env password: "${envPass}"`);
