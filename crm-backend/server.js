@@ -234,6 +234,12 @@ async function startServer() {
         
         await ensureColumn('students', 'payment_currency', "VARCHAR(10) DEFAULT 'RUB'");
         await ensureColumn('students', 'payment_method', "VARCHAR(50)");
+        await ensureColumn('students', 'installment_plan', 'BOOLEAN DEFAULT FALSE');
+        await ensureColumn('students', 'installment_amount', 'DECIMAL(10, 2)');
+        await ensureColumn('students', 'installment_periods', 'INTEGER');
+        await ensureColumn('students', 'materials_access', 'BOOLEAN DEFAULT FALSE');
+        await ensureColumn('students', 'graduation_date', 'DATE');
+        await ensureColumn('students', 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
         await ensureColumn('message_templates', 'is_active', 'BOOLEAN DEFAULT TRUE');
         await ensureColumn('documents', 'created_by', 'INTEGER');
         await ensureColumn('documents', 'lead_id', 'INTEGER');

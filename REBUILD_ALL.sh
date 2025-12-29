@@ -306,6 +306,42 @@ else
     warning "Не удалось добавить students.payment_method (возможно, уже существует)"
 fi
 
+if docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d telegram_bot_db -c "ALTER TABLE students ADD COLUMN IF NOT EXISTS installment_plan BOOLEAN DEFAULT FALSE;" > /dev/null 2>&1; then
+    success "Колонка students.installment_plan добавлена"
+else
+    warning "Не удалось добавить students.installment_plan (возможно, уже существует)"
+fi
+
+if docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d telegram_bot_db -c "ALTER TABLE students ADD COLUMN IF NOT EXISTS installment_amount DECIMAL(10, 2);" > /dev/null 2>&1; then
+    success "Колонка students.installment_amount добавлена"
+else
+    warning "Не удалось добавить students.installment_amount (возможно, уже существует)"
+fi
+
+if docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d telegram_bot_db -c "ALTER TABLE students ADD COLUMN IF NOT EXISTS installment_periods INTEGER;" > /dev/null 2>&1; then
+    success "Колонка students.installment_periods добавлена"
+else
+    warning "Не удалось добавить students.installment_periods (возможно, уже существует)"
+fi
+
+if docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d telegram_bot_db -c "ALTER TABLE students ADD COLUMN IF NOT EXISTS materials_access BOOLEAN DEFAULT FALSE;" > /dev/null 2>&1; then
+    success "Колонка students.materials_access добавлена"
+else
+    warning "Не удалось добавить students.materials_access (возможно, уже существует)"
+fi
+
+if docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d telegram_bot_db -c "ALTER TABLE students ADD COLUMN IF NOT EXISTS graduation_date DATE;" > /dev/null 2>&1; then
+    success "Колонка students.graduation_date добавлена"
+else
+    warning "Не удалось добавить students.graduation_date (возможно, уже существует)"
+fi
+
+if docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d telegram_bot_db -c "ALTER TABLE students ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;" > /dev/null 2>&1; then
+    success "Колонка students.updated_at добавлена"
+else
+    warning "Не удалось добавить students.updated_at (возможно, уже существует)"
+fi
+
 if docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d telegram_bot_db -c "ALTER TABLE message_templates ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;" > /dev/null 2>&1; then
     success "Колонка message_templates.is_active добавлена"
 else
