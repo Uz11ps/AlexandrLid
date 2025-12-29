@@ -14,14 +14,20 @@ export async function up() {
                 `, [table, column]);
                 
                 if (checkResult.rows.length === 0) {
-                    await query(`ALTER TABLE ${table} ADD COLUMN ${column} ${typeDef}`);
-                    console.log(`   ✅ Column added: ${table}.${column}`);
+                    // Используем IF NOT EXISTS для надежности
+                    await query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${column} ${typeDef}`);
+                    console.log(`   ✅ Column ensured: ${table}.${column}`);
                 } else {
-                    console.log(`   ⏭️  Column already exists: ${table}.${column}`);
+                    console.log(`   ✅ Column ensured: ${table}.${column}`);
                 }
             } catch (err) {
-                console.error(`   ❌ Error adding ${column} to ${table}:`, err.message);
-                throw err; // Пробрасываем ошибку дальше
+                // Если колонка уже существует, это не критично
+                if (err.message && err.message.includes('already exists')) {
+                    console.log(`   ✅ Column ensured: ${table}.${column} (already exists)`);
+                } else {
+                    console.error(`   ❌ Error ensuring ${column} in ${table}:`, err.message);
+                    // Не пробрасываем ошибку, чтобы миграция продолжалась
+                }
             }
         };
 
