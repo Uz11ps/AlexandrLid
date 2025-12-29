@@ -34,39 +34,43 @@ const maskPassword = (pass) => {
 };
 
 // Создаем пул с механизмом авто-подбора пароля
-let pool = new Pool(dbConfig);
+const createPool = (config) => new Pool(config);
+
+let pool = createPool(dbConfig);
 
 const tryConnect = async (config, label = 'Primary') => {
-  const testPool = new Pool(config);
+  const testPool = createPool(config);
   try {
     const client = await testPool.connect();
     client.release();
     console.log(`✅ [Bot DB] ${label} connection successful`);
     return testPool;
   } catch (err) {
+    console.log(`❌ [Bot DB] ${label} attempt failed: ${err.message}`);
     await testPool.end();
     return null;
   }
 };
 
+// Экспортируем функции, которые всегда используют АКТУАЛЬНЫЙ пул
+export const query = (text, params) => pool.query(text, params);
+
+export { pool };
+
 (async () => {
-  console.log(`🔍 [Bot DB] Connecting... (pass: ${maskPassword(dbConfig.password)}, len: ${dbConfig.password.length})`);
+  console.log(`🔍 [Bot DB] Initializing connection...`);
   
   let connectedPool = await tryConnect(dbConfig, 'Primary');
   
   if (!connectedPool && dbConfig.password !== 'postgres') {
-    console.log('⚠️ [Bot DB] Primary failed, trying fallback "postgres"...');
+    console.log('⚠️ [Bot DB] Falling back to "postgres" password...');
     connectedPool = await tryConnect({ ...dbConfig, password: 'postgres' }, 'Fallback');
   }
 
   if (connectedPool) {
     pool = connectedPool;
-  } else {
-    console.error('❌ [Bot DB] ALL CONNECTION ATTEMPTS FAILED');
   }
 })();
-
-export { pool };
 
 export const db = {
   // === USERS ===

@@ -35,15 +35,18 @@ const maskPassword = (pass) => {
 
 let pool = new pg.Pool(dbConfig);
 
+// Обертка для запросов, чтобы всегда использовать актуальный пул
+export const query = (text, params) => pool.query(text, params);
+
 (async () => {
-  console.log(`🔍 [DB] Connecting... (pass: ${maskPassword(dbConfig.password)}, len: ${dbConfig.password.length})`);
+  console.log(`🔍 [DB] Initializing connection...`);
   try {
     const client = await pool.connect();
     client.release();
-    console.log('✅ [DB] Connected successfully');
+    console.log('✅ [DB] Primary connection successful');
   } catch (err) {
     if (dbConfig.password !== 'postgres') {
-      console.log('⚠️ [DB] Primary failed, trying fallback "postgres"...');
+      console.log('⚠️ [DB] Falling back to "postgres" password...');
       try {
         const fallbackPool = new pg.Pool({ ...dbConfig, password: 'postgres' });
         const client = await fallbackPool.connect();
