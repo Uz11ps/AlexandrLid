@@ -28,7 +28,28 @@ const getDbConfig = (password) => ({
 
 // Глобальное состояние
 let currentPassword = getEnv('DB_PASSWORD', 'postgres');
-console.log(`🔍 [Bot DB] Initial password from env: len=${currentPassword.length}, host=${getEnv('DB_HOST', 'telegram_db_alex')}`);
+const rawDbPassword = process.env.DB_PASSWORD;
+const dbHost = getEnv('DB_HOST', 'telegram_db_alex');
+const dbPort = getEnv('DB_PORT', '5432');
+const dbName = getEnv('DB_NAME', 'telegram_bot_db');
+const dbUser = getEnv('DB_USER', 'postgres');
+
+console.log(`🔍 [Bot DB] ========== INITIALIZATION ==========`);
+console.log(`🔍 [Bot DB] DB_HOST: ${dbHost}`);
+console.log(`🔍 [Bot DB] DB_PORT: ${dbPort}`);
+console.log(`🔍 [Bot DB] DB_NAME: ${dbName}`);
+console.log(`🔍 [Bot DB] DB_USER: ${dbUser}`);
+console.log(`🔍 [Bot DB] DB_PASSWORD (getEnv): "${currentPassword}" (len: ${currentPassword.length})`);
+console.log(`🔍 [Bot DB] DB_PASSWORD (raw): "${rawDbPassword}" (type: ${typeof rawDbPassword}, len: ${rawDbPassword ? rawDbPassword.length : 'undefined'})`);
+console.log(`🔍 [Bot DB] All DB_* env vars:`, {
+  DB_HOST: process.env.DB_HOST,
+  DB_PORT: process.env.DB_PORT,
+  DB_NAME: process.env.DB_NAME,
+  DB_USER: process.env.DB_USER,
+  DB_PASSWORD: rawDbPassword ? `[${rawDbPassword.length} chars]` : 'undefined'
+});
+console.log(`🔍 [Bot DB] =====================================`);
+
 let pool = createPool(currentPassword);
 
 // Функция создания пула с обработчиками ошибок
