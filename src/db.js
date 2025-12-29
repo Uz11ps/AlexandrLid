@@ -110,41 +110,47 @@ const switchPool = (newPassword) => {
 
 // Функция для тестирования подключения с паролем через прямой Client
 const testConnection = async (password) => {
-  console.log(`🔍🔍🔍 [Bot DB] testConnection CALLED with password len=${password ? password.length : 'null'}`);
-  
-  const { Client } = pg;
-  const config = {
-    host: getEnv('DB_HOST', 'telegram_db_alex'),
-    port: parseInt(getEnv('DB_PORT', '5432')),
-    database: getEnv('DB_NAME', 'telegram_bot_db'),
-    user: getEnv('DB_USER', 'postgres'),
-    password: password,
-    connectionTimeoutMillis: 5000,
-  };
-  
-  console.log(`🔍 [Bot DB] Testing Client connection with: host=${config.host}, port=${config.port}, db=${config.database}, user=${config.user}, passLen=${password ? password.length : 'null'}`);
-  console.log(`🔍 [Bot DB] Password value: "${password}"`);
-  
-  const client = new Client(config);
-  console.log(`🔍 [Bot DB] Client created, attempting connect...`);
-  
   try {
-    await client.connect();
-    console.log(`✅ [Bot DB] Client.connect() succeeded!`);
-    const result = await client.query('SELECT 1');
-    console.log(`✅ [Bot DB] Client.query() succeeded! Result: ${JSON.stringify(result.rows)}`);
-    await client.end();
-    return true;
-  } catch (e) {
-    console.log(`❌ [Bot DB] Client connection failed: ${e.message}`);
-    console.log(`❌ [Bot DB] Error code: ${e.code}, severity: ${e.severity}`);
-    if (e.detail) console.log(`❌ [Bot DB] Error detail: ${e.detail}`);
-    if (e.hint) console.log(`❌ [Bot DB] Error hint: ${e.hint}`);
+    console.log(`🔍🔍🔍 [Bot DB] testConnection CALLED with password len=${password ? password.length : 'null'}`);
+    
+    const { Client } = pg;
+    const config = {
+      host: getEnv('DB_HOST', 'telegram_db_alex'),
+      port: parseInt(getEnv('DB_PORT', '5432')),
+      database: getEnv('DB_NAME', 'telegram_bot_db'),
+      user: getEnv('DB_USER', 'postgres'),
+      password: password,
+      connectionTimeoutMillis: 5000,
+    };
+    
+    console.log(`🔍 [Bot DB] Testing Client connection with: host=${config.host}, port=${config.port}, db=${config.database}, user=${config.user}, passLen=${password ? password.length : 'null'}`);
+    console.log(`🔍 [Bot DB] Password value: "${password}"`);
+    
+    const client = new Client(config);
+    console.log(`🔍 [Bot DB] Client created, attempting connect...`);
+    
     try {
+      await client.connect();
+      console.log(`✅ [Bot DB] Client.connect() succeeded!`);
+      const result = await client.query('SELECT 1');
+      console.log(`✅ [Bot DB] Client.query() succeeded! Result: ${JSON.stringify(result.rows)}`);
       await client.end();
-    } catch (e2) {
-      // Игнорируем ошибки при закрытии
+      return true;
+    } catch (e) {
+      console.log(`❌ [Bot DB] Client connection failed: ${e.message}`);
+      console.log(`❌ [Bot DB] Error code: ${e.code}, severity: ${e.severity}`);
+      if (e.detail) console.log(`❌ [Bot DB] Error detail: ${e.detail}`);
+      if (e.hint) console.log(`❌ [Bot DB] Error hint: ${e.hint}`);
+      try {
+        await client.end();
+      } catch (e2) {
+        // Игнорируем ошибки при закрытии
+      }
+      return false;
     }
+  } catch (e) {
+    console.log(`❌❌❌ [Bot DB] testConnection FATAL ERROR: ${e.message}`);
+    console.log(`❌❌❌ [Bot DB] testConnection FATAL stack: ${e.stack}`);
     return false;
   }
 };
