@@ -308,6 +308,7 @@ bot.on('callback_query', async (ctx) => {
       switch (data) {
       case 'menu_main':
         try {
+          console.log('[MENU_MAIN] ВЕРСИЯ КОДА: FIXED_STAGE_1_V2');
           // Формируем условия - для всех этапов одинаковые
           const conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
           
@@ -320,6 +321,7 @@ bot.on('callback_query', async (ctx) => {
             `Баллы с каждого этапа копятся и работают на тебя в финале!\n\n` +
             `Начнём? 👇`;
           
+          console.log('[MENU_MAIN] Отправляем сообщение:', welcomeMessage);
           await ctx.editMessageText(welcomeMessage, getMainMenu());
         } catch (error) {
           // Fallback на случай ошибки
