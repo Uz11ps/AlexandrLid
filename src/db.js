@@ -111,21 +111,31 @@ const switchPool = (newPassword) => {
 // Функция для тестирования подключения с паролем через прямой Client
 const testConnection = async (password) => {
   const { Client } = pg;
-  const client = new Client({
+  const config = {
     host: getEnv('DB_HOST', 'telegram_db_alex'),
     port: parseInt(getEnv('DB_PORT', '5432')),
     database: getEnv('DB_NAME', 'telegram_bot_db'),
     user: getEnv('DB_USER', 'postgres'),
     password: password,
     connectionTimeoutMillis: 5000,
-  });
+  };
+  
+  console.log(`🔍 [Bot DB] Testing Client connection with: host=${config.host}, port=${config.port}, db=${config.database}, user=${config.user}, passLen=${password.length}`);
+  
+  const client = new Client(config);
   
   try {
     await client.connect();
-    await client.query('SELECT 1');
+    console.log(`✅ [Bot DB] Client.connect() succeeded!`);
+    const result = await client.query('SELECT 1');
+    console.log(`✅ [Bot DB] Client.query() succeeded! Result: ${JSON.stringify(result.rows)}`);
     await client.end();
     return true;
   } catch (e) {
+    console.log(`❌ [Bot DB] Client connection failed: ${e.message}`);
+    console.log(`❌ [Bot DB] Error code: ${e.code}, severity: ${e.severity}`);
+    if (e.detail) console.log(`❌ [Bot DB] Error detail: ${e.detail}`);
+    if (e.hint) console.log(`❌ [Bot DB] Error hint: ${e.hint}`);
     try {
       await client.end();
     } catch (e2) {
