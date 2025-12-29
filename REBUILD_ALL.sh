@@ -30,34 +30,32 @@ if [ ! -f "docker-compose.yml" ]; then
 fi
 
 # 1. Остановка всех контейнеров
-info "Остановка всех контейнеров и удаление локальных образов..."
-docker compose down --rmi local
+info "Остановка всех контейнеров..."
+docker compose down -v
 
 # 2. Удаление старых контейнеров
-info "Удаление старых контейнеров..."
+info "Удаление старых контейнеров и очистка кэша..."
 docker compose rm -f
-
-# 3. Очистка кэша сборки
-info "Очистка кэша сборки..."
 docker builder prune -f
 
-# 4. Обновление кода
+# 3. Обновление кода
 info "Обновление кода из репозитория..."
 git pull
 
-# 5. Пересборка сервисов
-info "Полная пересборка всех сервисов БЕЗ кэша..."
+# 4. Пересборка сервисов
+info "Полная пересборка всех сервисов..."
 if ! docker compose build --no-cache --pull; then
     error "Не удалось пересобрать сервисы"
 fi
 
-# 6. Запуск всех сервисов
+# 5. Запуск всех сервисов
 info "Запуск всех сервисов..."
+# Мы полагаемся на POSTGRES_PASSWORD в docker-compose.yml
 if ! docker compose up -d; then
     error "Не удалось запустить сервисы"
 fi
 
-# 7. Ожидание готовности PostgreSQL
+# 6. Ожидание готовности PostgreSQL
 info "Ожидание готовности PostgreSQL..."
 for i in {1..30}; do
     if docker compose exec -T -u postgres postgres pg_isready > /dev/null 2>&1; then
@@ -70,11 +68,11 @@ for i in {1..30}; do
     sleep 1
 done
 
-# 8. Синхронизация пароля (НЕ ТРЕБУЕТСЯ, так как используется POSTGRES_PASSWORD)
+# 7. Проверка прав доступа
 info "Проверка прав доступа..."
 docker compose exec -T -u postgres postgres psql -d telegram_bot_db -c "GRANT ALL PRIVILEGES ON SCHEMA public TO postgres; GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres;" > /dev/null
 
-# 9. Создание администратора
+# 8. Создание администратора
 info "Создание администратора..."
 # Даем время на окончательный старт бэкенда
 sleep 5

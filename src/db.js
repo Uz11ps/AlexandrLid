@@ -1,20 +1,10 @@
 import pg from 'pg';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const envPath = path.join(__dirname, '../.env');
-
-if (fs.existsSync(envPath)) {
-  dotenv.config({ path: envPath });
-}
 
 const { Pool } = pg;
 
+// Принудительная очистка переменных окружения
 const getEnv = (key, defaultValue) => {
-  let value = process.env[key];
+  const value = process.env[key];
   if (value === undefined || value === '') return defaultValue;
   return String(value).split('#')[0].trim().replace(/\r/g, '');
 };
@@ -27,50 +17,23 @@ const dbConfig = {
   password: getEnv('DB_PASSWORD', 'postgres'),
 };
 
-const maskPassword = (pass) => {
-  if (!pass) return 'EMPTY';
-  if (pass === 'postgres') return 'default (postgres)';
-  return pass[0] + '*'.repeat(pass.length - 2) + pass[pass.length - 1];
-};
+console.log(`🔍 [Bot DB] Connecting to ${dbConfig.host} as ${dbConfig.user} (len: ${dbConfig.password.length})`);
 
-// Создаем пул с механизмом авто-подбора пароля
-const createPool = (config) => new Pool(config);
+const pool = new Pool(dbConfig);
 
-let pool = createPool(dbConfig);
-
-const tryConnect = async (config, label = 'Primary') => {
-  const testPool = createPool(config);
-  try {
-    const client = await testPool.connect();
-    client.release();
-    console.log(`✅ [Bot DB] ${label} connection successful`);
-    return testPool;
-  } catch (err) {
-    console.log(`❌ [Bot DB] ${label} attempt failed: ${err.message}`);
-    await testPool.end();
-    return null;
-  }
-};
-
-// Экспортируем функции, которые всегда используют АКТУАЛЬНЫЙ пул
+// Экспортируем функцию запроса, которая всегда использует актуальный пул
 export const query = (text, params) => pool.query(text, params);
 
+// Проверка подключения
+pool.query('SELECT NOW()', (err) => {
+  if (err) {
+    console.error('❌ [Bot DB] Connection error:', err.message);
+  } else {
+    console.log('✅ [Bot DB] Connected successfully');
+  }
+});
+
 export { pool };
-
-(async () => {
-  console.log(`🔍 [Bot DB] Initializing connection...`);
-  
-  let connectedPool = await tryConnect(dbConfig, 'Primary');
-  
-  if (!connectedPool && dbConfig.password !== 'postgres') {
-    console.log('⚠️ [Bot DB] Falling back to "postgres" password...');
-    connectedPool = await tryConnect({ ...dbConfig, password: 'postgres' }, 'Fallback');
-  }
-
-  if (connectedPool) {
-    pool = connectedPool;
-  }
-})();
 
 export const db = {
   // === USERS ===

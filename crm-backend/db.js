@@ -1,18 +1,8 @@
 import pg from 'pg';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const envPath = path.join(__dirname, '../.env');
-
-if (fs.existsSync(envPath)) {
-  dotenv.config({ path: envPath });
-}
-
+// В Docker-среде переменные окружения доступны напрямую через process.env
 const getEnv = (key, defaultValue) => {
-  let value = process.env[key];
+  const value = process.env[key];
   if (value === undefined || value === '') return defaultValue;
   return String(value).split('#')[0].trim().replace(/\r/g, '');
 };
@@ -27,41 +17,17 @@ const dbConfig = {
   idleTimeoutMillis: 30000,
 };
 
-const maskPassword = (pass) => {
-  if (!pass) return 'EMPTY';
-  if (pass === 'postgres') return 'default (postgres)';
-  return pass[0] + '*'.repeat(pass.length - 2) + pass[pass.length - 1];
-};
+console.log(`🔍 [DB] Connecting to ${dbConfig.host} as ${dbConfig.user} (len: ${dbConfig.password.length})`);
 
-let pool = new pg.Pool(dbConfig);
+const pool = new pg.Pool(dbConfig);
 
-// Обертка для запросов, чтобы всегда использовать актуальный пул
-export const query = (text, params) => pool.query(text, params);
-
-(async () => {
-  console.log(`🔍 [DB] Initializing connection...`);
-  try {
-    const client = await pool.connect();
-    client.release();
-    console.log('✅ [DB] Primary connection successful');
-  } catch (err) {
-    if (dbConfig.password !== 'postgres') {
-      console.log('⚠️ [DB] Falling back to "postgres" password...');
-      try {
-        const fallbackPool = new pg.Pool({ ...dbConfig, password: 'postgres' });
-        const client = await fallbackPool.connect();
-        client.release();
-        pool = fallbackPool;
-        console.log('✅ [DB] Connected using fallback');
-      } catch (e) {
-        console.error('❌ [DB] ALL CONNECTION ATTEMPTS FAILED');
-      }
-    }
+// Проверка подключения при старте
+pool.query('SELECT NOW()', (err) => {
+  if (err) {
+    console.error('❌ [DB] Connection error:', err.message);
+  } else {
+    console.log('✅ [DB] Connected successfully');
   }
-})();
-
-export default pool;
-
-export default pool;
+});
 
 export default pool;
