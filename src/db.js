@@ -16,9 +16,9 @@ const getEnv = (key, defaultValue) => {
 const getDbConfig = (password) => {
   const config = {
     host: getEnv('DB_HOST', 'telegram_db_alex'),
-    port: parseInt(getEnv('DB_PORT', '5432')),
-    database: getEnv('DB_NAME', 'telegram_bot_db'),
-    user: getEnv('DB_USER', 'postgres'),
+  port: parseInt(getEnv('DB_PORT', '5432')),
+  database: getEnv('DB_NAME', 'telegram_bot_db'),
+  user: getEnv('DB_USER', 'postgres'),
     password: password,
     max: 10,
     idleTimeoutMillis: 300000, // 5 минут вместо 30 секунд
@@ -195,7 +195,7 @@ safeQuery('SELECT NOW()')
   .catch(err => {
     console.error('❌ [Bot DB] Initial failure:', err.message);
     console.log('⚠️ [Bot DB] Bot will continue running despite DB connection issues');
-  });
+});
 
 export { pool };
 export const query = safeQuery;
@@ -303,16 +303,16 @@ export const db = {
   // === POINTS & ACTIVITY ===
   async addPoints(userId, points, reason, stage = null) {
     try {
-      const updates = ['points = points + $1'];
-      const values = [points, userId];
+    const updates = ['points = points + $1'];
+    const values = [points, userId];
       
       if (stage === 1 || stage === '1') updates.push('stage1_points = stage1_points + $1');
       else if (stage === 2 || stage === '2') updates.push('stage2_points = stage2_points + $1');
       else if (stage === 3 || stage === '3') updates.push('stage3_points = stage3_points + $1');
 
       await safeQuery(`UPDATE users SET ${updates.join(', ')} WHERE user_id = $${values.length}`, values);
-      await this.logUserActivity(userId, 'points_award', { points, reason, stage });
-      return true;
+    await this.logUserActivity(userId, 'points_award', { points, reason, stage });
+    return true;
     } catch (e) {
       console.error('Error adding points:', e);
       return false;
