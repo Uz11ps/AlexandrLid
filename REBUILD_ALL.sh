@@ -125,11 +125,23 @@ WORKING_PASSWORD="${WORKING_PASSWORD:-$DB_PASS_FROM_ENV}"
 info "Установка пароля через ALTER USER..."
 # Используем одинарные кавычки для экранирования пароля в SQL
 SQL_PASSWORD=$(echo "$DB_PASS_FROM_ENV" | sed "s/'/''/g")  # Экранируем одинарные кавычки для SQL
+
+# Пробуем установить пароль с текущим рабочим паролем
 if docker compose exec -T -e PGPASSWORD="$WORKING_PASSWORD" telegram_db_alex psql -U postgres -d postgres -c "ALTER USER postgres WITH PASSWORD '$SQL_PASSWORD';" > /dev/null 2>&1; then
-    success "Команда ALTER USER выполнена!"
+    success "Команда ALTER USER выполнена с рабочим паролем!"
 else
-    warning "Команда ALTER USER завершилась с ошибкой, но продолжаем..."
+    # Если не получилось, пробуем с паролем 'postgres' как fallback
+    warning "Попытка установить пароль с рабочим паролем не удалась, пробуем с 'postgres'..."
+    if docker compose exec -T -e PGPASSWORD="postgres" telegram_db_alex psql -U postgres -d postgres -c "ALTER USER postgres WITH PASSWORD '$SQL_PASSWORD';" > /dev/null 2>&1; then
+        success "Команда ALTER USER выполнена с паролем 'postgres'!"
+    else
+        warning "Команда ALTER USER завершилась с ошибкой, но продолжаем..."
+    fi
 fi
+
+# Перезагружаем конфигурацию PostgreSQL для применения изменений
+info "Перезагрузка конфигурации PostgreSQL..."
+docker compose exec -T -e PGPASSWORD="$DB_PASS_FROM_ENV" telegram_db_alex psql -U postgres -d postgres -c "SELECT pg_reload_conf();" > /dev/null 2>&1 || docker compose exec -T -e PGPASSWORD="postgres" telegram_db_alex psql -U postgres -d postgres -c "SELECT pg_reload_conf();" > /dev/null 2>&1 || true
 
 # Проверяем пароль сразу (без перезапуска базы)
 info "Проверка пароля сразу после установки..."
