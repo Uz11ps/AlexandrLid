@@ -321,6 +321,9 @@ bot.on('callback_query', async (ctx) => {
             `Баллы с каждого этапа копятся и работают на тебя в финале!\n\n` +
             `Начнём? 👇`;
           
+          console.log('[MENU_MAIN] Формируем сообщение:', welcomeMessage);
+          console.log('[MENU_MAIN] Этап:', stage.name, stage.period);
+          
           await ctx.editMessageText(welcomeMessage, getMainMenu());
         } catch (error) {
           // Fallback на случай ошибки
