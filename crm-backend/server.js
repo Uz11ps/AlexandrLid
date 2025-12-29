@@ -31,6 +31,7 @@ import { up as removeRoleCheckConstraint } from './migrations/003_remove_role_ch
 import { up as createChannelInvitesAndActivity } from './migrations/004_create_channel_invites_and_activity.js';
 import { up as runContestSystemMigration } from './migrations/005_contest_system.js';
 import { up as fixMissingColumns } from './migrations/006_fix_missing_columns.js';
+import { query } from './db.js';
 
 // Обертка для миграции ролей с обработкой ошибок
 async function runRolesMigration() {
@@ -209,6 +210,56 @@ async function startServer() {
   
   app.listen(PORT, () => {
     console.log(`🚀 CRM Backend server running on port ${PORT}`);
+    
+    // Пытаемся добавить недостающие колонки после запуска сервера
+    // Это выполняется асинхронно и не блокирует запуск сервера
+    setTimeout(async () => {
+      try {
+        console.log('🔧 [Post-startup] Ensuring missing columns...');
+        
+        const ensureColumn = async (table, column, typeDef) => {
+          try {
+            await query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${column} ${typeDef}`);
+            console.log(`✅ [Post-startup] Column ensured: ${table}.${column}`);
+          } catch (err) {
+            if (err.message && err.message.includes('already exists')) {
+              console.log(`✅ [Post-startup] Column already exists: ${table}.${column}`);
+            } else {
+              console.error(`⚠️ [Post-startup] Error ensuring ${table}.${column}:`, err.message);
+            }
+          }
+        };
+        
+        await ensureColumn('students', 'payment_currency', "VARCHAR(10) DEFAULT 'RUB'");
+        await ensureColumn('message_templates', 'is_active', 'BOOLEAN DEFAULT TRUE');
+        await ensureColumn('documents', 'created_by', 'INTEGER');
+        await ensureColumn('courses', 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
+        
+        // Создаем таблицу ticket_messages, если она не существует
+        try {
+          await query(`
+            CREATE TABLE IF NOT EXISTS ticket_messages (
+              id SERIAL PRIMARY KEY,
+              ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
+              manager_id INTEGER REFERENCES managers(id) ON DELETE SET NULL,
+              message TEXT NOT NULL,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+          `);
+          console.log('✅ [Post-startup] Table ticket_messages ensured');
+        } catch (err) {
+          if (err.message && err.message.includes('already exists')) {
+            console.log('✅ [Post-startup] Table ticket_messages already exists');
+          } else {
+            console.error('⚠️ [Post-startup] Error ensuring ticket_messages:', err.message);
+          }
+        }
+        
+        console.log('✅ [Post-startup] Column ensuring completed');
+      } catch (error) {
+        console.error('❌ [Post-startup] Error ensuring columns:', error.message);
+      }
+    }, 2000); // Задержка 2 секунды, чтобы дать время серверу запуститься
   });
 }
 
