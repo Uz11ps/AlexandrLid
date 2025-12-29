@@ -1,5 +1,5 @@
 services:
-  postgres:
+  telegram_db_alex:
     image: postgres:16-alpine
     container_name: telegram_bot_postgres
     environment:
@@ -22,11 +22,12 @@ services:
     build: .
     container_name: telegram_bot_app
     depends_on:
-      postgres:
+      telegram_db_alex:
         condition: service_healthy
     env_file:
       - .env
     environment:
+      - DB_HOST=telegram_db_alex
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
     restart: unless-stopped
 
@@ -34,13 +35,14 @@ services:
     build: ./crm-backend
     container_name: crm_backend_app
     depends_on:
-      postgres:
+      telegram_db_alex:
         condition: service_healthy
     env_file:
       - .env
     environment:
       - PORT=3001
       - TZ=Europe/Moscow
+      - DB_HOST=telegram_db_alex
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
     ports:
       - "3001:3001"
