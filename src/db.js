@@ -198,7 +198,7 @@ safeQuery('SELECT NOW()')
   });
 
 export { pool };
-export { safeQuery as query };
+export const query = safeQuery;
 
 export const db = {
   // === USERS ===
