@@ -1,6 +1,6 @@
 import pg from 'pg';
 
-const { Pool } = pg;
+const { Pool, Client } = pg;
 
 // Принудительная очистка переменных окружения
 const getEnv = (key, defaultValue) => {
@@ -95,6 +95,32 @@ const switchPool = (newPassword) => {
   setTimeout(() => oldPool.end().catch(() => {}), 5000);
 };
 
+// Функция для тестирования подключения с паролем через прямой Client
+const testConnection = async (password) => {
+  const client = new Client({
+    host: getEnv('DB_HOST', 'telegram_db_alex'),
+    port: parseInt(getEnv('DB_PORT', '5432')),
+    database: getEnv('DB_NAME', 'telegram_bot_db'),
+    user: getEnv('DB_USER', 'postgres'),
+    password: password,
+    connectionTimeoutMillis: 5000,
+  });
+  
+  try {
+    await client.connect();
+    await client.query('SELECT 1');
+    await client.end();
+    return true;
+  } catch (e) {
+    try {
+      await client.end();
+    } catch (e2) {
+      // Игнорируем ошибки при закрытии
+    }
+    return false;
+  }
+};
+
 // Глобальный перехватчик запросов
 export const query = async (text, params) => {
   try {
@@ -118,7 +144,7 @@ export const query = async (text, params) => {
       console.log(`🔍 [Backend DB] Match: ${currentPassword === envPass}`);
       
       // ЗАКРЫВАЕМ старый пул ПЕРЕД созданием нового
-      console.log(`🔄 [Backend DB] Closing old pool and recreating with fresh password...`);
+      console.log(`🔄 [Backend DB] Closing old pool and testing passwords with direct Client...`);
       try {
         await pool.end();
       } catch (e) {
@@ -137,42 +163,35 @@ export const query = async (text, params) => {
         }
       }
       
-      console.log(`🔍 [Backend DB] Will try ${uniquePasswords.length} unique passwords...`);
+      console.log(`🔍 [Backend DB] Will test ${uniquePasswords.length} unique passwords with direct Client...`);
       
+      let workingPassword = null;
+      
+      // Сначала тестируем через прямой Client
       for (let i = 0; i < uniquePasswords.length; i++) {
         const pass = uniquePasswords[i];
-        console.log(`🔑 [Backend DB] Trying password #${i+1} (len: ${pass.length})...`);
-        const testPool = createPool(pass);
-        try {
-          // Пробуем простой запрос с таймаутом
-          const testRes = await Promise.race([
-            testPool.query('SELECT 1'),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-          ]);
-          
-          // Если тест прошел, пробуем реальный запрос
-          console.log(`✅ [Backend DB] Password #${i+1} works! Testing actual query...`);
-          const res = await Promise.race([
-            testPool.query(text, params),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-          ]);
-          
-          console.log(`✅ [Backend DB] Recovery successful with password #${i+1}! Updating pool...`);
-          
-          // Обновляем глобальный пул ПЕРЕД возвратом результата
-          currentPassword = pass;
-          pool = testPool;
-          
-          return res; // Возвращаем реальный результат запроса
-        } catch (e) {
-          console.log(`❌ [Backend DB] Password #${i+1} failed: ${e.message.substring(0, 60)}...`);
-          try {
-            await testPool.end();
-          } catch (e2) {
-            // Игнорируем ошибки при закрытии
-          }
+        console.log(`🔑 [Backend DB] Testing password #${i+1} (len: ${pass.length}) with direct Client...`);
+        
+        const works = await testConnection(pass);
+        if (works) {
+          console.log(`✅ [Backend DB] Password #${i+1} works with direct Client! Creating pool...`);
+          workingPassword = pass;
+          break;
+        } else {
+          console.log(`❌ [Backend DB] Password #${i+1} failed with direct Client`);
         }
       }
+      
+      if (workingPassword) {
+        // Создаем новый пул с рабочим паролем
+        pool = createPool(workingPassword);
+        currentPassword = workingPassword;
+        console.log(`✅ [Backend DB] Pool recreated with working password (len: ${workingPassword.length})`);
+        
+        // Выполняем запрос с новым пулом
+        return await pool.query(text, params);
+      }
+      
       console.error('❌ [Backend DB] All recovery passwords failed!');
       console.error(`❌ [Backend DB] Current password: "${currentPassword}", Env password: "${envPass}"`);
       
