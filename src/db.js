@@ -289,6 +289,16 @@ export const db = {
     return parseInt(res.rows[0]?.count || 0);
   },
 
+  async getAllUsers() {
+    const res = await safeQuery('SELECT * FROM users ORDER BY created_at DESC');
+    return res.rows;
+  },
+
+  async getAllUsersForBroadcast() {
+    const res = await safeQuery('SELECT user_id FROM users WHERE is_bot = FALSE');
+    return res.rows.map(row => row.user_id);
+  },
+
   async createUser(userData) {
     const { user_id, username, first_name, last_name, language_code, referrer_id, is_bot } = userData;
     const res = await safeQuery(
