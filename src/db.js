@@ -284,6 +284,11 @@ export const db = {
     return res.rows[0];
   },
 
+  async getTotalUsers() {
+    const res = await safeQuery('SELECT COUNT(*) as count FROM users');
+    return parseInt(res.rows[0]?.count || 0);
+  },
+
   async createUser(userData) {
     const { user_id, username, first_name, last_name, language_code, referrer_id, is_bot } = userData;
     const res = await safeQuery(
@@ -489,6 +494,11 @@ export const db = {
   },
 
   // === AUTOFUNNELS ===
+  async getAllAutofunnels() {
+    const res = await safeQuery('SELECT * FROM autofunnels ORDER BY created_at DESC');
+    return res.rows;
+  },
+
   async getActiveAutofunnelsByTrigger(trigger) {
     const res = await safeQuery('SELECT * FROM autofunnels WHERE trigger_event = $1 AND is_active = TRUE', [trigger]);
     return res.rows;
