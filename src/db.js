@@ -301,8 +301,7 @@ export const db = {
 
   async getNewUsers(days) {
     const res = await safeQuery(
-      'SELECT COUNT(*) as count FROM users WHERE created_at >= NOW() - INTERVAL \'$1 days\'',
-      [days]
+      `SELECT COUNT(*) as count FROM users WHERE created_at >= NOW() - INTERVAL '${days} days'`
     );
     return parseInt(res.rows[0]?.count || 0);
   },
