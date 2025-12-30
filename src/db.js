@@ -299,6 +299,14 @@ export const db = {
     return res.rows.map(row => row.user_id);
   },
 
+  async getNewUsers(days) {
+    const res = await safeQuery(
+      'SELECT COUNT(*) as count FROM users WHERE created_at >= NOW() - INTERVAL \'$1 days\'',
+      [days]
+    );
+    return parseInt(res.rows[0]?.count || 0);
+  },
+
   async createUser(userData) {
     const { user_id, username, first_name, last_name, language_code, referrer_id, is_bot } = userData;
     const res = await safeQuery(
