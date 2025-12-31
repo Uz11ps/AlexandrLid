@@ -115,16 +115,27 @@ const switchPool = (newPassword) => {
 // ВАЖНО: Эта функция НЕ должна вызывать safeQuery или другие функции, которые могут вызвать рекурсию
 const testConnection = async (password) => {
   let client = null;
+  
+  // Сначала пробуем объект конфигурации (как в основном коде)
   try {
     console.log(`🔍🔍🔍 [Bot DB] testConnection CALLED with password len=${password ? password.length : 'null'}`);
     
-    // Пробуем использовать строку подключения, как это делает psql
-    const connectionString = `postgresql://${dbUser}:${encodeURIComponent(password || '')}@${dbHost}:${dbPort}/${dbName}?sslmode=disable`;
+    const config = {
+      host: dbHost,
+      port: parseInt(dbPort),
+      database: dbName,
+      user: dbUser,
+      password: password || '',
+      connectionTimeoutMillis: 5000,
+      ssl: false,
+      keepAlive: true,
+    };
     
-    console.log(`🔍 [Bot DB] Testing Client connection with connection string (password len=${password ? password.length : 'null'})`);
+    console.log(`🔍 [Bot DB] Testing Client connection with config object (password len=${password ? password.length : 'null'})`);
     console.log(`🔍 [Bot DB] Password value: "${password}"`);
+    console.log(`🔍 [Bot DB] Config: host=${config.host}, port=${config.port}, db=${config.database}, user=${config.user}`);
     
-    client = new Client({ connectionString });
+    client = new Client(config);
     console.log(`🔍 [Bot DB] Client created, attempting connect...`);
     
     await client.connect();
@@ -135,38 +146,35 @@ const testConnection = async (password) => {
     client = null;
     return true;
   } catch (e) {
-    // Если строка подключения не сработала, пробуем объект конфигурации
+    console.log(`❌ [Bot DB] Config object failed: ${e.message}`);
+    console.log(`❌ [Bot DB] Error code: ${e.code}, severity: ${e.severity}`);
+    if (e.detail) console.log(`❌ [Bot DB] Error detail: ${e.detail}`);
+    if (e.hint) console.log(`❌ [Bot DB] Error hint: ${e.hint}`);
+    
     if (client) {
       try {
         await client.end();
       } catch (e2) {
         // Игнорируем ошибки при закрытии
       }
+      client = null;
     }
     
+    // Если объект конфигурации не сработал, пробуем строку подключения
     try {
-      console.log(`⚠️ [Bot DB] Connection string failed, trying config object...`);
-      const config = {
-        host: dbHost,
-        port: parseInt(dbPort),
-        database: dbName,
-        user: dbUser,
-        password: password || '',
-        connectionTimeoutMillis: 3000,
-        ssl: false,
-        keepAlive: true,
-      };
+      console.log(`⚠️ [Bot DB] Config object failed, trying connection string...`);
+      const connectionString = `postgresql://${dbUser}:${encodeURIComponent(password || '')}@${dbHost}:${dbPort}/${dbName}?sslmode=disable`;
       
-      client = new Client(config);
+      client = new Client({ connectionString });
       await client.connect();
-      console.log(`✅ [Bot DB] Client.connect() succeeded with config object!`);
+      console.log(`✅ [Bot DB] Client.connect() succeeded with connection string!`);
       const result = await client.query('SELECT 1');
       console.log(`✅ [Bot DB] Client.query() succeeded! Result: ${JSON.stringify(result.rows)}`);
       await client.end();
       client = null;
       return true;
     } catch (e2) {
-      console.log(`❌ [Bot DB] Client connection failed: ${e2.message}`);
+      console.log(`❌ [Bot DB] Connection string also failed: ${e2.message}`);
       console.log(`❌ [Bot DB] Error code: ${e2.code}, severity: ${e2.severity}`);
       if (e2.detail) console.log(`❌ [Bot DB] Error detail: ${e2.detail}`);
       if (e2.hint) console.log(`❌ [Bot DB] Error hint: ${e2.hint}`);
