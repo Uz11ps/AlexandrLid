@@ -78,16 +78,16 @@ fi
 docker compose exec -T telegram_db_alex psql -U postgres -d postgres -c "SELECT pg_reload_conf();" > /dev/null 2>&1 || true
 
 # Ждем
-sleep 3
+sleep 5
 
-# Проверяем снова
+# Проверяем снова через psql
 BOT_CONNECTION_TEST=$(docker compose exec -T -e PGPASSWORD="$DB_PASS" bot psql -h telegram_db_alex -U postgres -d telegram_bot_db -c "SELECT 1;" 2>&1)
 
 if echo "$BOT_CONNECTION_TEST" | grep -q "1"; then
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✅ Пароль исправлен и работает (psql)" | tee -a "$LOG_FILE"
     
     # Дополнительно проверяем через Node.js
-    sleep 2
+    sleep 3
     NODE_TEST=$(docker compose exec -T bot node -e "
     const pg = require('pg');
     const { Client } = pg;
@@ -112,8 +112,43 @@ if echo "$BOT_CONNECTION_TEST" | grep -q "1"; then
     else
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] ⚠️ Пароль работает для psql, но не для Node.js. Перезапускаем БД..." | tee -a "$LOG_FILE"
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] Node.js тест: $NODE_TEST" | tee -a "$LOG_FILE"
+        
+        # Перезапускаем БД и ждем
         docker compose restart telegram_db_alex
-        sleep 10
+        sleep 15
+        
+        # Устанавливаем пароль снова после перезапуска
+        SQL_PASSWORD=$(echo "$DB_PASS" | sed "s/'/''/g")
+        docker compose exec -T telegram_db_alex psql -U postgres -d postgres -c "ALTER USER postgres WITH PASSWORD '$SQL_PASSWORD';" > /dev/null 2>&1
+        docker compose exec -T telegram_db_alex psql -U postgres -d postgres -c "SELECT pg_reload_conf();" > /dev/null 2>&1
+        
+        sleep 5
+        
+        # Проверяем снова через Node.js
+        NODE_TEST2=$(docker compose exec -T bot node -e "
+        const pg = require('pg');
+        const { Client } = pg;
+        const client = new Client({
+          host: 'telegram_db_alex',
+          port: 5432,
+          database: 'telegram_bot_db',
+          user: 'postgres',
+          password: '$DB_PASS',
+          ssl: false
+        });
+        client.connect()
+          .then(() => client.query('SELECT 1'))
+          .then(() => { console.log('OK'); client.end(); })
+          .catch((e) => { console.log('FAIL:', e.message); client.end(); });
+        " 2>&1)
+        
+        if echo "$NODE_TEST2" | grep -q "OK"; then
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✅ Пароль работает после перезапуска БД (Node.js)" | tee -a "$LOG_FILE"
+        else
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] ❌ Пароль все еще не работает для Node.js после перезапуска БД" | tee -a "$LOG_FILE"
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Node.js тест после перезапуска: $NODE_TEST2" | tee -a "$LOG_FILE"
+        fi
+        
         docker compose restart bot > /dev/null 2>&1
     fi
 else
