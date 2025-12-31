@@ -337,7 +337,7 @@ bot.on('callback_query', async (ctx) => {
               `Начнём? 👇`;
             await ctx.reply(welcomeMessage, getMainMenu());
           } catch (fallbackError) {
-            await ctx.reply('📋 ГЛАВНОЕ МЕНЮ\n\nВыберите действие:', getMainMenu());
+          await ctx.reply('📋 ГЛАВНОЕ МЕНЮ\n\nВыберите действие:', getMainMenu());
           }
         }
         break;

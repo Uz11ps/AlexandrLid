@@ -4,12 +4,12 @@ import db from '../db.js';
 export async function handleStart(ctx) {
   try {
     console.log('[START HANDLER] Команда /start получена от пользователя:', ctx.from?.id, ctx.from?.username);
-    const userId = ctx.from.id;
-    const username = ctx.from.username;
-    const firstName = ctx.from.first_name;
-    const lastName = ctx.from.last_name;
-    const languageCode = ctx.from.language_code;
-    const isBot = ctx.from.is_bot || false;
+  const userId = ctx.from.id;
+  const username = ctx.from.username;
+  const firstName = ctx.from.first_name;
+  const lastName = ctx.from.last_name;
+  const languageCode = ctx.from.language_code;
+  const isBot = ctx.from.is_bot || false;
 
   // Парсинг реферального кода из параметра start
   // Сначала проверяем текст сообщения, так как ctx.startParam может быть некорректным
@@ -73,14 +73,14 @@ export async function handleStart(ctx) {
   // Проверка реферера (если указан) - делаем до проверки существующего пользователя
   if (referrerId) {
     try {
-      const referrer = await db.getUser(referrerId);
-      console.log('[REFERRAL DEBUG] Referrer check - referrer found:', !!referrer, 'referrerId:', referrerId);
-      if (!referrer) {
-        console.log('[REFERRAL DEBUG] Referrer not found in database, ignoring');
-        referrerId = null; // Реферер не найден, игнорируем
-      } else if (referrerId === userId) {
-        console.log('[REFERRAL DEBUG] User trying to refer themselves, ignoring');
-        referrerId = null; // Нельзя быть рефералом самого себя
+    const referrer = await db.getUser(referrerId);
+    console.log('[REFERRAL DEBUG] Referrer check - referrer found:', !!referrer, 'referrerId:', referrerId);
+    if (!referrer) {
+      console.log('[REFERRAL DEBUG] Referrer not found in database, ignoring');
+      referrerId = null; // Реферер не найден, игнорируем
+    } else if (referrerId === userId) {
+      console.log('[REFERRAL DEBUG] User trying to refer themselves, ignoring');
+      referrerId = null; // Нельзя быть рефералом самого себя
       }
     } catch (error) {
       console.error('[REFERRAL DEBUG] Error checking referrer:', error.message);
@@ -92,7 +92,7 @@ export async function handleStart(ctx) {
   let existingUser = null;
   try {
     existingUser = await db.getUser(userId);
-    console.log('[REFERRAL DEBUG] Existing user:', !!existingUser, 'referrerId after checks:', referrerId);
+  console.log('[REFERRAL DEBUG] Existing user:', !!existingUser, 'referrerId after checks:', referrerId);
   } catch (error) {
     console.error('[REFERRAL DEBUG] Error checking existing user:', error.message);
     // При ошибке БД считаем пользователя новым
@@ -149,15 +149,15 @@ export async function handleStart(ctx) {
     
     // Обновляем данные пользователя (но не меняем referrer_id, если он уже установлен)
     try {
-      await db.createUser({
-        user_id: userId,
-        username,
-        first_name: firstName,
-        last_name: lastName,
-        language_code: languageCode,
-        referrer_id: existingUser.referrer_id, // Сохраняем существующего реферера
-        is_bot: isBot,
-      });
+    await db.createUser({
+      user_id: userId,
+      username,
+      first_name: firstName,
+      last_name: lastName,
+      language_code: languageCode,
+      referrer_id: existingUser.referrer_id, // Сохраняем существующего реферера
+      is_bot: isBot,
+    });
     } catch (error) {
       console.error('Ошибка при обновлении пользователя:', error.message);
       // Продолжаем работу даже при ошибке обновления
@@ -191,7 +191,7 @@ export async function handleStart(ctx) {
     }
     
     const { getMainMenu } = await import('./menu.js');
-    
+
     // Формируем условия - для всех этапов одинаковые
     // ВЕРСИЯ КОДА: FIXED_STAGE_1_V2
     const conditionsText = `→ Получи свою реферальную ссылку\n→ Пригласи минимум 2 друзей\n→ Участвуй в розыгрыше призов`;
@@ -211,15 +211,15 @@ export async function handleStart(ctx) {
 
   // Создание нового пользователя
   try {
-    await db.createUser({
-      user_id: userId,
-      username,
-      first_name: firstName,
-      last_name: lastName,
-      language_code: languageCode,
-      referrer_id: referrerId,
-      is_bot: isBot,
-    });
+  await db.createUser({
+    user_id: userId,
+    username,
+    first_name: firstName,
+    last_name: lastName,
+    language_code: languageCode,
+    referrer_id: referrerId,
+    is_bot: isBot,
+  });
   } catch (error) {
     console.error('Ошибка при создании пользователя:', error.message);
     // Продолжаем работу даже при ошибке создания пользователя
@@ -255,7 +255,7 @@ export async function handleStart(ctx) {
   // Создание реферальной связи (если есть реферер)
   if (referrerId) {
     try {
-      await db.createReferral(referrerId, userId);
+    await db.createReferral(referrerId, userId);
     } catch (error) {
       console.error('Ошибка при создании реферальной связи:', error.message);
       // Продолжаем работу даже при ошибке создания реферальной связи
@@ -302,7 +302,7 @@ export async function handleStart(ctx) {
     `${conditionsText}\n\n` +
     `Баллы с каждого этапа копятся и работают на тебя в финале!\n\n` +
     `Начнём? 👇`;
-  
+
   console.log('[START HANDLER] ВЕРСИЯ КОДА: FIXED_STAGE_1_V2');
   console.log('[START HANDLER] Отправляем сообщение с ЭТАП 1:', welcomeMessage);
   
