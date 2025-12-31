@@ -1,4 +1,5 @@
 import pg from 'pg';
+const { Client } = pg;
 
 const { Pool, Client } = pg;
 
@@ -175,6 +176,10 @@ const safeQuery = async (text, params) => {
     
     return await pool.query(text, params);
   } catch (err) {
+    // Если ошибка не связана с аутентификацией, пробрасываем её дальше
+    if (!err.message.includes('password authentication failed') && err.code !== '28P01') {
+      throw err;
+    }
     if (err.message.includes('password authentication failed') || err.code === '28P01') {
       // Получаем СВЕЖИЙ пароль из окружения ПЕРЕД логированием
       const envPass = getEnv('DB_PASSWORD', 'postgres');
@@ -248,6 +253,36 @@ const safeQuery = async (text, params) => {
         pool = createPool(workingPassword);
         currentPassword = workingPassword;
         console.log(`✅ [Bot DB] Pool recreated with working password (len: ${workingPassword.length})`);
+        
+        // Если рабочий пароль не совпадает с паролем из .env, пытаемся установить правильный пароль
+        if (workingPassword !== envPass) {
+          console.log(`🔄 [Bot DB] Working password differs from env password, attempting to set correct password...`);
+          try {
+            // Используем рабочий пароль для подключения и устанавливаем правильный пароль
+            const tempClient = new Client({
+              host: dbHost,
+              port: parseInt(dbPort),
+              database: dbName,
+              user: dbUser,
+              password: workingPassword,
+              ssl: false,
+              keepAlive: true
+            });
+            await tempClient.connect();
+            const sqlPassword = envPass.replace(/'/g, "''"); // Экранируем одинарные кавычки
+            await tempClient.query(`ALTER USER postgres WITH PASSWORD '${sqlPassword}';`);
+            await tempClient.query('SELECT pg_reload_conf();');
+            await tempClient.end();
+            console.log(`✅ [Bot DB] Password updated in database to match .env`);
+            
+            // Пересоздаем пул с правильным паролем
+            pool = createPool(envPass);
+            currentPassword = envPass;
+          } catch (setPassErr) {
+            console.error(`❌ [Bot DB] Failed to set password in database: ${setPassErr.message}`);
+            // Продолжаем с рабочим паролем
+          }
+        }
         
         // Выполняем запрос с новым пулом
         return await pool.query(text, params);
