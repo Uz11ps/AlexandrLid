@@ -15,11 +15,37 @@ fi
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Проверка пароля БД..." | tee -a "$LOG_FILE"
 
-# Проверяем подключение из контейнера бота
+# Проверяем подключение из контейнера бота через psql
 BOT_CONNECTION_TEST=$(docker compose exec -T -e PGPASSWORD="$DB_PASS" bot psql -h telegram_db_alex -U postgres -d telegram_bot_db -c "SELECT 1;" 2>&1)
 
 if echo "$BOT_CONNECTION_TEST" | grep -q "1"; then
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✅ Пароль работает" | tee -a "$LOG_FILE"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✅ Пароль работает (psql)" | tee -a "$LOG_FILE"
+    
+    # Дополнительно проверяем через Node.js
+    NODE_TEST=$(docker compose exec -T bot node -e "
+    const pg = require('pg');
+    const { Client } = pg;
+    const client = new Client({
+      host: 'telegram_db_alex',
+      port: 5432,
+      database: 'telegram_bot_db',
+      user: 'postgres',
+      password: '$DB_PASS',
+      ssl: false
+    });
+    client.connect()
+      .then(() => client.query('SELECT 1'))
+      .then(() => { console.log('OK'); client.end(); })
+      .catch((e) => { console.log('FAIL:', e.message); client.end(); });
+    " 2>&1)
+    
+    if echo "$NODE_TEST" | grep -q "OK"; then
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✅ Пароль работает (Node.js)" | tee -a "$LOG_FILE"
+    else
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ⚠️ Пароль работает для psql, но не для Node.js" | tee -a "$LOG_FILE"
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Node.js тест: $NODE_TEST" | tee -a "$LOG_FILE"
+    fi
+    
     exit 0
 fi
 
@@ -58,9 +84,38 @@ sleep 3
 BOT_CONNECTION_TEST=$(docker compose exec -T -e PGPASSWORD="$DB_PASS" bot psql -h telegram_db_alex -U postgres -d telegram_bot_db -c "SELECT 1;" 2>&1)
 
 if echo "$BOT_CONNECTION_TEST" | grep -q "1"; then
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✅ Пароль исправлен и работает" | tee -a "$LOG_FILE"
-    # Перезапускаем бота, чтобы он переподключился
-    docker compose restart bot > /dev/null 2>&1
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✅ Пароль исправлен и работает (psql)" | tee -a "$LOG_FILE"
+    
+    # Дополнительно проверяем через Node.js
+    sleep 2
+    NODE_TEST=$(docker compose exec -T bot node -e "
+    const pg = require('pg');
+    const { Client } = pg;
+    const client = new Client({
+      host: 'telegram_db_alex',
+      port: 5432,
+      database: 'telegram_bot_db',
+      user: 'postgres',
+      password: '$DB_PASS',
+      ssl: false
+    });
+    client.connect()
+      .then(() => client.query('SELECT 1'))
+      .then(() => { console.log('OK'); client.end(); })
+      .catch((e) => { console.log('FAIL:', e.message); client.end(); });
+    " 2>&1)
+    
+    if echo "$NODE_TEST" | grep -q "OK"; then
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✅ Пароль исправлен и работает (Node.js)" | tee -a "$LOG_FILE"
+        # Перезапускаем бота, чтобы он переподключился
+        docker compose restart bot > /dev/null 2>&1
+    else
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ⚠️ Пароль работает для psql, но не для Node.js. Перезапускаем БД..." | tee -a "$LOG_FILE"
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Node.js тест: $NODE_TEST" | tee -a "$LOG_FILE"
+        docker compose restart telegram_db_alex
+        sleep 10
+        docker compose restart bot > /dev/null 2>&1
+    fi
 else
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] ❌ Не удалось исправить пароль. Вывод теста:" | tee -a "$LOG_FILE"
     echo "$BOT_CONNECTION_TEST" | tee -a "$LOG_FILE"
