@@ -1,6 +1,4 @@
 import pg from 'pg';
-const { Client } = pg;
-
 const { Pool, Client } = pg;
 
 // Принудительная очистка переменных окружения
